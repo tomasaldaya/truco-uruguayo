@@ -85,7 +85,7 @@ function renderHome(){
     <div class="row"><button class="act flor" id="hYes">Empezar partido nuevo</button><button class="act mazo" id="hNo">Cancelar</button></div></div>`;
   h += '</section>';
   if (!NET) h += `<section><h2>Jugar con otros</h2><div class="hlinks"><button class="tool" id="hHost">Crear una mesa</button><button class="tool" id="hJoin">Unirme a una mesa</button></div>
-    <p class="hkey">Por ahora, entre pestañas de este navegador: sirve para probar cómo se ve el partido desde cada lugar.</p></section>`;
+    <p class="hkey">${netMode() === 'internet' ? 'Por internet: creá una mesa y pasale el link a quien quieras, o unite con el código que te pasaron.' : 'Sin internet: entre pestañas de este navegador, para probar cómo se ve el partido desde cada lugar.'}</p></section>`;
   h += `<nav class="hlinks" aria-label="Más opciones">
     <button class="tool" id="hCfg">Configuración</button><button class="tool" id="hDeck">Tu mazo</button>
     <button class="tool" id="hHow">Cómo se juega</button><button class="tool" id="hStats">Estadísticas</button></nav>`;

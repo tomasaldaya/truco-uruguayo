@@ -299,6 +299,8 @@ aside{display:flex;flex-direction:column;gap:14px;margin-top:13px}
 .hnote{background:rgba(199,65,47,.16);border:1px solid rgba(199,65,47,.5);border-radius:12px;padding:10px 14px;margin:0}
 .lob{margin:0 0 14px;line-height:1.45}
 .lob .code{font-family:'Alegreya',serif;font-size:26px;letter-spacing:3px;color:var(--gold);padding:0 4px}
+.invite{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 10px}
+.invite input{flex:1 1 240px;min-width:0;font:inherit;font-size:14px;padding:6px 10px;border-radius:9px;border:1px solid rgba(255,255,255,.2);background:#2a1d13;color:var(--ink)}
 .cfg input{font:inherit;font-size:15px;padding:6px 10px;border-radius:9px;border:1px solid rgba(255,255,255,.2);background:#2a1d13;color:var(--ink);justify-self:start;max-width:100%}
 .seats{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:16px 0 8px}
 .seats .team{border-radius:14px;padding:10px 12px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1)}
@@ -417,6 +419,7 @@ aside{display:flex;flex-direction:column;gap:14px;margin-top:13px}
 <script>/*ENGINE*/</script>
 <script>/*AI*/</script>
 <script>/*VISTA*/</script>
+<script>/*TRYSTERO*/</script>
 <script>
 (function(){
 'use strict';
@@ -584,8 +587,9 @@ function statusBox(act){
   if (G.phase==='play') {
     if (act===ME) st.innerHTML = '<b>Te toca</b>' + hintFor(legalNow());
     else if (act !== null && act !== undefined) st.innerHTML = `<span class="dots">${esc(G.names[act])} ${NET && G.humans.includes(act) ? 'está jugando' : 'está pensando'}</span>`;
-    if (isGuest() && NET.paused) st.innerHTML = `${esc(NET.host || 'El anfitrión')} está en el menú: el partido sigue cuando vuelva.`;
   }
+  if (isGuest() && NET.paused) st.innerHTML = `${esc(NET.host || 'El anfitrión')} está en el menú: el partido sigue cuando vuelva.`;
+  if (isGuest() && NET.hostLost) st.innerHTML = `Se cortó la conexión con ${esc(NET.host || 'el anfitrión')}. Esperando que vuelva…`;
   box.appendChild(st);
   const h = el('div','helper');
   let t = '';
@@ -1145,7 +1149,10 @@ window.__trucoNew = n => startGame(n); window.__v3 = V3;
 GM = loadSavedGame();
 if (GM) { players = GM.n; refreshView(); }
 /*RED*/
-showHome();
+if (netBack && NET && NET.role === 'host' && NET.started) { showHome(); continueGame(); }
+else if (netBack) showHome('lobby');
+else if (netOK() && invitedCode()) { joinCode = invitedCode(); showHome('join'); }
+else showHome();
 loadSavedDeck();
 })();
 </script>

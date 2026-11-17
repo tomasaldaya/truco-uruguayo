@@ -10,13 +10,14 @@ Juego de truco uruguayo para el navegador, según el *Reglamento del Truco Urugu
 - `ui.html` — interfaz (mesa 3D y mesa 2D). Tiene marcadores `/*THREE*/`, `/*ENGINE*/`, `/*AI*/`, `/*CARDS*/`, `/*TALLY*/`, `/*MESA3D*/`, `/*HOME*/`.
 - `inicio.part.js` — pantalla de inicio, configuración y guardado del partido.
 - `vista.js` — lo que ve cada jugador: una copia del partido sin lo que ese lugar no puede saber.
-- `red.part.js` — mesa compartida: crear una mesa, unirse, lugares, y los mensajes entre anfitrión e invitados.
+- `red.part.js` — mesa compartida: crear una mesa, unirse, lugares, la conexión por internet y los mensajes entre anfitrión e invitados.
+- `trystero.min.js` — Trystero 0.27 (licencia MIT) en un solo archivo: hace que los navegadores se encuentren y se conecten directo (WebRTC).
 - `mesa3d.part.js` — la mesa 3D: escena, jugadores con cara y señas, cartas animadas, cámara.
 - `three.min.js` — recorte de Three.js r187 (licencia MIT) con solo lo que usa la mesa 3D.
 - `three-entry.js` — lista de lo que entra en `three.min.js` y el comando para regenerarlo.
 - `cards.part.js` — dibujo de las cartas (diseño propio) y carga del mazo del jugador.
 - `tally.part.js` — tanteador de fósforos.
-- `build.py` — arma `index.html` (un solo archivo; anda sin internet, solo las tipografías se bajan de Google Fonts) a partir de lo anterior: `python3 build.py`.
+- `build.py` — arma `index.html` (un solo archivo; solo, anda sin internet; las tipografías se bajan de Google Fonts) a partir de lo anterior: `python3 build.py`.
 - `test.js` — pruebas de reglas y partidos simulados: `node test.js`.
 - `index.html` — el juego armado, listo para abrir en el navegador.
 
@@ -54,44 +55,58 @@ Es lo primero que aparece al abrir el juego, y se vuelve a ella con el botón **
 Mientras se ve la pantalla de inicio, el partido queda en pausa. Durante el juego, arriba quedan
 Menú, Mesa 3D/2D, Velocidad, Ayudas y Jerarquía.
 
-## Jugar con otros (mesa compartida)
+## Jugar con otros (por internet)
 
-Desde la pantalla de inicio: **Crear una mesa** o **Unirme a una mesa**. Por ahora funciona entre
-pestañas del mismo navegador (sirve para probar cómo se ve el partido desde cada lugar); el
-siguiente paso es que los mensajes viajen por internet, sin servidor, de navegador a navegador.
+El juego está publicado en **https://tomasaldaya.github.io/truco-uruguayo/** (GitHub Pages, desde
+la rama `main` de este repositorio). Desde la pantalla de inicio: **Crear una mesa** o **Unirme a
+una mesa**.
 
-- **Crear una mesa:** te da un código de cuatro letras. Elegís el modo y ves los lugares por
-  equipo. Los lugares sin persona los juega la computadora. "Empezar partido" arranca cuando
-  quieras.
-- **Unirme a una mesa:** tu nombre y el código. Te sienta de compañero del anfitrión si hay
-  lugar; con "Sentarme acá" elegís otro, también en el otro equipo.
+- **Crear una mesa:** te da un código de cuatro letras y un link (`…/#mesa=ABCD`) para copiar o
+  compartir. Elegís el modo y ves los lugares por equipo. Los lugares sin persona los juega la
+  computadora. "Empezar partido" arranca cuando quieras. **Dejá esa pestaña abierta:** el partido
+  corre en el navegador de quien crea la mesa.
+- **Unirme a una mesa:** con el link se abre la pantalla con el código ya escrito; ponés tu nombre
+  y listo. Te sienta de compañero del anfitrión si hay lugar; con "Sentarme acá" elegís otro.
 - **Cada uno ve la mesa desde su lugar:** vos abajo, tu equipo de celeste, "Nosotros" es tu
   equipo, y en "Lo que se dijo" lo tuyo aparece como "Vos".
 - **Nadie recibe lo que no puede ver:** el anfitrión tiene el partido completo y le manda a cada
-  invitado solo su vista (`vista.js`): sus cartas, las jugadas, las señas de sus compañeros y las
-  que pescó. Las cartas ajenas llegan tapadas, también en los datos. `node test.js` lo comprueba
-  en partidos simulados de 2, 4 y 6.
+  invitado solo su vista (`vista.js`), por una conexión directa con él: sus cartas, las jugadas,
+  las señas de sus compañeros y las que pescó. Las cartas ajenas llegan tapadas, también en los
+  datos. `node test.js` lo comprueba en partidos simulados de 2, 4 y 6.
 - **Señas entre personas:** las hacés con los botones de siempre; tu compañero ve tu muñeco
   haciendo el gesto, y los rivales te pueden pescar como con la computadora.
 - **Fin de mano:** se sigue cuando todos tocan "Siguiente mano"; el botón dice a quién se
   espera ("Esperando a Juan…").
-- **Si alguien se va** (cierra la pestaña o sale de la mesa), la computadora sigue por él con su
-  nombre; si vuelve a entrar con el mismo nombre, recupera su lugar solo.
+- **Si alguien se va o se le corta** (cierra la pestaña, se queda sin señal, el celular duerme el
+  navegador), a los 12 a 16 segundos la computadora sigue por él con su nombre. Cuando vuelve a
+  entrar con el mismo nombre (o se le despierta la pestaña), recupera su lugar solo.
+- **Recargar la página** no te saca de la mesa: la pestaña se acuerda en qué mesa estabas. Si
+  recarga el anfitrión, el partido sigue donde estaba y los invitados vuelven solos; mientras
+  tanto ven "Se cortó la conexión con Ana. Esperando que vuelva…".
 - **Llegar con el partido empezado:** quien entra con otro nombre ve la mesa y elige un lugar
   de la computadora con "Sentarme acá".
 - **Si el anfitrión va al menú**, el partido se detiene y los invitados ven el aviso hasta que
   vuelve.
 - **Modo realista:** cada uno juega con el suyo (el de su configuración al entrar a la mesa).
-- El partido de una mesa compartida no se guarda; tu partido solo, si tenías uno, sigue ahí
-  al salir de la mesa.
+- El partido de una mesa compartida no se guarda en el navegador; tu partido solo, si tenías
+  uno, sigue ahí al salir de la mesa.
 
-Para probar: abrí `index.html`, tocá "Crear una mesa"; abrí `index.html` en otra pestaña del
-mismo navegador, tocá "Unirme a una mesa" y escribí el código. Anda en Chrome y Edge; Firefox
-puede no dejar que dos pestañas abiertas desde archivos se hablen.
+Cómo se conectan: con [Trystero](https://github.com/dmotz/trystero). Para encontrarse, los
+navegadores usan relays públicos de Nostr (sin cuentas ni servidor propio); después hablan
+directo por WebRTC y los datos del partido no pasan por ningún servidor. El código de la mesa es
+también la clave del encuentro (`password` de Trystero), así que sin el código nadie entra.
 
-Por ahora, como todas las pestañas escuchan el mismo canal, una pestaña podría espiar los mensajes
-de otra; por internet cada uno va a recibir solo los suyos. Falta: conexión por internet, chat
-de mesa a la vista de todos, frases rápidas y tiempo límite para jugar.
+- **Si a alguien no le conecta** ("Encontré la mesa pero no pude conectarme"): algunas redes, sobre
+  todo los datos del celular y redes de empresas, no dejan conectarse directo. Para esas hace falta
+  un relevo (TURN): se crea una cuenta gratis (por ejemplo, Metered Open Relay o Cloudflare) y se
+  ponen los datos en `NET_TURN`, al principio de `red.part.js`.
+- **El anfitrión tiene todo el partido** en su navegador: alguien que sepa programar podría
+  espiar. Entre amigos no es problema; para jugar con desconocidos haría falta un servidor propio.
+
+Sin internet (o con `localStorage['truco.red'] = 'local'`), la mesa compartida funciona entre
+pestañas del mismo navegador con BroadcastChannel, que es como se prueba sin red. Para probar la
+conexión de verdad sin salir de una máquina: un relay Nostr local y
+`localStorage['truco.relays'] = 'ws://127.0.0.1:7777'`.
 
 ## Mesa 3D
 
