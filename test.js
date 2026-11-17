@@ -1,0 +1,645 @@
+const T = require('./engine.js');
+const AI = require('./ai.js');
+const assert = require('assert');
+
+function seeded(s) { return () => { s = (s * 1664525 + 1013904223) % 4294967296; return s / 4294967296; }; }
+const C = (n, s) => ({ n, s, id: n + '-' + s });
+let fails = 0;
+function t(name, f) { try { f(); console.log('ok  ', name); } catch (e) { fails++; console.log('FAIL', name, '\n   ', e.message); } }
+
+// ---- Jerarquía (Art. 12) ----
+const m = C(7, 'copa');
+t('dos de la muestra es la carta más alta', () => {
+  assert(T.rank(C(2, 'copa'), m) > T.rank(C(4, 'copa'), m));
+  assert(T.rank(C(10, 'copa'), m) > T.rank(C(1, 'espada'), m));
+});
+t('orden de piezas 2>4>5>perico>perica', () => {
+  const r = [2, 4, 5, 11, 10].map(n => T.rank(C(n, 'copa'), m));
+  for (let i = 1; i < r.length; i++) assert(r[i - 1] > r[i]);
+});
+t('matas: espadilla>bastillo>7 espada>7 oro', () => {
+  const r = [C(1, 'espada'), C(1, 'basto'), C(7, 'espada'), C(7, 'oro')].map(c => T.rank(c, m));
+  for (let i = 1; i < r.length; i++) assert(r[i - 1] > r[i]);
+});
+t('fíos: 3 > 2 (no muestra) > as de oro/copa > rey', () => {
+  assert(T.rank(C(3, 'oro'), m) > T.rank(C(2, 'oro'), m));
+  assert(T.rank(C(2, 'oro'), m) > T.rank(C(1, 'oro'), m));
+  assert(T.rank(C(1, 'copa'), m) > T.rank(C(12, 'oro'), m));
+  assert.equal(T.rank(C(1, 'oro'), m), T.rank(C(1, 'copa'), m));
+});
+t('comunes: rey>caballo>sota>7 copa/basto>6>5>4', () => {
+  const r = [C(12, 'oro'), C(11, 'oro'), C(10, 'oro'), C(7, 'basto'), C(6, 'oro'), C(5, 'oro'), C(4, 'oro')].map(c => T.rank(c, m));
+  for (let i = 1; i < r.length; i++) assert(r[i - 1] > r[i]);
+});
+t('el rey reemplaza a la pieza que salió de muestra (Art. 12 b)', () => {
+  const m4 = C(4, 'oro');
+  assert.equal(T.rank(C(12, 'oro'), m4), T.rank(C(4, 'copa'), C(7, 'copa')));
+  assert.equal(T.envVal(C(12, 'oro'), m4), 29);
+  assert.equal(T.category(C(12, 'oro'), m4), 'pieza');
+  assert.equal(T.category(C(12, 'oro'), C(7, 'oro')), 'negra');
+});
+t('el 4 que no es de la muestra es la más débil', () => {
+  const all = T.makeDeck().filter(c => c.id !== m.id).map(c => T.rank(c, m));
+  assert.equal(Math.min(...all), T.rank(C(4, 'oro'), m));
+});
+
+// ---- Puntos (Art. 13 y 14) ----
+t('envido con una pieza: pieza + blanca más alta', () => {
+  assert.equal(T.envidoPoints([C(2, 'copa'), C(7, 'oro'), C(12, 'espada')], m), 37);
+});
+t('envido dos del mismo palo: 20 + valores', () => {
+  assert.equal(T.envidoPoints([C(6, 'oro'), C(7, 'oro'), C(3, 'basto')], m), 33);
+  assert.equal(T.envidoPoints([C(12, 'oro'), C(7, 'oro'), C(3, 'basto')], m), 27);
+  assert.equal(T.envidoPoints([C(12, 'oro'), C(11, 'oro'), C(3, 'basto')], m), 20);
+});
+t('envido sin pieza ni pares: la blanca más alta; tres negras 0', () => {
+  assert.equal(T.envidoPoints([C(6, 'oro'), C(3, 'espada'), C(12, 'basto')], m), 6);
+  assert.equal(T.envidoPoints([C(12, 'oro'), C(11, 'espada'), C(10, 'basto')], m), 0);
+});
+t('flores (Art. 15)', () => {
+  assert(T.hasFlor([C(2, 'copa'), C(4, 'copa'), C(12, 'oro')], m));
+  assert(T.hasFlor([C(5, 'copa'), C(1, 'oro'), C(6, 'oro')], m));
+  assert(T.hasFlor([C(1, 'oro'), C(3, 'oro'), C(6, 'oro')], m));
+  assert(!T.hasFlor([C(5, 'copa'), C(1, 'oro'), C(6, 'basto')], m));
+});
+t('puntos de flor (Art. 14 A)', () => {
+  assert.equal(T.florPoints([C(2, 'copa'), C(4, 'copa'), C(5, 'copa')], m), 47);
+  assert.equal(T.florPoints([C(2, 'copa'), C(4, 'copa'), C(7, 'oro')], m), 46);
+  assert.equal(T.florPoints([C(2, 'copa'), C(4, 'copa'), C(12, 'oro')], m), 39);
+  assert.equal(T.florPoints([C(2, 'copa'), C(7, 'oro'), C(6, 'oro')], m), 43);
+  assert.equal(T.florPoints([C(1, 'oro'), C(7, 'oro'), C(6, 'oro')], m), 34);
+  assert.equal(T.florPoints([C(12, 'oro'), C(11, 'oro'), C(10, 'oro')], m), 20);
+});
+
+// ---- Bazas (Art. 57-59) ----
+t('ganador de la mano por bazas', () => {
+  const W = T.roundWinner;
+  assert.equal(W([0, 0], 1), 0);
+  assert.equal(W([0, -1], 1), 0);
+  assert.equal(W([-1, 1], 0), 1);
+  assert.equal(W([0, 1], 0), null);
+  assert.equal(W([0, 1, 1], 0), 1);
+  assert.equal(W([0, 1, -1], 1), 0);
+  assert.equal(W([-1, -1, 1], 0), 1);
+  assert.equal(W([-1, -1, -1], 1), 1);
+  assert.equal(W([-1, -1], 0), null);
+});
+
+// ---- Flujo con mazos preparados ----
+// Deck se reparte con pop(): se arma al revés. dealer 1 => mano 0.
+function setup(hand0, hand1, muestra, scores, manual, cpuMano, rules) {
+  const G = T.newMatch({ manual: manual ? [true, false] : [false, false], rules });
+  G.dealer = cpuMano ? 1 : 0; G.round = { dummy: true }; // startRound alterna el dador
+  if (scores) G.scores = scores.slice();
+  const order = [];
+  const first = cpuMano ? hand1 : hand0, second = cpuMano ? hand0 : hand1;
+  for (let i = 0; i < 3; i++) { order.push(first[i]); order.push(second[i]); }
+  order.push(muestra);
+  const rest = T.makeDeck().filter(c => !order.some(o => o.id === c.id));
+  T.startRound(G, rest.concat(order.reverse()));
+  return G;
+}
+const act = (G, p, f) => { const a = T.legal(G, p).find(f); if (!a) throw new Error('acción no legal: ' + f); T.apply(G, p, a); };
+const typ = (ty, extra) => a => a.type === ty && Object.entries(extra || {}).every(([k, v]) => a[k] === v);
+
+t('envido querido: gana el de más punto; empate gana el mano', () => {
+  const G = setup([C(6, 'oro'), C(7, 'oro'), C(3, 'basto')], [C(6, 'basto'), C(7, 'basto'), C(3, 'oro')], C(4, 'espada'));
+  assert.equal(G.round.mano, 0);
+  act(G, 0, typ('envido', { kind: 'envido' }));
+  act(G, 1, typ('quiero'));
+  assert.deepEqual(G.scores, [2, 0]); // 33 vs 33: mano
+});
+t('envido no querido da 1; reenvite no querido da lo anterior (Arts. 24, 34, 35)', () => {
+  let G = setup([C(6, 'oro'), C(7, 'oro'), C(3, 'basto')], [C(6, 'basto'), C(1, 'basto'), C(3, 'oro')], C(4, 'espada'));
+  act(G, 0, typ('envido', { kind: 'envido' })); act(G, 1, typ('noquiero'));
+  assert.deepEqual(G.scores, [1, 0]);
+  G = setup([C(6, 'oro'), C(7, 'oro'), C(3, 'basto')], [C(6, 'basto'), C(1, 'basto'), C(3, 'oro')], C(4, 'espada'));
+  act(G, 0, typ('envido', { kind: 'envido' })); act(G, 1, typ('envido', { kind: 'real' })); act(G, 0, typ('noquiero'));
+  assert.deepEqual(G.scores, [0, 2]);
+  G = setup([C(6, 'oro'), C(7, 'oro'), C(3, 'basto')], [C(6, 'basto'), C(1, 'basto'), C(3, 'oro')], C(4, 'espada'));
+  act(G, 0, typ('envido', { kind: 'envido' })); act(G, 1, typ('envido', { kind: 'real' })); act(G, 0, typ('quiero'));
+  assert.deepEqual(G.scores, [5, 0]);
+});
+t('falta envido = lo que le falta al que va adelante', () => {
+  const G = setup([C(6, 'oro'), C(7, 'oro'), C(3, 'basto')], [C(6, 'basto'), C(1, 'basto'), C(3, 'oro')], C(4, 'espada'), [12, 25]);
+  act(G, 0, typ('envido', { kind: 'falta' })); act(G, 1, typ('quiero'));
+  assert.deepEqual(G.scores, [27, 25]);
+});
+t('flor de uno solo: 3 puntos y no hay envido (Art. 27)', () => {
+  const G = setup([C(1, 'oro'), C(3, 'oro'), C(6, 'oro')], [C(6, 'basto'), C(1, 'basto'), C(3, 'copa')], C(4, 'espada'));
+  assert.deepEqual(T.legal(G, 0).map(a => a.type), ['flor']);
+  act(G, 0, typ('flor'));
+  assert.deepEqual(G.scores, [3, 0]);
+  assert(!T.legal(G, 0).some(a => a.type === 'envido'));
+});
+t('contra flor querida: envite + las dos flores (Art. 31)', () => {
+  const G = setup([C(1, 'oro'), C(3, 'oro'), C(6, 'oro')], [C(6, 'basto'), C(1, 'basto'), C(3, 'basto')], C(4, 'espada'));
+  act(G, 0, typ('flor')); act(G, 1, typ('flor'));
+  act(G, 0, a => a.type === 'fenv' && a.contra && a.amt === 2);
+  act(G, 1, typ('quiero'));
+  // 30 vs 30 empate -> mano
+  assert.deepEqual(G.scores, [2 + 3 + 3, 0]);
+});
+t('con flor envido no querido: solo la flor propia (Art. 32)', () => {
+  const G = setup([C(1, 'oro'), C(3, 'oro'), C(6, 'oro')], [C(6, 'basto'), C(1, 'basto'), C(3, 'basto')], C(4, 'espada'));
+  act(G, 0, typ('flor')); act(G, 1, typ('flor'));
+  act(G, 0, a => a.type === 'fenv' && !a.contra && a.amt === 2);
+  act(G, 1, typ('noquiero'));
+  assert.deepEqual(G.scores, [3, 0]);
+});
+t('ambos se achican: gana la flor mayor', () => {
+  const G = setup([C(1, 'oro'), C(3, 'oro'), C(6, 'oro')], [C(6, 'basto'), C(7, 'basto'), C(3, 'basto')], C(4, 'espada'));
+  act(G, 0, typ('flor')); act(G, 1, typ('flor'));
+  act(G, 0, typ('chica')); act(G, 1, typ('chica'));
+  assert.deepEqual(G.scores, [0, 3]);
+});
+t('truco querido vale 2, retruco no querido 2, vale cuatro 4', () => {
+  let G = setup([C(1, 'espada'), C(1, 'basto'), C(7, 'espada')], [C(4, 'basto'), C(5, 'basto'), C(6, 'copa')], C(4, 'oro'));
+  act(G, 0, typ('truco')); act(G, 1, typ('quiero'));
+  act(G, 0, typ('play')); act(G, 1, typ('play')); act(G, 0, typ('play')); act(G, 1, typ('play'));
+  assert.deepEqual(G.scores, [2, 0]);
+  G = setup([C(1, 'espada'), C(1, 'basto'), C(7, 'espada')], [C(4, 'basto'), C(5, 'basto'), C(6, 'copa')], C(4, 'oro'));
+  act(G, 0, typ('truco')); act(G, 1, typ('truco')); act(G, 0, typ('noquiero'));
+  assert.deepEqual(G.scores, [0, 2]);
+});
+t('envido respondiendo al truco y luego contestar el truco', () => {
+  const G = setup([C(6, 'oro'), C(7, 'oro'), C(3, 'basto')], [C(6, 'basto'), C(1, 'basto'), C(3, 'oro')], C(4, 'espada'));
+  act(G, 0, typ('truco'));
+  act(G, 1, typ('envido', { kind: 'envido' }));
+  // quien trucó no puede reenvidar (Art. 35 / 22 c)
+  assert(!T.legal(G, 0).some(a => a.type === 'envido'));
+  act(G, 0, typ('quiero'));
+  assert.equal(T.actor(G), 1);
+  assert(T.legal(G, 1).some(a => a.type === 'quiero'));
+});
+t('no se puede retrucar después de jugar la carta de la rueda (Art. 67)', () => {
+  const G = setup([C(1, 'espada'), C(1, 'basto'), C(7, 'espada')], [C(4, 'basto'), C(5, 'basto'), C(6, 'copa')], C(4, 'oro'));
+  act(G, 0, typ('play'));
+  act(G, 1, typ('truco'));
+  assert(!T.legal(G, 0).some(a => a.type === 'truco'));
+});
+
+
+// ---- Momento de cantar la flor ----
+const sinFlor = [C(6, 'basto'), C(1, 'basto'), C(3, 'copa')];
+const conFlor = [C(1, 'oro'), C(3, 'oro'), C(6, 'oro')];
+t('el pie canta la flor recién cuando le toca', () => {
+  const G = setup(sinFlor, conFlor, C(4, 'espada'));
+  assert.equal(T.actor(G), 0);
+  assert(!T.legal(G, 0).every(a => a.type === 'flor'));
+  act(G, 0, typ('play'));
+  assert.deepEqual(T.legal(G, 1).map(a => a.type), ['flor']);
+  act(G, 1, typ('flor'));
+  assert.deepEqual(G.scores, [0, 3]);
+});
+t('si el mano canta flor, el otro canta la suya enseguida, en orden', () => {
+  const G = setup(conFlor, [C(6, 'basto'), C(7, 'basto'), C(3, 'basto')], C(4, 'espada'));
+  act(G, 0, typ('flor'));
+  assert.equal(T.actor(G), 1);
+  assert.deepEqual(T.legal(G, 1).map(a => a.type), ['flor']);
+});
+t('la flor anula el envido (Art. 27)', () => {
+  const G = setup(sinFlor, conFlor, C(4, 'espada'));
+  act(G, 0, typ('envido', { kind: 'envido' }));
+  act(G, 1, typ('flor'));
+  assert.deepEqual(G.scores, [0, 3]);
+  assert.equal(T.actor(G), 0);
+  assert(!T.legal(G, 0).some(a => a.type === 'envido'));
+});
+t('flor respondiendo al truco: suma 3 y después contesta el truco', () => {
+  const G = setup(sinFlor, conFlor, C(4, 'espada'));
+  act(G, 0, typ('truco'));
+  act(G, 1, typ('flor'));
+  assert.deepEqual(G.scores, [0, 3]);
+  assert.equal(T.actor(G), 1);
+  assert(T.legal(G, 1).some(a => a.type === 'quiero'));
+});
+
+// ---- Modo realista ----
+const singAct = n => a => a.type === 'sing';
+function sing(G, p, n) { T.apply(G, p, { type: 'sing', pts: n }); }
+t('realista: el humano canta sus puntos; canto correcto gana', () => {
+  const G = setup([C(6, 'oro'), C(7, 'oro'), C(3, 'basto')], [C(6, 'basto'), C(1, 'basto'), C(3, 'oro')], C(4, 'espada'), null, true);
+  act(G, 0, typ('envido', { kind: 'envido' })); act(G, 1, typ('quiero'));
+  assert.equal(T.actor(G), 0);
+  sing(G, 0, 33);
+  assert.deepEqual(G.scores, [2, 0]);
+});
+t('realista: cifra que no vale como canto se rechaza (Art. 43)', () => {
+  const G = setup([C(6, 'oro'), C(7, 'oro'), C(3, 'basto')], [C(6, 'basto'), C(1, 'basto'), C(3, 'oro')], C(4, 'espada'), null, true);
+  act(G, 0, typ('envido', { kind: 'envido' })); act(G, 1, typ('quiero'));
+  assert.throws(() => sing(G, 0, 15));
+  assert.equal(T.actor(G), 0);
+});
+t('realista: canto errado pierde todo lo de la mano (Art. 46)', () => {
+  const G = setup([C(6, 'oro'), C(7, 'oro'), C(3, 'basto')], [C(6, 'basto'), C(1, 'basto'), C(3, 'oro')], C(4, 'espada'), null, true);
+  act(G, 0, typ('envido', { kind: 'envido' })); act(G, 1, typ('quiero'));
+  sing(G, 0, 31);
+  // envido 2 + truco no aceptado 1
+  assert.deepEqual(G.scores, [0, 3]);
+  assert.equal(G.round.penalty.off, 0);
+  assert.equal(G.phase, 'roundEnd');
+});
+t('realista: decir "son buenas" teniendo más queda como falta oculta (Art. 44)', () => {
+  const G = setup([C(6, 'oro'), C(7, 'oro'), C(3, 'basto')], [C(6, 'basto'), C(5, 'basto'), C(3, 'copa')], C(4, 'espada'), null, true, true);
+  assert.equal(G.round.mano, 1);
+  act(G, 1, a => a.type === 'envido' && a.kind === 'envido' || a.type === 'play');
+  if (G.round.pending.length) {
+    act(G, 0, typ('quiero'));
+    // la compu (mano) cantó 31; el humano tiene 33 y dice son buenas
+    T.apply(G, 0, { type: 'buenas' });
+    assert(G.round.faults[0].includes('errado'));
+    assert.equal(G.round.penalty, null);
+  }
+});
+t('realista: flor sin tenerla se pena', () => {
+  const G = setup(sinFlor, [C(6, 'oro'), C(1, 'copa'), C(3, 'espada')], C(4, 'espada'), null, true);
+  act(G, 0, typ('flor'));
+  assert.deepEqual(G.scores, [0, 4]); // flor cantada 3 + truco 1
+});
+t('realista: flor negada se descubre si se juegan las tres cartas', () => {
+  // humano: as, 3 y 6 de oro (flor). Compu: 4 y 6 de basto y 6 de copa -> tres bazas
+  const G = setup(conFlor, [C(1, 'espada'), C(6, 'basto'), C(4, 'copa')], C(4, 'espada'), null, true);
+  T.apply(G, 0, { type: 'play', card: C(6, 'oro') });   // pierde con el as de espada
+  assert(G.round.flor.negada[0]);
+  T.apply(G, 1, { type: 'play', card: C(1, 'espada') });
+  T.apply(G, 1, { type: 'play', card: C(4, 'copa') });
+  T.apply(G, 0, { type: 'play', card: C(3, 'oro') });
+  T.apply(G, 0, { type: 'play', card: C(1, 'oro') });
+  T.apply(G, 1, { type: 'play', card: C(6, 'basto') });
+  assert.equal(G.round.penalty.off, 0);
+  assert.deepEqual(G.scores, [0, 4]); // flor negada 3 + truco 1
+});
+t('realista: flor negada no se descubre si te vas al mazo', () => {
+  const G = setup(conFlor, [C(4, 'basto'), C(5, 'basto'), C(6, 'copa')], C(4, 'espada'), null, true);
+  act(G, 0, typ('play'));
+  act(G, 1, typ('play'));
+  act(G, 0, typ('mazo'));
+  assert.equal(G.round.penalty, null);
+  assert.deepEqual(G.scores, [0, 1]);
+});
+t('realista: flor negada no se descubre si la mano termina en dos bazas', () => {
+  const G = setup(conFlor, [C(4, 'basto'), C(5, 'basto'), C(6, 'copa')], C(4, 'espada'), null, true);
+  while (G.phase === 'play') { const p = T.actor(G); T.apply(G, p, T.legal(G, p).find(a => a.type === 'play')); }
+  assert.equal(G.round.tricks.length, 2);
+  assert.equal(G.round.penalty, null);
+  assert.deepEqual(G.scores, [1, 0]);
+});
+t('realista: ganar un envido negando la flor es falta grave (Art. 100 a)', () => {
+  const G = setup([C(1, 'oro'), C(7, 'oro'), C(6, 'oro')], [C(4, 'basto'), C(5, 'basto'), C(12, 'copa')], C(4, 'espada'), null, true);
+  act(G, 0, typ('envido', { kind: 'envido' })); act(G, 1, typ('quiero'));
+  sing(G, 0, 33);
+  assert.equal(G.phase, 'matchEnd');
+  assert.equal(G.matchWinner, 1);
+  assert.equal(G.disq.p, 0);
+});
+t('realista: con flor puede seguir sin cantar cuando el otro cantó', () => {
+  const G = setup(conFlor, [C(6, 'basto'), C(7, 'basto'), C(3, 'basto')], C(4, 'espada'), null, true, true);
+  // la compu es mano y canta flor; el humano decide
+  assert.equal(T.actor(G), 1); act(G, 1, typ('flor'));
+  assert.deepEqual(T.legal(G, 0).map(a => a.type), ['flor', 'noflor']);
+});
+
+
+// ---- Parejas (4 jugadores) ----
+function setup4(hands, muestra, dealer, manual, rules) {
+  const G = T.newMatch({ players: 4, manual: manual ? [true] : [], rules });
+  G.dealer = (dealer + 3) % 4; G.round = { dummy: true };
+  const mano = (dealer + 1) % 4;
+  const order = [];
+  for (let r = 0; r < 3; r++) for (let i = 0; i < 4; i++) order.push(hands[(mano + i) % 4][r]);
+  order.push(muestra);
+  const rest = T.makeDeck().filter(c => !order.some(o => o.id === c.id));
+  T.startRound(G, rest.concat(order.reverse()));
+  return G;
+}
+t('parejas: reparto y orden hacia la derecha; mano a la derecha del que da', () => {
+  const G = setup4([[C(4,'oro'),C(5,'copa'),C(6,'basto')],[C(4,'basto'),C(5,'oro'),C(6,'copa')],[C(7,'copa'),C(12,'oro'),C(11,'basto')],[C(10,'copa'),C(12,'espada'),C(6,'oro')]], C(7,'espada'), 3);
+  assert.equal(G.round.mano, 0);
+  assert.equal(G.round.hands[2][0].id, '7-copa');
+  act(G, 0, typ('play')); assert.equal(T.actor(G), 1);
+  act(G, 1, typ('play')); assert.equal(T.actor(G), 2);
+});
+t('parejas: si empatan compañeros la baza es del equipo, no parda', () => {
+  const G = setup4([[C(3,'oro'),C(4,'copa'),C(6,'basto')],[C(4,'basto'),C(5,'oro'),C(6,'copa')],[C(3,'copa'),C(12,'oro'),C(11,'basto')],[C(10,'copa'),C(12,'espada'),C(6,'oro')]], C(7,'espada'), 3);
+  T.apply(G, 0, { type: 'play', card: C(3,'oro') });
+  T.apply(G, 1, { type: 'play', card: C(4,'basto') });
+  T.apply(G, 2, { type: 'play', card: C(3,'copa') });
+  T.apply(G, 3, { type: 'play', card: C(10,'copa') });
+  assert.equal(G.round.tricks[0].winnerTeam, 0);
+  assert.equal(G.round.tricks[0].winnerPlayer, 0); // el más mano
+  assert.equal(T.actor(G), 0);
+});
+t('parejas: si empatan rivales es parda y sale el mano', () => {
+  const G = setup4([[C(3,'oro'),C(4,'copa'),C(6,'basto')],[C(3,'espada'),C(5,'oro'),C(6,'copa')],[C(4,'basto'),C(12,'oro'),C(11,'basto')],[C(10,'copa'),C(12,'espada'),C(6,'oro')]], C(7,'espada'), 2);
+  assert.equal(G.round.mano, 3);
+  T.apply(G, 3, { type: 'play', card: C(10,'copa') });
+  T.apply(G, 0, { type: 'play', card: C(3,'oro') });
+  T.apply(G, 1, { type: 'play', card: C(3,'espada') });
+  T.apply(G, 2, { type: 'play', card: C(4,'basto') });
+  assert.equal(G.round.tricks[0].winnerTeam, -1);
+  assert.equal(T.actor(G), 3);
+});
+t('parejas: canto del envido por equipos, gana el mayor y suma al equipo', () => {
+  // mano 0: 25; 1: 27; 2: 31; 3: 20
+  const G = setup4([[C(5,'oro'),C(12,'oro'),C(1,'copa')],[C(7,'basto'),C(12,'basto'),C(4,'copa')],[C(6,'basto'),C(5,'basto'),C(2,'oro')],[C(11,'copa'),C(10,'copa'),C(3,'espada')]], C(7,'espada'), 3);
+  assert.deepEqual(G.round.envPts, [25, 27, 31, 20]);
+  act(G, 0, typ('envido', { kind: 'envido' }));
+  act(G, 1, typ('quiero'));
+  assert.deepEqual(G.scores, [2, 0]);
+  const sung = G.log.filter(l => l.kind === 'canto').map(l => G.names[l.who] + ':' + l.text);
+  assert.deepEqual(sung.slice(-4), ['Vos:25', 'Tito:27 son mejores', 'Pocho:31 son mejores', 'Nacho:Son buenas']);
+});
+t('parejas: flores de un mismo equipo suman 3 cada una', () => {
+  const G = setup4([[C(1,'oro'),C(3,'oro'),C(6,'oro')],[C(4,'basto'),C(5,'copa'),C(6,'espada')],[C(1,'copa'),C(3,'copa'),C(6,'copa')],[C(10,'copa'),C(12,'espada'),C(6,'basto')]], C(7,'espada'), 3);
+  act(G, 0, typ('flor'));
+  assert.equal(T.actor(G), 2);
+  act(G, 2, typ('flor'));
+  assert.deepEqual(G.scores, [6, 0]);
+});
+t('parejas: el truco lo contesta el rival que todavía no jugó', () => {
+  const G = setup4([[C(4,'oro'),C(5,'copa'),C(6,'basto')],[C(4,'basto'),C(5,'oro'),C(6,'copa')],[C(7,'copa'),C(12,'oro'),C(11,'basto')],[C(10,'copa'),C(12,'espada'),C(6,'oro')]], C(7,'espada'), 3);
+  act(G, 0, typ('play')); act(G, 1, typ('play')); act(G, 2, typ('play'));
+  act(G, 3, typ('truco'));
+  assert.equal(T.actor(G), 0);
+});
+
+t('parejas: si el rival mano canta truco, podés contestar vos con envido (el envido está primero)', () => {
+  const hands = [[C(4,'oro'),C(5,'copa'),C(6,'basto')],[C(4,'basto'),C(5,'oro'),C(6,'copa')],[C(7,'copa'),C(12,'oro'),C(11,'basto')],[C(10,'copa'),C(12,'espada'),C(6,'oro')]];
+  const G = setup4(hands, C(7,'espada'), 0);
+  assert.equal(G.round.mano, 1);
+  act(G, 1, typ('truco'));
+  assert.equal(T.actor(G), 0);
+  assert(T.legal(G, 0).some(a => a.type === 'envido'));
+  act(G, 0, typ('envido', { kind: 'envido' }));
+  act(G, T.actor(G), typ('quiero'));
+  assert.equal(T.actor(G), 0); // después del envido, contestás el truco
+  assert(T.legal(G, 0).some(a => a.type === 'quiero'));
+});
+t('parejas: las señas pescadas son verdaderas', () => {
+  for (let k = 0; k < 200; k++) {
+    const G = T.newMatch({ players: 4 }); T.startRound(G);
+    const R = G.round;
+    T.setSenas(G, 0, T.senasFor(R.initial[0], R.muestra));
+    for (let o = 0; o < 4; o++) for (const v of R.seen[o]) {
+      assert(T.team(v.p) !== T.team(o));
+      assert(T.senasFor(R.initial[v.p], R.muestra).includes(v.s));
+    }
+  }
+});
+t('parejas: con la regla del Art. 90, irse al mazo pierde el equipo', () => {
+  const G = setup4([[C(4,'oro'),C(5,'copa'),C(6,'basto')],[C(4,'basto'),C(5,'oro'),C(6,'copa')],[C(7,'copa'),C(12,'oro'),C(11,'basto')],[C(10,'copa'),C(12,'espada'),C(6,'oro')]], C(7,'espada'), 3, false, { mazo: 'equipo' });
+  act(G, 0, typ('truco')); act(G, 1, typ('quiero'));
+  act(G, 0, typ('mazo'));
+  assert.deepEqual(G.scores, [0, 2]);
+});
+
+
+// ---- Flor cuando se toca, variantes y paso ----
+// mano 1 (Tito). Nacho (3) tiene flor de oros.
+const H4 = () => [[C(4,'basto'),C(5,'copa'),C(6,'espada')],[C(6,'basto'),C(1,'basto'),C(3,'copa')],[C(7,'copa'),C(12,'oro'),C(11,'basto')],[C(1,'oro'),C(3,'oro'),C(6,'oro')]];
+t('parejas: si Tito toca, la flor de Nacho queda negada (regla "niega")', () => {
+  const G = setup4(H4(), C(7,'espada'), 0, false, { florCompanero: 'niega' });
+  assert.equal(G.round.mano, 1);
+  act(G, 1, typ('envido', { kind: 'envido' }));
+  assert.equal(T.actor(G), 0);               // contestás vos, Nacho no canta
+  assert(G.round.flor.lost[3]);
+  act(G, 0, typ('quiero'));
+  // después nadie canta flor
+  while (G.phase === 'play' && T.legal(G, T.actor(G)).some(a => a.type === 'play')) {
+    const p = T.actor(G); assert(!T.legal(G, p).some(a => a.type === 'flor')); T.apply(G, p, T.legal(G, p).find(a => a.type === 'play'));
+  }
+  assert(!G.round.flor.sung[3]);
+});
+t('parejas: si Tito toca, Nacho dice "tengo flor" y se juega la flor (regla "tengo")', () => {
+  const G = setup4(H4(), C(7,'espada'), 0, false, { florCompanero: 'tengo' });
+  act(G, 1, typ('envido', { kind: 'envido' }));
+  assert.equal(T.actor(G), 3);
+  act(G, 3, typ('flor'));
+  assert.deepEqual(G.scores, [0, 3]);
+  assert(G.round.envido.done);
+  assert.equal(T.actor(G), 1);               // sigue jugando el mano
+});
+t('parejas: si tocan y un rival que no contesta tiene flor, la canta y anula el envido', () => {
+  const h = H4(); [h[2], h[3]] = [[C(1,'oro'),C(3,'oro'),C(6,'oro')], [C(7,'copa'),C(12,'oro'),C(11,'basto')]];
+  const G = setup4(h, C(7,'espada'), 0);
+  act(G, 1, typ('envido', { kind: 'envido' }));
+  assert.equal(T.actor(G), 2);               // Pocho canta su flor antes de que contestes
+  act(G, 2, typ('flor'));
+  assert.deepEqual(G.scores, [3, 0]);
+  assert(G.round.envido.done);
+});
+t('regla: cartas iguales gana el más mano', () => {
+  const G = setup([C(3,'oro'),C(4,'copa'),C(6,'basto')], [C(3,'espada'),C(5,'oro'),C(6,'copa')], C(7,'espada'), null, false, false, { iguales: 'mano' });
+  T.apply(G, 0, { type: 'play', card: C(3,'oro') });
+  T.apply(G, 1, { type: 'play', card: C(3,'espada') });
+  assert.equal(G.round.tricks[0].winnerTeam, 0);
+});
+t('regla: sin flor, tres del mismo palo no es flor y se puede tocar', () => {
+  const G = setup(conFlor, sinFlor, C(4,'espada'), null, false, false, { flor: false });
+  assert(T.legal(G, 0).some(a => a.type === 'envido'));
+  assert(!T.legal(G, 0).some(a => a.type === 'flor'));
+});
+t('parejas: paso individual, el compañero sigue jugando', () => {
+  const G = setup4([[C(4,'oro'),C(5,'copa'),C(6,'basto')],[C(4,'basto'),C(5,'oro'),C(6,'copa')],[C(7,'copa'),C(12,'oro'),C(11,'basto')],[C(10,'copa'),C(12,'espada'),C(6,'oro')]], C(7,'espada'), 3);
+  assert.equal(G.round.mano, 0);
+  act(G, 0, typ('paso'));
+  assert(G.round.out[0]);
+  act(G, 1, typ('play')); act(G, 2, typ('play')); act(G, 3, typ('play'));
+  assert.equal(G.round.tricks.length, 1);
+  assert(!T.legal(G, T.actor(G)).some(a => false));
+  assert.notEqual(T.actor(G), 0);
+});
+t('parejas: si pasan los dos del equipo, pierden la mano', () => {
+  const G = setup4([[C(4,'oro'),C(5,'copa'),C(6,'basto')],[C(4,'basto'),C(5,'oro'),C(6,'copa')],[C(7,'copa'),C(12,'oro'),C(11,'basto')],[C(10,'copa'),C(12,'espada'),C(6,'oro')]], C(7,'espada'), 3);
+  act(G, 0, typ('paso')); act(G, 1, typ('play'));
+  assert(!T.legal(G, 2).some(a => a.type === 'paso')); // el último del equipo solo puede irse al mazo
+  act(G, 2, typ('mazo'));
+  assert.deepEqual(G.scores, [0, 1]);
+});
+
+
+t('parejas: si no sos el pie y te vas al mazo, tu equipo sigue; si se va el pie, pierde', () => {
+  const G = setup4([[C(4,'oro'),C(5,'copa'),C(6,'basto')],[C(4,'basto'),C(5,'oro'),C(6,'copa')],[C(7,'copa'),C(12,'oro'),C(11,'basto')],[C(10,'copa'),C(12,'espada'),C(6,'oro')]], C(7,'espada'), 3);
+  assert.equal(G.round.mano, 0);
+  assert(!T.esPie(G, 0)); assert(T.esPie(G, 2));
+  act(G, 0, typ('mazo'));
+  assert.equal(G.phase, 'play'); assert(G.round.out[0]);
+  act(G, 1, typ('play'));
+  act(G, 2, typ('mazo'));                     // el pie se va: pierde el equipo
+  assert.deepEqual(G.scores, [0, 1]);
+});
+t('ley de juego: solo en parejas o tercetos y cuando alguien entró en buenas', () => {
+  const G2 = setup([C(6,'oro'),C(7,'oro'),C(3,'basto')], [C(6,'basto'),C(1,'basto'),C(3,'copa')], C(4,'espada'), [5, 25]);
+  assert(!G2.round.leyPhase);
+  const G4a = setup4(H4(), C(7,'espada'), 0); assert(!G4a.round.leyPhase);
+  const G4 = T.newMatch({ players: 4 }); G4.scores = [10, 22]; T.startRound(G4);
+  assert(G4.round.leyPhase); assert.equal(G4.round.leyPhase.team, 0);
+});
+
+// ---- Tercetos ----
+t('tercetos: primera ronda general, segunda mano a mano con tres duelos', () => {
+  const G = T.newMatch({ players: 6 });
+  T.startRound(G);
+  assert.equal(G.round.type, 'general');
+  assert.equal(G.round.active.filter(x => x).length, 6);
+  while (G.phase === 'play') { const p = T.actor(G); T.apply(G, p, T.legal(G, p).find(a => a.type === 'play') || T.legal(G, p)[0]); }
+  if (G.phase === 'roundEnd') {
+    T.nextRound(G);
+    const R = G.round;
+    assert.equal(R.type, 'duelos');
+    assert.equal(R.active.filter(x => x).length, 2);
+    const [a, b] = R.duel.pairs[0];
+    assert.equal(b, (a + 3) % 6); assert.notEqual(T.team(a), T.team(b));
+    assert(R.falta <= 10);
+    let duels = 1;
+    while (G.phase !== 'roundEnd' && G.phase !== 'chicoEnd' && G.phase !== 'matchEnd') {
+      if (G.phase === 'duelEnd') { T.nextRound(G); duels++; continue; }
+      const p = T.actor(G); assert(G.round.active[p]);
+      T.apply(G, p, T.legal(G, p).find(a => a.type === 'play') || T.legal(G, p)[0]);
+    }
+    assert.equal(duels, 3);
+  }
+});
+
+// ---- A ley de juego ----
+// mano 0 (vos, 33 de envido: 6 y 7 de oro), Tito 27, Pocho 22, Nacho 20. Vamos perdiendo 5 a 25.
+const HL = () => [[C(6,'oro'),C(7,'oro'),C(3,'basto')],[C(6,'basto'),C(1,'basto'),C(3,'copa')],[C(2,'copa'),C(12,'oro'),C(11,'basto')],[C(11,'copa'),C(10,'copa'),C(4,'basto')]];
+function setupLey(){ const G = setup4(HL(), C(4,'espada'), 3); G.scores = [5, 25]; G.round = { dummy: true }; G.dealer = 2; G.roundNo = 0;
+  const order = []; const h = HL(); for (let r = 0; r < 3; r++) for (let i = 0; i < 4; i++) order.push(h[i][r]); order.push(C(4,'espada'));
+  const rest = T.makeDeck().filter(c => !order.some(o => o.id === c.id)); T.startRound(G, rest.concat(order.reverse())); return G; }
+t('ley de juego: el que va perdiendo la impone antes de la muestra; falta y truco', () => {
+  const G = setupLey();
+  assert.equal(G.round.mano, 0);
+  assert(G.round.leyPhase);
+  assert.equal(T.actor(G), 0);
+  act(G, 0, a => a.type === 'ley' && a.form === 'falta_truco');
+  assert(G.round.ley.pendingResp);
+  assert.equal(G.round.ley.envPart, 'falta');
+  act(G, T.actor(G), a => a.type === 'leyresp' && a.env && a.truco);
+  // 33 gana la falta (15) para el equipo que impuso la ley
+  assert.deepEqual(G.scores, [20, 25]);
+  assert.equal(G.round.trucoLevel, 2);
+});
+t('ley de juego: no querer nada da 1 por el envite y 1 por el truco', () => {
+  const G = setupLey();
+  act(G, 0, a => a.type === 'ley' && a.form === 'falta_truco');
+  act(G, T.actor(G), a => a.type === 'leyresp' && !a.env && !a.truco);
+  assert.deepEqual(G.scores, [7, 25]);
+  assert.equal(G.phase, 'roundEnd');
+});
+
+// ---- Fuzz: partidas completas con jugadas al azar ----
+function playMatch(seed, pick, manual, players, rules) {
+  const r = seeded(seed); T.setRng(r); AI.setRng(r);
+  const G = T.newMatch({ manual: manual ? [true] : [], players: players || 2, rules });
+  T.startRound(G);
+  let steps = 0;
+  while (G.phase !== 'matchEnd') {
+    if (++steps > 20000) throw new Error('no termina');
+    if (G.phase !== 'play') { T.nextRound(G); continue; }
+    if (++steps > 40000) throw new Error('no termina');
+    const p = T.actor(G);
+    const acts = T.legal(G, p);
+    if (!acts.length) throw new Error('sin acciones en fase play');
+    let a = pick(G, p, acts, r);
+    if (a.type === 'sing' && a.pts === null) {
+      const R = G.round, real = R.canto.kind === 'flor' ? R.flor.pts[p] : R.envPts[p];
+      const n = r() < 0.8 ? real : real + 1;
+      a = { type: 'sing', pts: n };
+      try { const G2 = JSON.parse(JSON.stringify(G)); T.apply(G2, p, a); }
+      catch (e) { a = R.canto.best ? { type: 'buenas' } : { type: 'sing', pts: real }; }
+    }
+    const before = G.scores.slice();
+    T.apply(G, p, a);
+    if (!manual && (G.scores[0] < before[0] || G.scores[1] < before[1])) throw new Error('puntaje bajó');
+  }
+  return G;
+}
+t('2000 partidos al azar terminan sin errores', () => {
+  for (let s = 1; s <= 2000; s++) playMatch(s, (G, p, acts, r) => acts[Math.floor(r() * acts.length)]);
+});
+t('IA contra jugador al azar: la IA gana la gran mayoría', () => {
+  let ai = 0; const n = 40;
+  for (let s = 1; s <= n; s++) {
+    const G = playMatch(1000 + s, (G, p, acts, r) => p === 1 ? AI.choose(G, p, { samples: 40 }) : acts[Math.floor(r() * acts.length)]);
+    if (G.matchWinner === 1) ai++;
+  }
+  console.log(`      IA ganó ${ai}/${n}`);
+  assert(ai >= n * 0.85);
+});
+t('2000 partidos al azar en modo realista terminan sin errores', () => {
+  let pen = 0, disq = 0;
+  for (let s = 1; s <= 2000; s++) {
+    const G = playMatch(9000 + s, (G, p, acts, r) => acts[Math.floor(r() * acts.length)], true);
+    if (G.disq) disq++;
+  }
+  console.log(`      descalificaciones: ${disq}`);
+});
+t('2000 partidos de parejas al azar (normal y realista) terminan sin errores', () => {
+  for (let s = 1; s <= 1000; s++) playMatch(20000 + s, (G, p, acts, r) => acts[Math.floor(r() * acts.length)], false, 4);
+  for (let s = 1; s <= 1000; s++) playMatch(30000 + s, (G, p, acts, r) => acts[Math.floor(r() * acts.length)], true, 4);
+});
+t('parejas: equipo de IA contra equipo al azar gana la gran mayoría', () => {
+  let ai = 0; const n = 20;
+  for (let s = 1; s <= n; s++) {
+    const G = playMatch(40000 + s, (G, p, acts, r) => p % 2 === 1 ? AI.choose(G, p, { samples: 25 }) : acts[Math.floor(r() * acts.length)], false, 4);
+    if (G.matchWinner === 1) ai++;
+  }
+  console.log(`      IA ganó ${ai}/${n}`);
+  assert(ai >= n * 0.8);
+});
+t('6000 partidos al azar con reglas variadas y tercetos terminan sin errores', () => {
+  const opts = [{}, { ley: true }, { florCompanero: 'tengo' }, { iguales: 'mano' }, { flor: false }, { target: 30, chicosToWin: 1, ley: true, florCompanero: 'tengo' }];
+  let k = 0;
+  for (const players of [2, 4, 6]) for (const manual of [false, true]) for (let s = 1; s <= 1000; s++) {
+    const rules = opts[(s + k) % opts.length];
+    playMatch(50000 + k * 1000 + s, (G, p, acts, r) => acts[Math.floor(r() * acts.length)], manual, players, rules);
+    k++;
+  }
+});
+t('tercetos y ley: equipo de IA contra equipo al azar gana la gran mayoría', () => {
+  let ai = 0; const n = 12;
+  for (let s = 1; s <= n; s++) {
+    const G = playMatch(70000 + s, (G, p, acts, r) => p % 2 === 1 ? AI.choose(G, p, { samples: 20, level: ['facil','normal','dificil'][s % 3] }) : acts[Math.floor(r() * acts.length)], false, 6, { ley: true });
+    if (G.matchWinner === 1) ai++;
+  }
+  console.log(`      IA ganó ${ai}/${n}`);
+  assert(ai >= n * 0.75);
+});
+t('IA contra IA termina sin errores', () => {
+  for (let s = 1; s <= 10; s++) playMatch(5000 + s, (G, p) => AI.choose(G, p, { samples: 30 }));
+});
+
+// ---- Mesa compartida: lo que ve cada jugador (vista.js) ----
+const { viewFor } = require('./vista.js');
+t('ninguna vista deja ver cartas ajenas, puntos ajenos, señas de rivales ni la muestra antes de tiempo', () => {
+  for (const n of [2, 4, 6]) for (let seed = 1; seed <= 4; seed++) {
+    const r = seeded(90000 + seed * 7 + n); T.setRng(r); AI.setRng(r);
+    const humans = n === 2 ? [0, 1] : n === 4 ? [0, 2, 3] : [0, 1, 4];
+    const G = T.newMatch({ players: n, humans, rules: n >= 4 ? { ley: true } : {} }); T.startRound(G);
+    let steps = 0;
+    while (G.phase !== 'matchEnd' && steps++ < 3000) {
+      for (let s = 0; s < n; s++) {
+        const V = viewFor(G, s), js = JSON.stringify(V), R = G.round;
+        assert(!('memory' in V));
+        for (let q = 0; q < n; q++) {
+          if (q === s) continue;
+          if (G.phase === 'play') { for (const c of R.hands[q]) assert(!js.includes(`"${c.id}"`), `desde ${s} se ve una carta de ${q}`); assert(V.round.envPts[q] === null); }
+          if (q % 2 !== s % 2) assert(V.round.senasShown[q] === null);
+        }
+        if (R.leyPhase && !R.hands[s].some(c => c.id === R.muestra.id)) assert(!js.includes(`"${R.muestra.id}"`), 'se ve la muestra durante la ley');
+        assert.strictEqual(T.actor(V), T.actor(G));
+      }
+      if (G.phase !== 'play') { T.nextRound(G); continue; }
+      const p = T.actor(G);
+      let a = AI.choose(G, p, { samples: 6 });
+      if (a.type === 'sing' && a.pts === null) a = { type: 'sing', pts: G.round.canto.kind === 'flor' ? G.round.flor.pts[p] : G.round.envPts[p] };
+      if (n >= 4 && humans.includes(p) && r() < 0.15) T.setSenas(G, p, T.senasFor(G.round.initial[p], G.round.muestra));
+      T.apply(G, p, a);
+    }
+  }
+});
+
+console.log(fails ? `\n${fails} FALLAS` : '\nTodo OK');
+process.exit(fails ? 1 : 0);
