@@ -276,7 +276,7 @@ function publish(){
   const act = T.actor(GM), key = roundKey(GM);
   NET.seats.forEach((s, p) => {
     if (s.kind !== 'guest') return;
-    netPost({ t: 'state', to: s.cid, seat: p, view: TV.viewFor(GM, p), actor: act, legal: act === p ? T.legal(GM, p) : [], key, waiting: waitingNames(), paused: toolOpen(), host: NET.seats[0].name, clock: clockForGuests() });
+    netPost({ t: 'state', to: s.cid, seat: p, view: TV.viewFor(GM, p), actor: act, legal: act === p ? T.legal(GM, p) : [], key, waiting: waitingNames(), paused: toolOpen(), host: NET.seats[0].name, clock: clockForGuests(), endLeft: endLeft() });
   });
   netRemember();
 }
@@ -286,7 +286,8 @@ function netEndWait(){
   if (!GM || !NET.started || GM.phase === 'play' || GM.phase === 'matchEnd') { NET.endKey = null; return; }
   const lim = clockLimit(GM), k = roundKey(GM);
   if (!lim) return;
-  if (NET.endKey !== k || toolOpen()) { NET.endKey = k; NET.endAt = Date.now(); return; }
+  if (NET.endKey !== k) { NET.endKey = k; NET.endAt = Date.now(); publish(); return; }   // los invitados ven la cuenta
+  if (toolOpen()) { NET.endAt = Date.now(); return; }
   if (Date.now() - NET.endAt > lim + 4000) { NET.seats.forEach((s, p) => { if (s.kind !== 'ai') NET.ready.add(p); }); checkReady(); }
 }
 // personas que todavía no tocaron "Siguiente mano"
@@ -357,6 +358,7 @@ function onState(m){
   ME = m.seat; G = m.view; NET.actor = m.actor; NET.legal = m.legal || []; NET.key = m.key;
   NET.paused = !!m.paused; NET.host = m.host;
   NET.clock = m.clock ? { ...m.clock, at: Date.now() } : null;
+  NET.endClock = typeof m.endLeft === 'number' ? { left: m.endLeft, at: Date.now() } : null;
   showWaiting((m.waiting || []).filter(x => x !== G.names[ME]));
   if (m.actor !== ME) errMsg = '';
   notePauses(G);

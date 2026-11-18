@@ -333,7 +333,7 @@ const V3 = (function(){
   const SHIRTS = [[0x86b9e6, 0x6aa3d8, 0x9cc7ee], [0x8b2335, 0x6f1d2b, 0x9c3441]];
   // una persona en la mesa toma la cara de ese lugar (la del que se sentaría ahí si fuera la computadora)
   const SEAT_LOOKS = [{ skin: 0xdcae86, hair: 'corto', hc: 0x2b1c12 }, LOOKS.Tito, LOOKS.Pocho, LOOKS.Nacho, LOOKS.Lalo, LOOKS.Beto];
-  const NEUTRAL = { browUp:0, browIn:0, eyeA:1, eyeB:1, nose:0, pucker:0, twist:0, open:0, bite:0 };
+  const NEUTRAL = { browUp:0, browIn:0, eyeA:1, eyeB:1, nose:0, pucker:0, twist:0, open:0, bite:0, tongue:0 };
   const GEST = {
     '2': { browUp: 1, eyeA: 1.15, eyeB: 1.15 },
     '4': { pucker: 1 },
@@ -341,7 +341,8 @@ const V3 = (function(){
     'perico': { eyeA: .03, twist: .3, browUp: .1 },
     'mata': { twist: 1 },
     '3': { bite: 1 },
-    'fio': { open: .9 },
+    'dos': { open: .9 },
+    'as': { open: .3, tongue: 1 },
     'nada': { eyeA: .03, eyeB: .03 },
   };
 
@@ -351,7 +352,7 @@ const V3 = (function(){
     const M = {
       skin: std(lk.skin, .72), skin2: std(new THREE.Color(lk.skin).multiplyScalar(.9), .7), shirt: std(shirt, .9),
       hair: std(lk.hc, .95), brow: std(lk.brow || lk.hc, .9), pants: std(0x2d2b36, .9), wood: std(0x4a2b17, .65),
-      lip: std(0xa4433e, .55), white: std(0xfbfaf4, .35), dark: std(0x17110e, .4), inner: std(0x3a1313, .9), tooth: std(0xfffdf5, .3),
+      lip: std(0xa4433e, .55), tongue: std(0xd8606a, .45), white: std(0xfbfaf4, .35), dark: std(0x17110e, .4), inner: std(0x3a1313, .9), tooth: std(0xfffdf5, .3),
     };
     const g = new THREE.Group(), body = new THREE.Group(); g.add(body);
     // silla
@@ -391,13 +392,14 @@ const V3 = (function(){
     const inner = mesh(GEO.sphLo, M.inner, 0, 0, -.02, .2, .02, .06);
     const teeth = mesh(GEO.box, M.tooth, 0, -.005, .045, .24, .075, .04); teeth.visible = false;
     const ring = mesh(GEO.ring, M.lip, 0, 0, .03); ring.visible = false;
-    [lipU, lipL, inner, teeth, ring].forEach(m => { m.castShadow = false; mouth.add(m); });
+    const tongue = mesh(GEO.sphLo, M.tongue, 0, -.06, .06, .11, .045, .1); tongue.visible = false;
+    [lipU, lipL, inner, teeth, ring, tongue].forEach(m => { m.castShadow = false; mouth.add(m); });
     if (lk.must) {
       const mu = new THREE.Group(); mu.position.set(0, -.31, .92); mu.rotation.x = .3; head.add(mu);
       for (const sx of [1, -1]) { const m = mesh(GEO.must, M.hair, sx*.13, 0, 0); m.rotation.z = PI/2 + sx*.35; m.castShadow = false; mu.add(m); }
     }
     hair(head, lk, M);
-    const c = { p, g, body, pivot, head, skull, eyes, brows, nose, mouth, lipU, lipL, inner, teeth, ring, hands,
+    const c = { p, g, body, pivot, head, skull, eyes, brows, nose, mouth, lipU, lipL, inner, teeth, ring, tongue, hands,
       F: Object.assign({}, NEUTRAL), yaw: 0, pitch: 0, blinkAt: clock() + 1 + Math.random()*3, blinkTo: 0,
       talkTo: 0, react: null, lookTo: null, lookUntil: 0, gest: null, phase: Math.random()*6 };
     return c;
@@ -453,6 +455,9 @@ const V3 = (function(){
     c.inner.scale.set(pk ? .1 : .2, pk ? .085 : .02 + open*.17, .06);
     c.inner.position.y = -open*.05;
     c.teeth.visible = F.bite > .12; c.teeth.scale.set(.27, .095*F.bite, .04);
+    // la punta de la lengua asomando entre los labios
+    c.tongue.visible = F.tongue > .08;
+    if (c.tongue.visible) { c.tongue.position.set(0, -.07 - open*.05, .04 + .1*F.tongue); c.tongue.scale.set(.1, .042, .06 + .06*F.tongue); }
   }
 
   function updateChars(t, dt){
@@ -572,7 +577,8 @@ const V3 = (function(){
   function deckTop(){ const d = Lay.deck.position; return flat(d.x, deckH() + .01, d.z, false, Lay.deck.rotation.y); }
   function muePose(up){
     const d = Lay.deck.position, y = Lay.deck.rotation.y, k = CH*.78;
-    return flat(d.x + Math.sin(y)*k, .006, d.z + Math.cos(y)*k, up, y + .05);
+    const negra = G && G.round && G.round.muestra && G.round.muestra.n >= 10;   // sota, caballo o rey: que asome el palo
+    return flat(d.x + Math.sin(y)*k, .006, d.z + Math.cos(y)*k, up, y + .05 + (negra ? PI : 0));
   }
   function handLayout(){
     const D = 4, h = 2*D*Math.tan(camera.fov*PI/360), w = h*camera.aspect;
@@ -608,7 +614,7 @@ const V3 = (function(){
         out[c.id] = { key: `f:${p}:${i}:${k}`, pose: fanPose(p, i, k), face: false, fan: true, p };
       });
     }
-    const onTable = (c, p, b) => { out[c.id] = { key: `t:${p}:${b}`, pose: tablePose(p, b, c.id), face: true, table: true, p, b }; };
+    const onTable = (c, p, b) => { out[c.id] = { key: `t:${p}:${b}:${!c.hidden}`, pose: tablePose(p, b, c.id), face: !c.hidden, table: true, p, b }; };
     R.tricks.forEach((t, b) => t.cards.forEach((c, p) => { if (c) onTable(c, p, b); }));
     R.cur.forEach((c, p) => { if (c) onTable(c, p, R.tricks.length); });
     const up = !R.leyPhase;
@@ -743,7 +749,7 @@ const V3 = (function(){
       }
       if (s.key !== o.key) {
         const opts = s.table ? { dur: .55, arc: .9 } : s.deck ? { dur: .4, arc: .5 } : { dur: .45, arc: .4 };
-        if (!o.hidden && o.where === 'deck' && !o.tws.length && s.p !== undefined) opts.from = takeFrom(s.p);
+        if ((!o.hidden || s.table) && o.where === 'deck' && !o.tws.length && s.p !== undefined) opts.from = takeFrom(s.p);
         if (o.hidden && s.deck && o.where === 'deck' && !o.tws.length) { o.key = 'd'; o.slot = s; continue; }
         go(o, s, 0, opts);
       }
@@ -757,10 +763,11 @@ const V3 = (function(){
     // bazas ganadas: borde dorado (o gris si fue parda)
     for (const id in CARDS) { const o = CARDS[id]; if (o.where !== 'hand' && !(o.slot && o.slot.hand)) o.outline.visible = false; }
     R.tricks.forEach(t => {
-      const best = Math.max(...t.cards.filter(Boolean).map(c => T.rank(c, R.muestra)));
+      const best = Math.max(...t.cards.filter(c => c && !c.hidden).map(c => T.rank(c, R.muestra)));
       t.cards.forEach((c, p) => {
         if (!c) return; const o = CARDS[c.id];
-        if (t.winnerTeam === -1 && T.rank(c, R.muestra) === best) { o.outline.visible = true; o.outline.material.color.setHex(0xb9c2c2); }
+        if (!o) return;
+        if (t.winnerTeam === -1 && !c.hidden && T.rank(c, R.muestra) === best) { o.outline.visible = true; o.outline.material.color.setHex(0xb9c2c2); }
         else if (t.winnerPlayer === p) { o.outline.visible = true; o.outline.material.color.setHex(0xe8b13a); }
       });
     });
@@ -782,14 +789,14 @@ const V3 = (function(){
       showBubble(p, sd.text);
     }
     // señas del compañero (al empezar la mano, cuando ya se repartió) y señas pescadas
-    if (G.n >= 4 && G.rules.senas && !R.duel && !R.leyPhase && G.phase === 'play') {
+    if (G.n >= 4 && G.rules.senas && !R.duel && !R.leyPhase && G.phase === 'play' && !R.hands[ME].some(c => c.hidden)) {
       // señas de los compañeros: las de la computadora llegan al empezar la mano; las de una persona, cuando las hace
       if (S.senasRk !== rk) { S.senasRk = rk; S.pSen = {}; }
       for (let p = 0; p < G.n; p++) {
         if (p === ME || team(p) !== team(ME)) continue;
         const list = R.senasShown[p] || [], sig = list.join(','), prev = S.pSen[p];
         if (sig === (prev || '')) { S.pSen[p] = sig; continue; }
-        const nuevas = prev === undefined ? list : list.filter(k => !prev.split(',').includes(k));
+        const nuevas = prev === undefined ? list : T.senasMinus(list, prev ? prev.split(',') : []);
         S.pSen[p] = sig;
         if (nuevas.length) queueSenas(p, nuevas, 'partner');
       }
@@ -838,8 +845,8 @@ const V3 = (function(){
       if (act === p && G.phase === 'play') tags.push('<span class="tag turn">juega</span>');
       if (R.out[p]) tags.push('<span class="tag out">pasó</span>');
       let sen = '';
-      if (partner && R.senasShown[p] && G.rules.senas && !R.leyPhase && !R.duel) sen += R.senasShown[p].map(k => `<span class="sena">${senaTxt(k)}</span>`).join('');
-      if (!R.leyPhase) (R.seen[ME] || []).filter(v => v.p === p).forEach(v => { sen += `<span class="sena caught">👀 ${senaTxt(v.s)}</span>`; });
+      if (partner && R.senasShown[p] && G.rules.senas && !R.leyPhase && !R.duel && !R.hands[ME].some(c => c.hidden)) sen += senaGroups(R.senasShown[p]).map(([k, n]) => `<span class="sena">${senaTxt(k, n)}</span>`).join('');
+      if (!R.leyPhase) senaGroups((R.seen[ME] || []).filter(v => v.p === p).map(v => v.s)).forEach(([k, n]) => { sen += `<span class="sena caught">👀 ${senaTxt(k, n)}</span>`; });
       const html = `<div class="nm">${esc(G.names[p])}${G.n >= 4 ? `<small>${partner ? 'compañero' : 'rival'}</small>` : ''}</div>`
         + (tags.length ? `<div class="tags">${tags.join('')}</div>` : '') + (sen ? `<div class="senas">${sen}</div>` : '');
       if (html !== c.lblHTML) { c.lblIn.innerHTML = html; c.lblHTML = html; }

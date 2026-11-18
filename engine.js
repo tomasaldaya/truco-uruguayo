@@ -120,9 +120,12 @@
     'perico': { gesto: 'guiña un ojo', cartas: 'perico o perica' },
     'mata': { gesto: 'tuerce los labios', cartas: 'una mata' },
     '3': { gesto: 'se muerde el labio', cartas: 'un tres' },
-    'fio': { gesto: 'abre un poco la boca', cartas: 'un dos o un as' },
+    'dos': { gesto: 'abre un poco la boca', cartas: 'un dos' },
+    'as': { gesto: 'saca un poquito la lengua', cartas: 'un as de copa u oro' },
     'nada': { gesto: 'cierra los ojos', cartas: 'nada de valor' },
   };
+  // cuántas veces se puede repetir cada seña (una por carta: con dos matas, la seña va dos veces)
+  const SENA_MAX = { '2': 1, '4': 1, '5': 1, perico: 2, mata: 3, '3': 3, dos: 3, as: 2, nada: 1 };
   function senaOf(c, m) {
     const r = piezaRole(c, m);
     if (r === 2 || r === 4 || r === 5) return String(r);
@@ -130,13 +133,21 @@
     const cat = category(c, m);
     if (cat === 'mata') return 'mata';
     if (c.n === 3) return '3';
-    if (cat === 'fio') return 'fio';
+    if (cat === 'fio') return c.n === 2 ? 'dos' : 'as';
     return null;
   }
+  const SENA_ORDER = Object.keys(SENAS);
   function senasFor(cards, m) {
     const out = [];
-    for (const c of cards) { const s = senaOf(c, m); if (s && !out.includes(s)) out.push(s); }
+    for (const c of cards) { const s = senaOf(c, m); if (s) out.push(s); }
+    out.sort((a, b) => SENA_ORDER.indexOf(a) - SENA_ORDER.indexOf(b));
     return out.length ? out : ['nada'];
+  }
+  // lo que tiene una lista de más que otra, contando repetidas
+  function senasMinus(list, prev) {
+    const left = (prev || []).slice(), out = [];
+    for (const s of list) { const i = left.indexOf(s); if (i >= 0) left.splice(i, 1); else out.push(s); }
+    return out;
   }
 
   // ---- Bazas (Arts. 57–59). w: equipo ganador de cada baza o -1 (parda) ----
@@ -306,7 +317,7 @@
     for (const s of list) {
       if (rng() >= CATCH) continue;
       const o = rivals[Math.floor(rng() * rivals.length)];
-      if (!R.seen[o].some(x => x.p === p && x.s === s)) R.seen[o].push({ p, s });
+      R.seen[o].push({ p, s });
     }
   }
   function setSenas(G, p, list) {
@@ -314,7 +325,7 @@
     if (!R || !G.rules.senas || R.duel) return;
     const prev = R.senasShown[p] || [];
     R.senasShown[p] = list.slice();
-    const nuevas = list.filter(s => !prev.includes(s));
+    const nuevas = senasMinus(list, prev);
     if (nuevas.length) catchSenas(G, R, p, nuevas);
   }
 
@@ -327,6 +338,7 @@
     const R = G.round;
     if (!R || G.phase !== 'play') return null;
     if (R.leyPhase) return R.leyPhase.decider;
+    if (R.ley && R.ley.queue && R.ley.queue.length) return R.ley.queue[0];
     if (R.ley && R.ley.pendingResp) return R.ley.responder;
     if (R.canto) return R.canto.cur;
     if (R.florQueue.length) return R.florQueue[0];
@@ -420,6 +432,8 @@
     if (G.phase !== 'play' || actor(G) !== p) return [];
     const R = G.round;
     if (R.leyPhase) return Object.keys(LEY_FORMS).map(form => ({ type: 'ley', form })).concat([{ type: 'noley' }]);
+    if (R.ley && R.ley.queue && R.ley.queue.length)
+      return G.manual[p] ? [{ type: 'leyest', ley: true }, { type: 'leyest', ley: false }] : [{ type: 'leyest', ley: !!R.flor.has[p] }];
     if (R.ley && R.ley.pendingResp) {
       const L = R.ley, out = [];
       for (const e of L.envPart ? [true, false] : [false]) for (const t of L.truco ? [true, false] : [false]) out.push({ type: 'leyresp', env: e, truco: t });
@@ -497,6 +511,7 @@
       case 'buenas': return 'Son buenas';
       case 'ley': return LEY_FORMS[a.form];
       case 'noley': return 'Jugar normal';
+      case 'leyest': return a.ley ? 'Con ley' : 'A punto';
       case 'leyresp': {
         const L = G.round.ley;
         if (L.envPart && L.truco) return a.env && a.truco ? 'Quiero todo' : a.env ? 'Quiero el envite, no el truco' : a.truco ? 'Quiero el truco, no el envite' : 'Paso (no quiero nada)';
@@ -756,11 +771,11 @@
     R.envido.done = true;
     say(G, p, label(G, a));
     const chal = fromMano(G).filter(q => team(q) === t && R.flor.has[q]);
-    const chd = fromMano(G).filter(q => team(q) === ct && R.flor.has[q]);
+    const chd = fromMano(G).filter(q => team(q) === ct && R.flor.has[q] && L.estados[q] !== false);
     const markSung = list => list.forEach(q => { R.flor.sung[q] = true; });
     if (L.envPart) {
       if (a.env) {
-        say(G, preferHuman(G, fromMano(G).filter(q => team(q) === t)), chal.length ? 'Con ley' : 'A punto'); // Art. 80
+        fromMano(G).filter(q => team(q) === t && inGame(R, q)).forEach(q => say(G, q, R.flor.has[q] ? 'Con ley' : 'A punto')); // Art. 80
         if (L.envPart === 'resto') {
           markSung(chd);
           if (chal.length) {
@@ -838,13 +853,24 @@
       info(G, `Muestra: ${cardName(R.muestra)}.`);
       const f = a.form;
       const parts = { falta: f === 'todo' || f.includes('falta'), resto: f === 'todo' || f.includes('resto'), truco: f === 'todo' || f.includes('truco') };
-      const ct = 1 - t;
-      const conLey = fromMano(G).some(q => team(q) === ct && R.flor.has[q]);
-      const responder = preferHuman(G, fromMano(G).filter(q => team(q) === ct));
-      say(G, responder, conLey ? 'Con ley' : 'A punto'); // Art. 74
-      const envPart = conLey ? (parts.resto ? 'resto' : null) : (parts.falta ? 'falta' : null);
-      R.ley = { team: t, decider: p, form: f, parts, conLey, envPart, truco: parts.truco, responder, pendingResp: !!(envPart || parts.truco), afterCanto: null };
-      if (!R.ley.pendingResp) info(G, 'La ley no tiene nada que disputar con esa respuesta: se juega normal (Art. 78).');
+      // Art. 74: los desafiados, vistas sus cartas, dicen en su turno "con ley" o "a punto"; contesta el pie (Art. 75)
+      const order = fromMano(G).filter(q => team(q) === 1 - t && inGame(R, q));
+      R.ley = { team: t, decider: p, form: f, parts, estados: {}, queue: order.slice(), conLey: null, envPart: null, truco: parts.truco, responder: order[order.length - 1], pendingResp: false, afterCanto: null };
+      return;
+    }
+    if (a.type === 'leyest') {
+      const L = R.ley;
+      L.queue.shift();
+      L.estados[p] = !!a.ley;
+      say(G, p, a.ley ? 'Con ley' : 'A punto');
+      if (a.ley && !R.flor.has[p] && !R.faults[p].includes('errado')) R.faults[p].push('errado');   // canto errado
+      if (!a.ley && R.flor.has[p]) { R.flor.negada[p] = true; R.faults[p].push('negada'); }      // niega la flor
+      if (!L.queue.length) {
+        L.conLey = Object.values(L.estados).some(Boolean);
+        L.envPart = L.conLey ? (L.parts.resto ? 'resto' : null) : (L.parts.falta ? 'falta' : null);
+        L.pendingResp = !!(L.envPart || L.truco);
+        if (!L.pendingResp) info(G, 'La ley no tiene nada que disputar con esa respuesta: se juega normal (Art. 78).');
+      }
       return;
     }
     if (a.type === 'leyresp') { applyLeyResp(G, p, a); return; }
@@ -1001,7 +1027,7 @@
   const Truco = {
     setRng, makeDeck, shuffle, piezaRole, isPieza, rank, category, envVal, hasFlor,
     florPoints, envidoPoints, cardName, roundWinner, newMatch, startRound, actor,
-    legal, label, apply, nextRound, betTotal, validCanto, setSenas, senasFor, SENAS,
+    legal, label, apply, nextRound, betTotal, validCanto, setSenas, senasFor, senasMinus, SENAS, SENA_MAX,
     team, pos, inGame, esPie, leyDisponible, TRUCO_NAMES, SUITS, NUMS, DEFAULT_RULES, LEY_FORMS,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = Truco;

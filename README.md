@@ -39,14 +39,24 @@ Tocar = envido, gritar = truco, cantar = flor (o cantar los tantos).
 - Señas pescadas: de cada 50 señas hechas, una la pesca algún rival.
 - Tiempo para decidir: 30 segundos por decisión de cada persona (opción: 60 o sin límite). Si se
   acaba, decide la computadora por esa persona; la cuenta se frena con un menú abierto. En una
-  mesa compartida, si alguien no toca "Siguiente mano", pasado ese tiempo se sigue igual.
+  mesa compartida, si alguien no toca "Siguiente mano", pasado ese tiempo se sigue igual (el
+  cartel de fin de mano muestra la cuenta).
 - Si tocan y un rival tiene flor, la canta antes de contestar y anula el envido (Art. 27).
 - El envido está primero: se puede tocar contra un truco mientras no hayas jugado tu primera carta.
 - Si un rival te canta algo y podés contestar, contestás vos (no tu compañero de la computadora).
 - Paso: salís de la mano con tus cartas (para poder mostrarlas). Mazo sin ser el pie: te vas solo
   y tu equipo sigue (por defecto); si se va el pie, pierde el equipo. Opción: Art. 90.
 - A ley de juego: solo en parejas y tercetos, cuando algún equipo entró en buenas; versión
-  simplificada del Cap. 7 (sin los reenvites del Art. 76 ni el Art. 79).
+  simplificada del Cap. 7 (sin los reenvites del Art. 76 ni el Art. 79). Mientras se decide nadie
+  ve sus cartas ni la muestra (la computadora decide solo por el tanteador). Impuesta, los
+  desafiados ven sus cartas y cada uno dice en su turno "con ley" o "a punto"; contesta el pie de
+  ese equipo. Los que la impusieron ven sus cartas cuando llega la respuesta (Arts. 74, 75 y 79).
+- Pico a pico (duelos de tercetos): las piezas se juegan dadas vuelta y solo las ven los dos del
+  duelo; a los demás les llegan tapadas, también en los datos.
+- Señas: el dos común es abrir un poco la boca y el as de copa u oro, sacar un poquito la lengua.
+  Con dos cartas iguales (dos matas, dos tres, perico y perica) la seña se hace dos veces.
+- Botones: quiero en verde, no quiero en rojo, truco y retruco en gris pizarra, envido en azul,
+  flor en dorado.
 - Modo realista: faltas ocultas que se descubren al verse las cartas (Art. 45 o tres cartas jugadas).
 - Las ilustraciones del mazo Tatú no se incluyen: el juego usa la baraja española libre de
   Basquetteur (ver "Cartas"), y el jugador puede cargar su propia imagen del mazo en "Tu mazo".
@@ -140,7 +150,8 @@ Si el navegador no tiene WebGL, se juega en 2D y el botón queda desactivado.
 - **Tus cartas:** abajo, pegadas a la cámara. Las que podés jugar se levantan un poco; clic
   o toque para jugarlas, o las teclas 1, 2 y 3. Con Ayudas se ven las insignias pieza, mata y fío.
 - **Mazo:** queda sobre la mesa a la derecha del que dio, con la muestra boca arriba debajo,
-  asomando hacia el centro como se pone en la realidad (en la mesa 2D, asomando al costado), así
+  asomando hacia el centro como se pone en la realidad; si la muestra es una negra (sota, caballo
+  o rey) asoma la parte de arriba, con el palo. En la mesa 2D asoma la mitad de arriba. Así
   se ve enseguida quién dio. Al empezar cada mano se desliza hasta el nuevo repartidor. Cuando
   das vos, va donde tus cartas no lo tapan.
 - **Cartas:** se juntan en el mazo y se reparten desde ahí, la muestra se da vuelta (boca abajo

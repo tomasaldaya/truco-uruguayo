@@ -52,7 +52,7 @@
     if (team(q) === team(p) && q !== p && R.senasShown[q] && believe[`p${q}`]) {
       const shown = R.senasShown[q];
       if (shown.includes('nada')) { if (!senasOf().includes('nada')) return false; }
-      else for (const s of shown) if (!senasOf().includes(s)) return false;
+      else if (T.senasMinus(shown, senasOf()).length) return false;   // con dos matas, la seña va dos veces
     }
     return true;
   }
@@ -220,13 +220,11 @@
   }
 
   // A ley de juego: se decide antes de ver la muestra
+  // La ley se impone sin ver las cartas (Arts. 72 y 79): la computadora decide solo por el tanteador
   function leyDecide(G, p, acts) {
     const behind = rivalScore(G, p) - G.scores[team(p)];
-    const fake = { n: 0, s: 'ninguno' };
-    const matas = G.round.hands[p].filter(c => T.rank(c, fake) >= 87).length;
-    const tres = G.round.hands[p].filter(c => c.n === 3).length;
-    if (behind >= 15 && matas + tres >= 2 && rng() < 0.6) return find(acts, a => a.form === 'todo');
-    if (behind >= 8 && matas >= 1 && rng() < 0.5) return find(acts, a => a.form === 'falta_truco');
+    if (behind >= 15 && rng() < 0.3) return find(acts, a => a.form === 'todo');
+    if (behind >= 8 && rng() < 0.25) return find(acts, a => a.form === 'falta_truco');
     return find(acts, a => a.type === 'noley');
   }
   function leyRespond(G, p, acts, L, worlds) {

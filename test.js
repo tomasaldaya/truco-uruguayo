@@ -576,9 +576,14 @@ t('ley de juego: el que va perdiendo la impone antes de la muestra; falta y truc
   assert(G.round.leyPhase);
   assert.equal(T.actor(G), 0);
   act(G, 0, a => a.type === 'ley' && a.form === 'falta_truco');
+  // los desafiados dicen su estado en su turno (Tito y después Nacho) y contesta el pie, Nacho
+  assert.equal(T.actor(G), 1); act(G, 1, a => a.type === 'leyest');
+  assert.equal(T.actor(G), 3); act(G, 3, a => a.type === 'leyest');
+  assert.equal(G.round.said[1].text, 'A punto'); assert.equal(G.round.said[3].text, 'A punto');
   assert(G.round.ley.pendingResp);
   assert.equal(G.round.ley.envPart, 'falta');
-  act(G, T.actor(G), a => a.type === 'leyresp' && a.env && a.truco);
+  assert.equal(T.actor(G), 3);
+  act(G, 3, a => a.type === 'leyresp' && a.env && a.truco);
   // 33 gana la falta (15) para el equipo que impuso la ley
   assert.deepEqual(G.scores, [20, 25]);
   assert.equal(G.round.trucoLevel, 2);
@@ -586,9 +591,59 @@ t('ley de juego: el que va perdiendo la impone antes de la muestra; falta y truc
 t('ley de juego: no querer nada da 1 por el envite y 1 por el truco', () => {
   const G = setupLey();
   act(G, 0, a => a.type === 'ley' && a.form === 'falta_truco');
+  act(G, 1, a => a.type === 'leyest'); act(G, 3, a => a.type === 'leyest');
   act(G, T.actor(G), a => a.type === 'leyresp' && !a.env && !a.truco);
   assert.deepEqual(G.scores, [7, 25]);
   assert.equal(G.phase, 'roundEnd');
+});
+
+t('ley de juego: mientras se decide nadie ve sus cartas; impuesta, los desafiantes tampoco hasta la respuesta', () => {
+  const V = require('./vista.js');
+  const G = setupLey();
+  for (let s = 0; s < 4; s++) { const v = V.viewFor(G, s); assert(v.round.hands[s].every(c => c.hidden)); assert(v.round.muestra.hidden); }
+  act(G, 0, a => a.type === 'ley' && a.form === 'falta_truco');
+  assert(V.viewFor(G, 0).round.hands[0].every(c => c.hidden));      // desafiante
+  assert(V.viewFor(G, 2).round.hands[2].every(c => c.hidden));
+  assert(V.viewFor(G, 1).round.hands[1].every(c => !c.hidden));     // desafiado: ve sus cartas y la muestra
+  assert(!V.viewFor(G, 1).round.muestra.hidden);
+  act(G, 1, a => a.type === 'leyest'); act(G, 3, a => a.type === 'leyest');
+  act(G, 3, a => a.type === 'leyresp' && !a.env && a.truco);
+  assert(V.viewFor(G, 0).round.hands[0].every(c => !c.hidden));     // contestado: todos ven
+});
+t('ley de juego: en modo realista se puede decir "a punto" con flor (la niega)', () => {
+  const h = HL(); h[1] = [C(1,'oro'),C(3,'oro'),C(6,'oro')];
+  const G = setup4(h, C(4,'espada'), 3); G.scores = [5, 25]; G.round = { dummy: true }; G.dealer = 2; G.roundNo = 0; G.manual = [false, true, false, false];
+  const order = []; for (let r = 0; r < 3; r++) for (let i = 0; i < 4; i++) order.push(h[i][r]); order.push(C(4,'espada'));
+  const rest = T.makeDeck().filter(c => !order.some(o => o.id === c.id)); T.startRound(G, rest.concat(order.reverse()));
+  act(G, 0, a => a.type === 'ley' && a.form === 'todo');
+  assert.equal(T.legal(G, 1).length, 2);
+  act(G, 1, a => a.type === 'leyest' && !a.ley);
+  assert(G.round.flor.negada[1]);
+});
+t('señas: con dos matas la seña va dos veces; el dos y el as tienen señas distintas', () => {
+  const m = C(4,'copa');
+  assert.deepEqual(T.senasFor([C(1,'espada'), C(7,'oro'), C(6,'copa')], m), ['mata', 'mata']);
+  assert.deepEqual(T.senasFor([C(3,'oro'), C(3,'basto'), C(6,'copa')], m), ['3', '3']);
+  assert.deepEqual(T.senasFor([C(2,'oro'), C(1,'copa'), C(12,'basto')], m), ['dos', 'as']);
+  assert.deepEqual(T.senasMinus(['mata', 'mata', '3'], ['mata']), ['mata', '3']);
+});
+t('pico a pico: las piezas jugadas solo las ven los dos del duelo', () => {
+  const V = require('./vista.js');
+  T.setRng(seeded(31));
+  for (let k = 0; k < 400; k++) {
+    const G = T.newMatch({ players: 6 }); G.roundInChico = 1; T.startRound(G);
+    const R = G.round; if (!R.duel) continue;
+    const [a, b] = R.duel.pairs[0];
+    const piece = R.hands[a].find(c => T.isPieza(c, R.muestra));
+    if (!piece || T.actor(G) !== a) continue;
+    T.apply(G, a, { type: 'play', card: piece });
+    const other = [0,1,2,3,4,5].find(q => q !== a && q !== b);
+    assert(V.viewFor(G, other).round.cur[a].hidden);
+    assert.equal(V.viewFor(G, b).round.cur[a].id, piece.id);
+    T.setRng(Math.random);
+    return;
+  }
+  throw new Error('no se dio el caso');
 });
 
 // ---- Fuzz: partidas completas con jugadas al azar ----

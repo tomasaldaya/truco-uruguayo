@@ -21,6 +21,11 @@ function loadSavedGame(){
     const s = JSON.parse(store.get('truco.partida') || 'null');
     const g = s && s.v === 1 && s.G;
     if (!g || !g.round || ![2, 4, 6].includes(g.n) || g.phase === 'matchEnd') return null;
+    // señas guardadas con nombres viejos (antes el dos y el as eran una sola seña): se descartan
+    const R = g.round, ok = k => !!T.SENAS[k];
+    if (R.senasShown) R.senasShown = R.senasShown.map(l => l && l.filter(ok));
+    if (R.senas) R.senas = R.senas.map(l => l && l.filter(ok));
+    if (R.seen) R.seen = R.seen.map(l => (l || []).filter(v => ok(v.s)));
     if (g.phase === 'play') T.legal(g, T.actor(g)); // que el motor lo entienda
     if (!g.id) g.id = newMatchId();
     needStep = true;
