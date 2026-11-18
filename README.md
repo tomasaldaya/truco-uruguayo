@@ -23,6 +23,7 @@ Juego de truco uruguayo para el navegador, según el *Reglamento del Truco Urugu
 - `server/mesa.mjs` — una mesa compartida en el servidor: lugares, partido, computadora, tiempo, chat.
 - `server/worker.mjs` — el servidor en Cloudflare: sirve la página y una sala (Durable Object) por mesa.
 - `server/prueba-mesa.mjs` — pruebas de la mesa del servidor sin Cloudflare: `node server/prueba-mesa.mjs`.
+- `server/prueba-vivo.mjs` — prueba del servidor ya publicado (dos jugadores por WebSocket).
 - `wrangler.jsonc`, `.github/workflows/servidor.yml` — configuración y publicación automática en Cloudflare.
 - `build.py` — arma `index.html` (un solo archivo; solo, anda sin internet; las tipografías se bajan de Google Fonts) a partir de lo anterior: `python3 build.py`.
 - `test.js` — pruebas de reglas y partidos simulados: `node test.js`.
@@ -111,9 +112,14 @@ sigue yendo directo entre navegadores (una sala de Trystero aparte, solo para es
 Si el servidor no contesta en unos segundos, la mesa se abre como antes, de navegador a navegador
 (lo que sigue más abajo sobre "dejá esta pestaña abierta" vale para ese caso).
 
-Publicación: cada cambio en `main` corre las pruebas y publica con `wrangler deploy` (GitHub
-Actions, con el secreto `CLOUDFLARE_API_TOKEN`). Una mesa sin nadie conectado se borra a las dos
-horas. Para probar el servidor en la propia máquina: `npx wrangler dev` (con `public/index.html`) y
+El servidor está en **https://truco-uruguayo.tomasaldaya.workers.dev** (sirve también el juego) y
+la página de GitHub Pages lo usa (constante `SERVIDOR` al principio de `red.part.js`).
+
+Publicación: cada cambio en `main` corre las pruebas, publica con `wrangler deploy` (GitHub
+Actions, con los secretos `CLOUDFLARE_API_TOKEN` y `CLOUDFLARE_ACCOUNT_ID`) y después prueba el
+servidor publicado con dos jugadores de mentira (`node server/prueba-vivo.mjs <dirección>`). Si la
+cuenta de Cloudflare todavía no tiene subdominio en workers.dev, la publicación registra uno. Una
+mesa sin nadie conectado se borra a las dos horas. Para probar el servidor en la propia máquina: `npx wrangler dev` (con `public/index.html`) y
 abrir http://127.0.0.1:8787.
 
 El juego está publicado en **https://tomasaldaya.github.io/truco-uruguayo/** (GitHub Pages, desde
@@ -170,7 +176,7 @@ también la clave del encuentro (`password` de Trystero), así que sin el códig
   un relevo (TURN): se crea una cuenta gratis (por ejemplo, Metered Open Relay o Cloudflare) y se
   ponen los datos en `NET_TURN`, al principio de `red.part.js`.
 - **El anfitrión tiene todo el partido** en su navegador: alguien que sepa programar podría
-  espiar. Entre amigos no es problema; para jugar con desconocidos haría falta un servidor propio.
+  espiar. Por eso lo normal es el servidor de mesas; esto vale solo cuando el servidor no contesta.
 
 Sin internet (o con `localStorage['truco.red'] = 'local'`), la mesa compartida funciona entre
 pestañas del mismo navegador con BroadcastChannel, que es como se prueba sin red. Para probar la

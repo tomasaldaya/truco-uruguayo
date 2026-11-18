@@ -22,7 +22,7 @@ const online = () => !!(NET && NET.tr && (NET.tr.kind === 'internet' || NET.tr.k
 // Servidor de mesas (Cloudflare): cada mesa vive ahí y nadie tiene que dejar una pestaña abierta. Si
 // la página se abre desde el mismo servidor, es la misma dirección; desde GitHub Pages, SERVIDOR.
 // Si el servidor no contesta, se vuelve a la conexión directa entre navegadores.
-const SERVIDOR = '';
+const SERVIDOR = 'https://truco-uruguayo.tomasaldaya.workers.dev';
 function serverURL(){
   const o = store.get('truco.servidor');                // para pruebas: una dirección, o 'no'
   if (o) return o === 'no' ? '' : o;

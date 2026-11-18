@@ -59,3 +59,9 @@ jobs:
           echo "## Dirección del servidor" >> "$GITHUB_STEP_SUMMARY"
           echo "$url" >> "$GITHUB_STEP_SUMMARY"
           echo "Servidor: $url"
+          echo "URL=$url" >> "$GITHUB_ENV"
+      - name: Probar el servidor publicado
+        # dos jugadores de prueba arman una mesa en el servidor de verdad, juegan unas jugadas y la cierran
+        run: |
+          for i in $(seq 1 12); do curl -sf "$URL/api/salud" && break; echo "esperando a que el servidor conteste…"; sleep 10; done
+          node server/prueba-vivo.mjs "$URL"
