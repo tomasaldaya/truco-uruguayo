@@ -303,3 +303,25 @@ Si el navegador no tiene WebGL, se juega en 2D y el botón queda desactivado.
 Tu mazo, Estadísticas y Cómo se juega se abren en una capa propia,
 encima del cuadro de fin de mano, y mientras están abiertos el juego espera (la computadora no juega
 y la mano no se cierra por detrás). Escape los cierra.
+
+## Atajos al compañero, abandono y cambios de reglas (18/11)
+
+- **Atajos** (parejas y tercetos): ¡Vení!, ¡Jugá algo!, ¡Gritá! y Tengo algo para el tanto (`T.PEDIDOS`,
+  `T.pedir`). Se dicen en voz alta (quedan en "Lo que se dijo" y en la burbuja) y la computadora compañera hace
+  caso (`cumplirPedido` en `ai.js`): vení, en esa baza, gana con la más baja que alcance (o juega la mejor);
+  jugá algo, si no puede ganar, juega la del medio y no la peor; gritá, canta truco mientras nadie gritó; el
+  tanto, toca envido o lo quiere. Online van por el servidor (mensaje `pedido`).
+- **Irse al mazo en la primera** sin que nadie haya tocado ni gritado, si al otro equipo todavía le quedaba
+  tocar: dos puntos (uno de la mano y uno del envido que se le quita).
+- **A ley de juego**, si hay flor y no se quiere el envite: se cobra la flor y el envite no querido no es
+  para nadie.
+- **Abandonar online**: quien se va de una mesa del servidor con el partido en juego deja su lugar a la
+  computadora; si su equipo queda sin personas y en el otro queda alguien, el partido termina ahí y gana el
+  que se queda (en el ranking, el que se fue lo pierde y suma un abandono). A quien se le corta la conexión le
+  quedan 60 segundos para volver (`GRACIA_MS`). Antes de salir, el botón pide confirmar.
+- **Partido online terminado**: "Volver al inicio" o el menú sacan de la mesa; no queda nada abierto.
+- **Al responder**, "Quiero" y "No quiero" van en una fila arriba y lo demás (retruco, reenvidar, flor, mazo)
+  en otra abajo.
+- **En el celular, mesa 2D**: encabezado en una línea, la muestra más chica y tus cartas antes que los
+  botones, para que la mesa y tu mano entren sin bajar (antes la mano quedaba debajo del borde de la
+  pantalla y parecía que no estaba). Al empezar un partido la pantalla vuelve arriba.

@@ -34,6 +34,8 @@ function loadSavedGame(){
 }
 
 function showHome(view){
+  // un partido online que ya terminó: al ir al menú, la mesa se cierra (no queda nada pendiente)
+  if (NET && G && G.phase === 'matchEnd' && view !== 'lobby') { closeModal(); leaveNet(); }
   homeView = view || 'main'; confirmNew = null;
   $('home').hidden = false; document.querySelector('.app').hidden = true;
   V3.pause();
@@ -49,7 +51,7 @@ function paintFan(deal){
   [[1, 'espada'], [1, 'basto'], [7, 'espada']].forEach(([n, s], i) => { const c = cardEl({ n, s, id: n + '-' + s }); c.classList.add('f' + i); fan.appendChild(c); });
   fan.classList.toggle('deal', !!deal);
 }
-function hideHome(){ $('home').hidden = true; document.querySelector('.app').hidden = false; if (NET) renderVoz(); }
+function hideHome(){ $('home').hidden = true; document.querySelector('.app').hidden = false; window.scrollTo(0, 0); if (NET) renderVoz(); }
 function continueGame(){
   hideHome();
   if (isGuest()) { render(); if (G && G.phase !== 'play' && G.phase !== 'idle' && !$('mNext')) showRoundEnd(); return; }
@@ -121,7 +123,7 @@ function pintarInicio(){
     if (NET && !(NET.role === 'host' ? NET.started : G)) { homeView = 'lobby'; renderHome(); } else continueGame();
   };
   if ($('hLobby')) $('hLobby').onclick = () => { homeView = 'lobby'; renderHome(); };
-  if ($('hLeave')) $('hLeave').onclick = () => { leaveNet(); renderHome(); };
+  if ($('hLeave')) $('hLeave').onclick = () => confirmarSalida($('hLeave'), () => { leaveNet(); renderHome(); });
   if ($('hHost')) $('hHost').onclick = () => hostTable(GM && !NET ? GM.n : players);
   if ($('hJoin')) $('hJoin').onclick = () => { homeView = 'join'; renderHome(); };
   box.querySelectorAll('.hmode[data-n]').forEach(b => b.onclick = () => {

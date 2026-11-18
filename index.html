@@ -126,6 +126,9 @@ h1 small{font-family:'Alegreya Sans',sans-serif;font-size:15px;font-weight:500;c
 .helper b{color:var(--gold)}
 .helper i{color:#f3d27a}
 .actions{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;min-height:46px}
+.actions.dos{flex-direction:column;align-items:center}
+.actions .fila{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.actions .fila.resp .act{min-width:128px}
 .act{border:0;border-radius:12px;padding:10px 16px;font-size:17px;font-weight:700;cursor:pointer;
   background:var(--btn);color:var(--btn-ink);box-shadow:0 3px 0 rgba(0,0,0,.35);transition:transform .08s}
 .act:hover{transform:translateY(-1px)}
@@ -140,6 +143,9 @@ h1 small{font-family:'Alegreya Sans',sans-serif;font-size:15px;font-weight:500;c
 .mysenas{display:flex;gap:6px;align-items:center;justify-content:center;flex-wrap:wrap;font-size:13px;color:var(--muted);margin-top:4px}
 .mysenas button{background:rgba(0,0,0,.28);border:1px solid rgba(255,255,255,.18);color:var(--ink);border-radius:999px;padding:3px 9px;cursor:pointer;font-size:13px}
 .mysenas button[aria-pressed="true"]{background:var(--gold);color:#2b1d10;border-color:var(--gold)}
+.pedidos{display:flex;gap:6px;align-items:center;justify-content:center;flex-wrap:wrap;font-size:13px;color:var(--muted);margin-top:4px}
+.pedidos button{background:rgba(251,246,234,.1);border:1px solid rgba(251,246,234,.3);color:var(--ink);border-radius:999px;padding:4px 11px;cursor:pointer;font-size:13.5px;font-weight:600}
+.pedidos button:hover{background:rgba(251,246,234,.2)}
 
 .card{width:var(--cw);height:var(--ch);border-radius:9px;background:var(--paper);box-shadow:0 2px 0 var(--paper-edge),0 6px 14px rgba(0,0,0,.35);position:relative;flex:none;user-select:none}
 .card img{display:block;width:100%;height:100%;object-fit:cover;border-radius:9px;pointer-events:none}
@@ -151,9 +157,12 @@ h1 small{font-family:'Alegreya Sans',sans-serif;font-size:15px;font-weight:500;c
 .deckform input[type=text],.deckform select,.deckform input[type=number]{font:inherit;padding:4px 6px;border-radius:8px;border:1px solid #cdbf9f;background:#fff}
 .deckform .suits{display:flex;gap:6px;flex-wrap:wrap}
 .card.play{cursor:pointer;transition:transform .15s, box-shadow .15s}
-.card.play:hover{transform:translateY(-12px);box-shadow:0 2px 0 var(--paper-edge),0 16px 24px rgba(0,0,0,.45),0 0 0 3px var(--gold)}
+/* en pantallas táctiles el hover queda "pegado" después de tocar: ahí la carta no se levanta */
+@media (hover:hover){.card.play:hover{transform:translateY(-12px);box-shadow:0 2px 0 var(--paper-edge),0 16px 24px rgba(0,0,0,.45),0 0 0 3px var(--gold)}}
 .card.dim{filter:saturate(.75) brightness(.92)}
 .hand.me .card{width:100px;height:152px}
+/* la mano guarda su lugar aunque esté vacía (entre manos), así no se mueve lo de abajo */
+.hand.me{min-height:152px}
 .badge{position:absolute;left:50%;bottom:-9px;transform:translateX(-50%);font-size:11px;font-weight:700;padding:1px 7px;border-radius:999px;letter-spacing:.5px;text-transform:uppercase;white-space:nowrap}
 .badge.pieza{background:var(--gold);color:#2b1d10}.badge.mata{background:#c7412f;color:#fff}.badge.fio{background:#2f62a8;color:#fff}
 .back{width:var(--cw);height:var(--ch);border-radius:9px;flex:none;
@@ -499,8 +508,21 @@ img.avt{object-fit:cover;background:#2a1d13}
   .muestra-box{flex-direction:row;justify-content:center}
   .tricks{gap:6px}.slot{min-width:0;padding:4px}
   .hand.me .card{width:78px;height:118px}
+  .hand.me{min-height:118px}
+  /* las bazas de arriba de la cruz en una sola línea, para que la cruz no crezca cuando se llenan */
+  .cross-wrap>.chips{flex-wrap:nowrap;gap:5px}
+  .cross-wrap .chips .chips{gap:3px}
+  .cross-wrap .chips .lbl{font-size:10px;letter-spacing:0}
+  .cross-wrap .res{font-size:11px;padding:2px 6px;white-space:nowrap}
 
   .s-top{min-height:90px}
+  /* el compañero de arriba no cambia de alto: las señas en una sola línea (se desliza si no entran) y el lugar de las marcas guardado */
+  .table.four .s-top .senas{flex-wrap:nowrap;overflow-x:auto;justify-content:flex-start;scrollbar-width:none}
+  .table.four .s-top .senas::-webkit-scrollbar{display:none}
+  .table.four .s-top .senas .sena{flex:none}
+  .table.four .s-top .senas .sena:first-child{margin-left:auto}
+  .table.four .s-top .senas .sena:last-child{margin-right:auto}
+  .table.four .s-top .who .tags{min-height:18px}
   .cross{gap:4px 8px}
   .hand.mini .back{width:30px;height:46px;margin-left:-14px}
   .who .name{font-size:17px}
@@ -513,6 +535,19 @@ img.avt{object-fit:cover;background:#2a1d13}
   .l3d .say,.mybub{font-size:12px}
   .baz3d{max-width:calc(100% - 140px)}
   .modes{grid-template-columns:1fr}
+  /* que en la 2D entren la mesa y tus cartas en la pantalla del celular, sin tener que bajar */
+  .app{grid-template-columns:minmax(0,1fr)}
+  header.top{flex-wrap:nowrap;gap:8px;min-width:0}
+  h1{font-size:20px;white-space:nowrap}
+  h1 small{display:none}
+  .tools{flex:1 1 0;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;min-width:0}
+  .tools::-webkit-scrollbar{display:none}
+  .tools .tool{flex:none;font-size:13px;padding:6px 10px}
+  .muestra-box .deckpile{--cw:46px;--ch:70px}
+  .s-bottom .hand.me{order:-2}
+  .s-bottom .err{order:-1}
+  .s-bottom .err:empty{min-height:0}
+  .actions .fila.resp .act{min-width:110px}
 }
 </style>
 </head>
@@ -5124,6 +5159,20 @@ void main() {
       R.seen[o].push({ p, s });
     }
   }
+  // Lo que uno le dice en voz alta a su compañero (lo oye toda la mesa): la computadora compañera le hace caso
+  const PEDIDOS = {
+    veni: { texto: '¡Vení!', ayuda: 'que gane esta baza, aunque tenga que jugar la mejor' },
+    algo: { texto: '¡Jugá algo!', ayuda: 'que juegue una carta que valga algo, no la peor' },
+    grita: { texto: '¡Gritá!', ayuda: 'que cante truco' },
+    tanto: { texto: 'Tengo algo para el tanto', ayuda: 'que toque (envido) o quiera el envido' },
+  };
+  function pedir(G, p, k) {
+    const R = G.round;
+    if (!PEDIDOS[k] || !R || G.phase !== 'play' || G.n < 4 || !R.active[p] || R.out[p] || R.leyPhase) return false;
+    R.pedidos = (R.pedidos || []).concat([{ p, k, baza: R.tricks.length, t: G.log.length }]).slice(-12);
+    say(G, p, PEDIDOS[k].texto);
+    return true;
+  }
   function setSenas(G, p, list) {
     const R = G.round;
     if (!R || !G.rules.senas || R.duel) return;
@@ -5173,6 +5222,13 @@ void main() {
     if (R.pending.length === 0) return R.turn === p;
     const top = R.pending[R.pending.length - 1];
     return R.pending.length === 1 && top.kind === 'truco' && top.to === p && top.level === 2;
+  }
+  // el equipo t se va en la primera baza sin haber tocado ni gritado nadie, y al otro le quedaba el envido
+  function puedeTocarElOtro(G, t) {
+    const R = G.round;
+    if (R.tricks.length || R.leyPhase || R.ley || R.envido.done || anyFlorSung(R) || R.trucoLevel > 1) return false;
+    if (R.saidTruco[0] || R.saidTruco[1] || R.saidQuiero[0] || R.saidQuiero[1] || R.pending.length) return false;
+    return fromMano(G).some(q => team(q) !== t && R.played[q] === 0);
   }
   function canReenvidar(G, p) { const t = team(p); return !G.round.saidTruco[t] && !G.round.saidQuiero[t]; }
 
@@ -5599,9 +5655,13 @@ void main() {
           }
         }
       } else {
-        R.wonEnvite[t] = true;
-        addPoints(G, t, 1, 'envite no querido (a ley de juego)', 'envido');
-        if (afterPoints(G)) return;
+        // con flor en juego, el envite no querido no es para nadie: se cobra la flor y nada más
+        if (chd.length || chal.length) info(G, 'Hay flor: el envite no querido no suma para nadie.');
+        else {
+          R.wonEnvite[t] = true;
+          addPoints(G, t, 1, 'envite no querido (a ley de juego)', 'envido');
+          if (afterPoints(G)) return;
+        }
         if (chd.length || chal.length) {
           markSung(chd); markSung(chal);
           const F = florCount(G);
@@ -5787,6 +5847,9 @@ void main() {
           return;
         }
         R.pending = [];
+        // irse en la primera sin tocar ni gritar, cuando el otro todavía podía tocar: son dos puntos
+        // (uno de la mano y otro por el envido que se le quita al rival)
+        if (puedeTocarElOtro(G, t)) addPoints(G, 1 - t, 1, 'se fue en la primera sin tocar ni gritar', 'envido');
         winTruco(G, 1 - t, R.trucoLevel, G.n === 2 ? 'el rival se fue al mazo' : 'el otro equipo se fue al mazo');
         return;
       }
@@ -5831,7 +5894,7 @@ void main() {
   const Truco = {
     setRng, makeDeck, shuffle, piezaRole, isPieza, rank, category, envVal, hasFlor,
     florPoints, envidoPoints, cardName, roundWinner, newMatch, startRound, actor,
-    legal, label, apply, nextRound, betTotal, validCanto, setSenas, senasFor, senasMinus, SENAS, SENA_MAX,
+    legal, label, apply, nextRound, betTotal, validCanto, setSenas, senasFor, senasMinus, SENAS, SENA_MAX, PEDIDOS, pedir,
     team, pos, inGame, esPie, leyDisponible, TRUCO_NAMES, SUITS, NUMS, DEFAULT_RULES, LEY_FORMS,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = Truco;
@@ -6088,6 +6151,46 @@ void main() {
       if (q !== p && T.team(q) === T.team(p) && T.inGame(R, q) && !R.acted[q] && R.played[q] === 0 && !R.flor.sung[q]) return true;
     return false;
   }
+  // Lo que pidió el compañero en voz alta ("¡Vení!", "¡Jugá algo!", "¡Gritá!", "Tengo algo para el tanto").
+  // Vale mientras tiene sentido: vení y jugá algo, en la baza en que se dijeron; gritá, mientras nadie gritó;
+  // el tanto, mientras no se jugó el envido.
+  function cumplirPedido(G, p, legal) {
+    const R = G.round;
+    if (!R || !R.pedidos || !R.pedidos.length || G.n < 4) return null;
+    const top = R.pending[R.pending.length - 1];
+    const vigente = x => team(x.p) === team(p) && x.p !== p && (
+      x.k === 'veni' || x.k === 'algo' ? x.baza === R.tricks.length && R.cur[p] === null
+      : x.k === 'grita' ? R.trucoLevel === 1 && !R.saidTruco[0] && !R.saidTruco[1]
+      : !R.envido.done && !R.flor.sung.some(Boolean));
+    const ped = R.pedidos.filter(vigente);
+    if (!ped.length) return null;
+    const quiere = k => ped.some(x => x.k === k);
+    if (quiere('tanto')) {
+      const q = top && top.kind === 'env' && find(legal, a => a.type === 'quiero');
+      if (q) return q;
+      const e = !top && find(legal, a => a.type === 'envido' && a.kind === 'envido');
+      if (e) return e;
+    }
+    if (quiere('grita') && (!top || top.kind === 'truco')) {
+      const tr = find(legal, a => a.type === 'truco');
+      if (tr) return tr;
+    }
+    const veni = quiere('veni'), algo = quiere('algo');
+    if ((veni || algo) && !top) {
+      const plays = legal.filter(a => a.type === 'play');
+      if (!plays.length) return null;
+      const m = R.muestra, rk = c => T.rank(c, m);
+      const orden = plays.slice().sort((a, b) => rk(a.card) - rk(b.card));
+      let mejor = null;
+      R.cur.forEach((c, q) => { if (c && (!mejor || rk(c) > rk(mejor.c))) mejor = { c, q }; });
+      if (mejor && team(mejor.q) === team(p)) return orden[0];                 // ya la va ganando el equipo
+      const ganan = mejor ? orden.filter(a => rk(a.card) > rk(mejor.c)) : [];
+      if (veni) return mejor ? (ganan[0] || orden[orden.length - 1]) : orden[orden.length - 1];
+      return mejor ? (ganan[0] || orden[Math.floor(orden.length / 2)]) : orden[Math.floor(orden.length / 2)];
+    }
+    return null;
+  }
+
   function choose(G, p, opts) {
     opts = opts || {};
     const level = opts.level || 'normal', L = LV[level] || LV.normal;
@@ -6104,6 +6207,8 @@ void main() {
     const N = level === 'facil' ? LV.facil.samples : Math.round(base * L.samples);
 
     if (R.leyPhase) return leyDecide(G, p, acts);
+    const pedido = cumplirPedido(G, p, T.legal(G, p));
+    if (pedido) return pedido;
     if (top && top.kind === 'fenv') return florRespond(G, p, acts, top);
     if (R.florEnv && !R.florEnv.done && !(top && top.kind === 'fenv')) return florInit(G, p, acts);
     if (top && top.kind === 'env') return respondEnvido(G, p, acts, top, L);
@@ -6610,6 +6715,7 @@ function mySeat(act){
   });
   sm.appendChild(mh);
   sm.appendChild(myTagsEl());
+  const pd = pedidosEl(); if (pd) sm.appendChild(pd);
   if (senasCond()) sm.appendChild(mySenas());
   bubble(sm, R.said[ME]);
   return sm;
@@ -6628,8 +6734,29 @@ function hud3d(act){
     hud.appendChild(sr);
   }
   hud.appendChild(myTagsEl());
+  const pd = pedidosEl(); if (pd) hud.appendChild(pd);
   if (senasCond()) hud.appendChild(mySenas());
   return myLegal;
+}
+// Atajos para hablarle al compañero en voz alta (los oye toda la mesa; la computadora compañera hace caso)
+function pedidosEl(){
+  const R = G.round;
+  if (!R || G.n < 4 || G.phase !== 'play' || R.leyPhase || !R.active[ME] || R.out[ME]) return null;
+  if (!G.names.some((_, q) => q !== ME && team(q) === MT() && R.active[q] && !R.out[q])) return null;   // en los duelos no hay compañero
+  const box = el('div','pedidos');
+  box.appendChild(el('span','', 'A tu compañero:'));
+  Object.entries(T.PEDIDOS).forEach(([k, v]) => {
+    const b = el('button','', esc(v.texto)); b.type = 'button'; b.title = 'Pedirle ' + v.ayuda;
+    b.onclick = () => pedirAlCompa(k); box.appendChild(b);
+  });
+  return box;
+}
+let pedidoAt = 0;
+function pedirAlCompa(k){
+  if (Date.now() - pedidoAt < 1500) return;
+  pedidoAt = Date.now();
+  if (isGuest()) { netSend({ t: 'pedido', k }); return; }
+  if (T.pedir(GM, ME, k)) { SND.play('chat'); render(); }
 }
 function senasCond(){ const R = G.round; return G.n>=4 && G.phase==='play' && G.rules.senas && !R.duel && !R.leyPhase && !myCardsHidden(); }
 // a ley de juego: mientras se decide (y los que la impusieron, hasta la respuesta) no se ven las propias cartas
@@ -6654,10 +6781,18 @@ function actionsEl(myLegal){
     if (myLegal.some(a=>a.type==='buenas')) { const b=el('button','act no','Son buenas'); b.onclick=()=>human({type:'buenas'}); box.appendChild(b); }
     acts.appendChild(box);
     setTimeout(()=>{ const i=$('singInput'); if(i) i.focus(); }, 0);
-  } else myLegal.filter(a=>a.type!=='play').forEach(a => {
-    const b = el('button','act '+actClass(a)); b.textContent = T.label(G,a);
-    b.onclick = () => human(a); acts.appendChild(b);
-  });
+  } else {
+    const boton = a => { const b = el('button','act '+actClass(a)); b.textContent = T.label(G,a); b.onclick = () => human(a); return b; };
+    const todas = myLegal.filter(a=>a.type!=='play');
+    const resp = todas.filter(a => a.type==='quiero' || a.type==='noquiero').sort((a, b) => (a.type==='quiero' ? 0 : 1) - (b.type==='quiero' ? 0 : 1));
+    if (resp.length) {
+      // contestando: primero "Quiero" y "No quiero", y abajo lo demás (retruco, reenvidar, flor, mazo…)
+      acts.classList.add('dos');
+      const f1 = el('div','fila resp'); resp.forEach(a => f1.appendChild(boton(a))); acts.appendChild(f1);
+      const resto = todas.filter(a => !resp.includes(a));
+      if (resto.length) { const f2 = el('div','fila'); resto.forEach(a => f2.appendChild(boton(a))); acts.appendChild(f2); }
+    } else todas.forEach(a => acts.appendChild(boton(a)));
+  }
   return acts;
 }
 
@@ -7088,6 +7223,7 @@ function showRoundEnd(){
   const R = G.round, we = G.n>=4, mt = MT();
   const them = NET && G.n === 2 ? G.names[otherOf2()] : 'La computadora';
   const lines = [];
+  if (R.result && R.result.reason === 'abandono') lines.push(`<li><b>${esc(R.result.texto)}</b></li>`);
   [0,1].forEach(t => R.gained[t].forEach(g => lines.push(`<li><b>${esc(G.teamNames[t])}</b> +${g.pts} — ${esc(g.why)}</li>`)));
   let title = G.phase==='duelEnd' ? `Terminó el duelo ${R.duel.idx+1}` : 'Fin de la mano';
   recordStats(R);
@@ -8291,9 +8427,10 @@ function howToModal(){
   <p><b>Tiempo:</b> tenés 30 segundos para cada decisión (se cambia en Reglas de la mesa). Si se te acaba, decide la computadora por vos. Con el menú abierto la cuenta se frena.</p>
   <p><b>Señas pescadas:</b> de cada 50 señas que se hacen, una la ve algún rival. Te puede pasar a vos con las señas de Tito y Nacho, y a ellos con las tuyas o las de Pocho. Lo que se ve es siempre verdad, y la computadora también lo usa.</p>
   <p><b>Modo realista:</b> la flor no se canta sola y los puntos los cantás vos. Si jugás o cantás otra cosa sin cantar tu flor, la negás. Las faltas se descubren cuando se ven tus cartas: si ganás un envite (tenés que mostrarlas) o si jugás las tres. Cantar errado o negar la flor, si se descubre, te hace perder todo lo de la mano (Art. 46). Cantar flor sin tenerla se descubre enseguida. Si se descubre que ganaste un envite negando la flor, es falta grave (Art. 100).</p>
-  <p><b>Paso y mazo:</b> en parejas y tercetos, si decís "paso" salís de la mano y no jugás más bazas, pero te quedás con tus cartas por si tenés que mostrarlas (Arts. 88 y 92). Si te vas al mazo sin ser el pie de tu equipo, te vas solo y tu equipo sigue; si se va el pie, pierde el equipo. En Reglas de la mesa podés elegir en cambio que irse al mazo saque a todo el equipo (Art. 90).</p>
+  <p><b>Paso y mazo:</b> en parejas y tercetos, si decís "paso" salís de la mano y no jugás más bazas, pero te quedás con tus cartas por si tenés que mostrarlas (Arts. 88 y 92). Si te vas al mazo sin ser el pie de tu equipo, te vas solo y tu equipo sigue; si se va el pie, pierde el equipo. En Reglas de la mesa podés elegir en cambio que irse al mazo saque a todo el equipo (Art. 90). Si un equipo se va en la primera baza sin que nadie haya tocado ni gritado, y al otro todavía le quedaba tocar, el otro cobra <b>dos</b> puntos.</p>
+  <p><b>Atajos al compañero:</b> en parejas y tercetos, abajo tenés <i>¡Vení!</i> (que gane la baza), <i>¡Jugá algo!</i> (que no tire la peor), <i>¡Gritá!</i> (que cante truco) y <i>Tengo algo para el tanto</i> (que toque o quiera el envido). Los oye toda la mesa, como si lo dijeras en voz alta; la computadora compañera te hace caso.</p>
   <p><b>Tercetos:</b> hasta que un equipo llega a la mitad del chico se alternan rondas generales y rondas mano a mano, en las que cada uno juega contra el rival de enfrente; ahí la falta tiene tope de 10 (Arts. 83 a 87). En esos duelos (el pico a pico) las piezas se juegan dadas vuelta: solo las ven los dos que juegan ese duelo.</p>
-  <p><b>A ley de juego:</b> en parejas y tercetos, cuando algún equipo ya entró en buenas, el equipo que va perdiendo (o el del mano, si van iguales) puede imponerla en cada mano antes de ver las cartas y la muestra (nadie ve sus cartas mientras se decide), o jugar normal. Los rivales, ya con sus cartas a la vista, dicen cada uno en su turno "con ley" si tienen flor o "a punto" si no, y después el pie de su equipo contesta todo de una vez. Los que la impusieron ven sus cartas cuando llega la respuesta. Es una versión simplificada del Cap. 7: no incluye los reenvites del Art. 76 ni el Art. 79.</p>
+  <p><b>A ley de juego:</b> en parejas y tercetos, cuando algún equipo ya entró en buenas, el equipo que va perdiendo (o el del mano, si van iguales) puede imponerla en cada mano antes de ver las cartas y la muestra (nadie ve sus cartas mientras se decide), o jugar normal. Los rivales, ya con sus cartas a la vista, dicen cada uno en su turno "con ley" si tienen flor o "a punto" si no, y después el pie de su equipo contesta todo de una vez. Los que la impusieron ven sus cartas cuando llega la respuesta. Si hay flor y no se quiere el envite, se cobra la flor y el envite no querido no suma para nadie. Es una versión simplificada del Cap. 7: no incluye los reenvites del Art. 76 ni el Art. 79.</p>
   <p><b>Reglas de la mesa:</b> en Configuración, desde el menú: puntos por chico, cantidad de chicos, tiempo para decidir, con o sin flor, qué pasa con tu flor si tu compañero toca o grita, cartas iguales, señas y dificultad.</p>
   <p class="small">Tocar es envido, gritar es truco, cantar es flor. Reglas según el Reglamento del Truco Uruguayo.</p>
   <div class="row"><button class="act" id="mOk">Entendido</button></div>`);
@@ -8342,6 +8479,8 @@ function loadSavedGame(){
 }
 
 function showHome(view){
+  // un partido online que ya terminó: al ir al menú, la mesa se cierra (no queda nada pendiente)
+  if (NET && G && G.phase === 'matchEnd' && view !== 'lobby') { closeModal(); leaveNet(); }
   homeView = view || 'main'; confirmNew = null;
   $('home').hidden = false; document.querySelector('.app').hidden = true;
   V3.pause();
@@ -8357,7 +8496,7 @@ function paintFan(deal){
   [[1, 'espada'], [1, 'basto'], [7, 'espada']].forEach(([n, s], i) => { const c = cardEl({ n, s, id: n + '-' + s }); c.classList.add('f' + i); fan.appendChild(c); });
   fan.classList.toggle('deal', !!deal);
 }
-function hideHome(){ $('home').hidden = true; document.querySelector('.app').hidden = false; if (NET) renderVoz(); }
+function hideHome(){ $('home').hidden = true; document.querySelector('.app').hidden = false; window.scrollTo(0, 0); if (NET) renderVoz(); }
 function continueGame(){
   hideHome();
   if (isGuest()) { render(); if (G && G.phase !== 'play' && G.phase !== 'idle' && !$('mNext')) showRoundEnd(); return; }
@@ -8429,7 +8568,7 @@ function pintarInicio(){
     if (NET && !(NET.role === 'host' ? NET.started : G)) { homeView = 'lobby'; renderHome(); } else continueGame();
   };
   if ($('hLobby')) $('hLobby').onclick = () => { homeView = 'lobby'; renderHome(); };
-  if ($('hLeave')) $('hLeave').onclick = () => { leaveNet(); renderHome(); };
+  if ($('hLeave')) $('hLeave').onclick = () => confirmarSalida($('hLeave'), () => { leaveNet(); renderHome(); });
   if ($('hHost')) $('hHost').onclick = () => hostTable(GM && !NET ? GM.n : players);
   if ($('hJoin')) $('hJoin').onclick = () => { homeView = 'join'; renderHome(); };
   box.querySelectorAll('.hmode[data-n]').forEach(b => b.onclick = () => {
@@ -8813,6 +8952,7 @@ function onHostMsg(m){
       return;
     }
     case 'senas': if (s >= 0 && NET.started && GM && GM.phase === 'play') { T.setSenas(GM, s, Array.isArray(m.list) ? m.list.filter(k => T.SENAS[k]) : []); render(); } return;
+    case 'pedido': if (s >= 0 && NET.started && GM && GM.phase === 'play' && T.PEDIDOS[m.k] && T.pedir(GM, s, m.k)) render(); return;
     case 'ready': if (s >= 0 && NET.started && m.key === roundKey(GM)) { NET.ready.add(s); checkReady(); } return;
     case 'pref': if (s >= 0) NET.prefs[s] = !!m.realista; return;
     case 'chat': {
@@ -9010,6 +9150,16 @@ function seatsHTML(seats, opts){
   return '<div class="seats">' + [0, 1].map(t => `<div class="team t${t}"><h3>Equipo ${t === 0 ? 'celeste' : 'bordó'}</h3><ul>${seats.map((s, p) => team(p) === t ? row(s, p) : '').join('')}</ul></div>`).join('') + '</div>';
 }
 // si el partido va a contar para el ranking (solo en mesas del servidor, con cuentas en los dos equipos)
+// irse de una mesa del servidor con el partido en juego lo pierde: se pide confirmar (el botón cambia de texto)
+function enJuegoOnline(){ return !!(NET && NET.tr && NET.tr.kind === 'server' && G && G.phase !== 'matchEnd' && NET.seat >= 0); }
+function confirmarSalida(btn, salir){
+  if (!enJuegoOnline() || btn.dataset.seguro === '1') { salir(); return; }
+  btn.dataset.seguro = '1';
+  btn.textContent = 'Sí, irme y perder el partido';
+  const n = document.createElement('p'); n.className = 'hnote'; n.setAttribute('role', 'alert');
+  n.textContent = 'Si te vas ahora, perdés el partido: si tu equipo se queda sin personas, gana el otro, y en el ranking cuenta como abandono.';
+  btn.closest('.row, .hlinks').after(n);
+}
 function rankNote(L){
   if (!NET || !NET.tr || NET.tr.kind !== 'server' || !L || !L.seats || L.started) return '';
   const eq = [0, 1].map(t => L.seats.some((s, p) => team(p) === t && s.cuenta));
@@ -9053,7 +9203,7 @@ function renderPublicLobby(box, L){
   if ($('hInvAm')) $('hInvAm').onclick = () => cuentaIr('amigos', { volver: 'lobby' });
   if ($('hVote')) $('hVote').onclick = () => netPost({ t: 'empezar', si: !(L.votos || []).includes(NET.seat) });
   if ($('hGo')) $('hGo').onclick = () => continueGame();
-  if ($('hClose')) $('hClose').onclick = () => { leaveNet(); homeView = 'publicas'; renderHome(); };
+  if ($('hClose')) $('hClose').onclick = () => confirmarSalida($('hClose'), () => { leaveNet(); homeView = 'main'; renderHome(); });
   box.querySelectorAll('[data-sit]').forEach(b => b.onclick = () => netPost({ t: 'sit', seat: +b.dataset.sit, name: NET.name, realista }));
 }
 function renderLobby(box){
@@ -9115,7 +9265,7 @@ function renderLobby(box){
   };
   if ($('hShare')) $('hShare').onclick = () => navigator.share({ title: 'Truco uruguayo', text: `Vení a jugar al truco: mesa ${NET.code}`, url: $('hUrl').value }).catch(() => {});
   if ($('hUrl')) $('hUrl').onfocus = e => e.target.select();
-  $('hClose').onclick = () => { if (NET && NET.owner) netPost({ t: 'close' }); leaveNet(); homeView = 'main'; renderHome(); };
+  $('hClose').onclick = () => confirmarSalida($('hClose'), () => { if (NET && NET.owner && !(G && G.phase !== 'matchEnd')) netPost({ t: 'close' }); leaveNet(); homeView = 'main'; renderHome(); });
 }
 function renderJoin(box){
   box.innerHTML = `<div class="hbar"><button class="tool" id="hBack">Volver</button><h2>Unirme a una mesa</h2></div>

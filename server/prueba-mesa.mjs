@@ -269,6 +269,56 @@ await ta('con cuentas: se guarda y se recupera tras un reinicio', async () => {
   assert(reg2[0].cuentas[0].stats.manos > 1);
 });
 
+// ---------- abandonar ----------
+await ta('abandono: el que se va a propósito pierde enseguida (y en el ranking)', async () => {
+  const W = mundo(), reg = conCuentas(W), m = new Mesa(W.io, null);
+  m.onOpen('a'); m.onMessage('a', { t: 'hello', name: 'Ana', pid: 'pa', crear: { n: 2, key: 'k' }, token: 'tA' });
+  m.onOpen('b'); m.onMessage('b', { t: 'hello', name: 'Beto', pid: 'pb', token: 'tB' });
+  await pausa();
+  m.onMessage('a', { t: 'start', rules: { target: 30, chicosToWin: 1 } });
+  for (let i = 0; i < 6; i++) { juega(m, W, 'a'); juega(m, W, 'b'); W.run(500); }
+  assert.equal(m.GM.phase === 'matchEnd', false);
+  m.onMessage('b', { t: 'bye' });
+  assert.equal(m.GM.phase, 'matchEnd'); assert.equal(m.GM.matchWinner, 0);
+  assert.match(m.GM.round.result.texto, /Beto abandonó el partido: gana Ana/);
+  await pausa(); await pausa();
+  assert.equal(reg.length, 1);
+  const by = Object.fromEntries(reg[0].cuentas.map(c => [c.uid, c]));
+  assert.equal(reg[0].ganador, 0); assert.equal(by[2].abandono, true); assert.equal(by[1].abandono, false);
+  assert.equal(last(W.inbox, 'a', 'state').view.phase, 'matchEnd');
+});
+
+await ta('abandono: si se le corta, tiene un minuto para volver; si no vuelve, pierde', async () => {
+  const W = mundo(); conCuentas(W); const m = new Mesa(W.io, null);
+  m.onOpen('a'); m.onMessage('a', { t: 'hello', name: 'Ana', pid: 'pa', crear: { n: 2, key: 'k' } });
+  m.onOpen('b'); m.onMessage('b', { t: 'hello', name: 'Beto', pid: 'pb' });
+  m.onMessage('a', { t: 'start' });
+  m.onClose('b');
+  for (let i = 0; i < 30; i++) { W.run(1000); vivo(m, W, 'a'); }
+  assert.notEqual(m.GM.phase, 'matchEnd', 'todavía tiene tiempo');
+  m.onOpen('b2'); m.onMessage('b2', { t: 'hello', name: 'Beto', pid: 'pb' });   // vuelve a tiempo
+  for (let i = 0; i < 70; i++) { W.run(1000); vivo(m, W, 'a'); vivo(m, W, 'b2'); }
+  assert.notEqual(m.GM.phase, 'matchEnd', 'volvió: sigue el partido');
+  m.onClose('b2');
+  for (let i = 0; i < 62; i++) { W.run(1000); vivo(m, W, 'a'); }
+  assert.equal(m.GM.phase, 'matchEnd'); assert.equal(m.GM.matchWinner, 0);
+});
+
+await ta('abandono en parejas: mientras al equipo le quede alguien, sigue; si se van todos, gana el otro', async () => {
+  const W = mundo(); conCuentas(W); const m = new Mesa(W.io, null);
+  m.onOpen('a'); m.onMessage('a', { t: 'hello', name: 'Ana', pid: 'pa', crear: { n: 4, key: 'k' } });
+  m.onOpen('b'); m.onMessage('b', { t: 'hello', name: 'Beto', pid: 'pb' });
+  m.onOpen('c'); m.onMessage('c', { t: 'hello', name: 'Ceci', pid: 'pc' });
+  m.onMessage('b', { t: 'sit', seat: 3 });
+  assert.deepEqual([m.seatOf('a') % 2, m.seatOf('b') % 2, m.seatOf('c') % 2], [0, 1, 1], 'Beto y Ceci juntos en contra');
+  m.onMessage('a', { t: 'start' });
+  m.onMessage('b', { t: 'bye' });
+  assert.notEqual(m.GM.phase, 'matchEnd', 'Ceci sigue en el equipo');
+  m.onMessage('c', { t: 'bye' });
+  assert.equal(m.GM.phase, 'matchEnd'); assert.equal(m.GM.matchWinner, 0);
+  assert.match(m.GM.round.result.texto, /abandonaron el partido/);
+});
+
 // ---------- mesas públicas ----------
 function conSalon(W) { const avisos = []; W.io.salon = info => { avisos.push(info); return Promise.resolve(true); }; return avisos; }
 const quienes = { tA: { id: 1, apodo: 'Ana' }, tB: { id: 2, apodo: 'Beto' }, tC: { id: 3, apodo: 'Ceci' } };

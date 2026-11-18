@@ -126,6 +126,9 @@ h1 small{font-family:'Alegreya Sans',sans-serif;font-size:15px;font-weight:500;c
 .helper b{color:var(--gold)}
 .helper i{color:#f3d27a}
 .actions{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;min-height:46px}
+.actions.dos{flex-direction:column;align-items:center}
+.actions .fila{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.actions .fila.resp .act{min-width:128px}
 .act{border:0;border-radius:12px;padding:10px 16px;font-size:17px;font-weight:700;cursor:pointer;
   background:var(--btn);color:var(--btn-ink);box-shadow:0 3px 0 rgba(0,0,0,.35);transition:transform .08s}
 .act:hover{transform:translateY(-1px)}
@@ -140,6 +143,9 @@ h1 small{font-family:'Alegreya Sans',sans-serif;font-size:15px;font-weight:500;c
 .mysenas{display:flex;gap:6px;align-items:center;justify-content:center;flex-wrap:wrap;font-size:13px;color:var(--muted);margin-top:4px}
 .mysenas button{background:rgba(0,0,0,.28);border:1px solid rgba(255,255,255,.18);color:var(--ink);border-radius:999px;padding:3px 9px;cursor:pointer;font-size:13px}
 .mysenas button[aria-pressed="true"]{background:var(--gold);color:#2b1d10;border-color:var(--gold)}
+.pedidos{display:flex;gap:6px;align-items:center;justify-content:center;flex-wrap:wrap;font-size:13px;color:var(--muted);margin-top:4px}
+.pedidos button{background:rgba(251,246,234,.1);border:1px solid rgba(251,246,234,.3);color:var(--ink);border-radius:999px;padding:4px 11px;cursor:pointer;font-size:13.5px;font-weight:600}
+.pedidos button:hover{background:rgba(251,246,234,.2)}
 
 .card{width:var(--cw);height:var(--ch);border-radius:9px;background:var(--paper);box-shadow:0 2px 0 var(--paper-edge),0 6px 14px rgba(0,0,0,.35);position:relative;flex:none;user-select:none}
 .card img{display:block;width:100%;height:100%;object-fit:cover;border-radius:9px;pointer-events:none}
@@ -151,9 +157,12 @@ h1 small{font-family:'Alegreya Sans',sans-serif;font-size:15px;font-weight:500;c
 .deckform input[type=text],.deckform select,.deckform input[type=number]{font:inherit;padding:4px 6px;border-radius:8px;border:1px solid #cdbf9f;background:#fff}
 .deckform .suits{display:flex;gap:6px;flex-wrap:wrap}
 .card.play{cursor:pointer;transition:transform .15s, box-shadow .15s}
-.card.play:hover{transform:translateY(-12px);box-shadow:0 2px 0 var(--paper-edge),0 16px 24px rgba(0,0,0,.45),0 0 0 3px var(--gold)}
+/* en pantallas táctiles el hover queda "pegado" después de tocar: ahí la carta no se levanta */
+@media (hover:hover){.card.play:hover{transform:translateY(-12px);box-shadow:0 2px 0 var(--paper-edge),0 16px 24px rgba(0,0,0,.45),0 0 0 3px var(--gold)}}
 .card.dim{filter:saturate(.75) brightness(.92)}
 .hand.me .card{width:100px;height:152px}
+/* la mano guarda su lugar aunque esté vacía (entre manos), así no se mueve lo de abajo */
+.hand.me{min-height:152px}
 .badge{position:absolute;left:50%;bottom:-9px;transform:translateX(-50%);font-size:11px;font-weight:700;padding:1px 7px;border-radius:999px;letter-spacing:.5px;text-transform:uppercase;white-space:nowrap}
 .badge.pieza{background:var(--gold);color:#2b1d10}.badge.mata{background:#c7412f;color:#fff}.badge.fio{background:#2f62a8;color:#fff}
 .back{width:var(--cw);height:var(--ch);border-radius:9px;flex:none;
@@ -499,8 +508,21 @@ img.avt{object-fit:cover;background:#2a1d13}
   .muestra-box{flex-direction:row;justify-content:center}
   .tricks{gap:6px}.slot{min-width:0;padding:4px}
   .hand.me .card{width:78px;height:118px}
+  .hand.me{min-height:118px}
+  /* las bazas de arriba de la cruz en una sola línea, para que la cruz no crezca cuando se llenan */
+  .cross-wrap>.chips{flex-wrap:nowrap;gap:5px}
+  .cross-wrap .chips .chips{gap:3px}
+  .cross-wrap .chips .lbl{font-size:10px;letter-spacing:0}
+  .cross-wrap .res{font-size:11px;padding:2px 6px;white-space:nowrap}
 
   .s-top{min-height:90px}
+  /* el compañero de arriba no cambia de alto: las señas en una sola línea (se desliza si no entran) y el lugar de las marcas guardado */
+  .table.four .s-top .senas{flex-wrap:nowrap;overflow-x:auto;justify-content:flex-start;scrollbar-width:none}
+  .table.four .s-top .senas::-webkit-scrollbar{display:none}
+  .table.four .s-top .senas .sena{flex:none}
+  .table.four .s-top .senas .sena:first-child{margin-left:auto}
+  .table.four .s-top .senas .sena:last-child{margin-right:auto}
+  .table.four .s-top .who .tags{min-height:18px}
   .cross{gap:4px 8px}
   .hand.mini .back{width:30px;height:46px;margin-left:-14px}
   .who .name{font-size:17px}
@@ -513,6 +535,19 @@ img.avt{object-fit:cover;background:#2a1d13}
   .l3d .say,.mybub{font-size:12px}
   .baz3d{max-width:calc(100% - 140px)}
   .modes{grid-template-columns:1fr}
+  /* que en la 2D entren la mesa y tus cartas en la pantalla del celular, sin tener que bajar */
+  .app{grid-template-columns:minmax(0,1fr)}
+  header.top{flex-wrap:nowrap;gap:8px;min-width:0}
+  h1{font-size:20px;white-space:nowrap}
+  h1 small{display:none}
+  .tools{flex:1 1 0;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;min-width:0}
+  .tools::-webkit-scrollbar{display:none}
+  .tools .tool{flex:none;font-size:13px;padding:6px 10px}
+  .muestra-box .deckpile{--cw:46px;--ch:70px}
+  .s-bottom .hand.me{order:-2}
+  .s-bottom .err{order:-1}
+  .s-bottom .err:empty{min-height:0}
+  .actions .fila.resp .act{min-width:110px}
 }
 </style>
 </head>
@@ -796,6 +831,7 @@ function mySeat(act){
   });
   sm.appendChild(mh);
   sm.appendChild(myTagsEl());
+  const pd = pedidosEl(); if (pd) sm.appendChild(pd);
   if (senasCond()) sm.appendChild(mySenas());
   bubble(sm, R.said[ME]);
   return sm;
@@ -814,8 +850,29 @@ function hud3d(act){
     hud.appendChild(sr);
   }
   hud.appendChild(myTagsEl());
+  const pd = pedidosEl(); if (pd) hud.appendChild(pd);
   if (senasCond()) hud.appendChild(mySenas());
   return myLegal;
+}
+// Atajos para hablarle al compañero en voz alta (los oye toda la mesa; la computadora compañera hace caso)
+function pedidosEl(){
+  const R = G.round;
+  if (!R || G.n < 4 || G.phase !== 'play' || R.leyPhase || !R.active[ME] || R.out[ME]) return null;
+  if (!G.names.some((_, q) => q !== ME && team(q) === MT() && R.active[q] && !R.out[q])) return null;   // en los duelos no hay compañero
+  const box = el('div','pedidos');
+  box.appendChild(el('span','', 'A tu compañero:'));
+  Object.entries(T.PEDIDOS).forEach(([k, v]) => {
+    const b = el('button','', esc(v.texto)); b.type = 'button'; b.title = 'Pedirle ' + v.ayuda;
+    b.onclick = () => pedirAlCompa(k); box.appendChild(b);
+  });
+  return box;
+}
+let pedidoAt = 0;
+function pedirAlCompa(k){
+  if (Date.now() - pedidoAt < 1500) return;
+  pedidoAt = Date.now();
+  if (isGuest()) { netSend({ t: 'pedido', k }); return; }
+  if (T.pedir(GM, ME, k)) { SND.play('chat'); render(); }
 }
 function senasCond(){ const R = G.round; return G.n>=4 && G.phase==='play' && G.rules.senas && !R.duel && !R.leyPhase && !myCardsHidden(); }
 // a ley de juego: mientras se decide (y los que la impusieron, hasta la respuesta) no se ven las propias cartas
@@ -840,10 +897,18 @@ function actionsEl(myLegal){
     if (myLegal.some(a=>a.type==='buenas')) { const b=el('button','act no','Son buenas'); b.onclick=()=>human({type:'buenas'}); box.appendChild(b); }
     acts.appendChild(box);
     setTimeout(()=>{ const i=$('singInput'); if(i) i.focus(); }, 0);
-  } else myLegal.filter(a=>a.type!=='play').forEach(a => {
-    const b = el('button','act '+actClass(a)); b.textContent = T.label(G,a);
-    b.onclick = () => human(a); acts.appendChild(b);
-  });
+  } else {
+    const boton = a => { const b = el('button','act '+actClass(a)); b.textContent = T.label(G,a); b.onclick = () => human(a); return b; };
+    const todas = myLegal.filter(a=>a.type!=='play');
+    const resp = todas.filter(a => a.type==='quiero' || a.type==='noquiero').sort((a, b) => (a.type==='quiero' ? 0 : 1) - (b.type==='quiero' ? 0 : 1));
+    if (resp.length) {
+      // contestando: primero "Quiero" y "No quiero", y abajo lo demás (retruco, reenvidar, flor, mazo…)
+      acts.classList.add('dos');
+      const f1 = el('div','fila resp'); resp.forEach(a => f1.appendChild(boton(a))); acts.appendChild(f1);
+      const resto = todas.filter(a => !resp.includes(a));
+      if (resto.length) { const f2 = el('div','fila'); resto.forEach(a => f2.appendChild(boton(a))); acts.appendChild(f2); }
+    } else todas.forEach(a => acts.appendChild(boton(a)));
+  }
   return acts;
 }
 
@@ -1274,6 +1339,7 @@ function showRoundEnd(){
   const R = G.round, we = G.n>=4, mt = MT();
   const them = NET && G.n === 2 ? G.names[otherOf2()] : 'La computadora';
   const lines = [];
+  if (R.result && R.result.reason === 'abandono') lines.push(`<li><b>${esc(R.result.texto)}</b></li>`);
   [0,1].forEach(t => R.gained[t].forEach(g => lines.push(`<li><b>${esc(G.teamNames[t])}</b> +${g.pts} — ${esc(g.why)}</li>`)));
   let title = G.phase==='duelEnd' ? `Terminó el duelo ${R.duel.idx+1}` : 'Fin de la mano';
   recordStats(R);
@@ -1391,9 +1457,10 @@ function howToModal(){
   <p><b>Tiempo:</b> tenés 30 segundos para cada decisión (se cambia en Reglas de la mesa). Si se te acaba, decide la computadora por vos. Con el menú abierto la cuenta se frena.</p>
   <p><b>Señas pescadas:</b> de cada 50 señas que se hacen, una la ve algún rival. Te puede pasar a vos con las señas de Tito y Nacho, y a ellos con las tuyas o las de Pocho. Lo que se ve es siempre verdad, y la computadora también lo usa.</p>
   <p><b>Modo realista:</b> la flor no se canta sola y los puntos los cantás vos. Si jugás o cantás otra cosa sin cantar tu flor, la negás. Las faltas se descubren cuando se ven tus cartas: si ganás un envite (tenés que mostrarlas) o si jugás las tres. Cantar errado o negar la flor, si se descubre, te hace perder todo lo de la mano (Art. 46). Cantar flor sin tenerla se descubre enseguida. Si se descubre que ganaste un envite negando la flor, es falta grave (Art. 100).</p>
-  <p><b>Paso y mazo:</b> en parejas y tercetos, si decís "paso" salís de la mano y no jugás más bazas, pero te quedás con tus cartas por si tenés que mostrarlas (Arts. 88 y 92). Si te vas al mazo sin ser el pie de tu equipo, te vas solo y tu equipo sigue; si se va el pie, pierde el equipo. En Reglas de la mesa podés elegir en cambio que irse al mazo saque a todo el equipo (Art. 90).</p>
+  <p><b>Paso y mazo:</b> en parejas y tercetos, si decís "paso" salís de la mano y no jugás más bazas, pero te quedás con tus cartas por si tenés que mostrarlas (Arts. 88 y 92). Si te vas al mazo sin ser el pie de tu equipo, te vas solo y tu equipo sigue; si se va el pie, pierde el equipo. En Reglas de la mesa podés elegir en cambio que irse al mazo saque a todo el equipo (Art. 90). Si un equipo se va en la primera baza sin que nadie haya tocado ni gritado, y al otro todavía le quedaba tocar, el otro cobra <b>dos</b> puntos.</p>
+  <p><b>Atajos al compañero:</b> en parejas y tercetos, abajo tenés <i>¡Vení!</i> (que gane la baza), <i>¡Jugá algo!</i> (que no tire la peor), <i>¡Gritá!</i> (que cante truco) y <i>Tengo algo para el tanto</i> (que toque o quiera el envido). Los oye toda la mesa, como si lo dijeras en voz alta; la computadora compañera te hace caso.</p>
   <p><b>Tercetos:</b> hasta que un equipo llega a la mitad del chico se alternan rondas generales y rondas mano a mano, en las que cada uno juega contra el rival de enfrente; ahí la falta tiene tope de 10 (Arts. 83 a 87). En esos duelos (el pico a pico) las piezas se juegan dadas vuelta: solo las ven los dos que juegan ese duelo.</p>
-  <p><b>A ley de juego:</b> en parejas y tercetos, cuando algún equipo ya entró en buenas, el equipo que va perdiendo (o el del mano, si van iguales) puede imponerla en cada mano antes de ver las cartas y la muestra (nadie ve sus cartas mientras se decide), o jugar normal. Los rivales, ya con sus cartas a la vista, dicen cada uno en su turno "con ley" si tienen flor o "a punto" si no, y después el pie de su equipo contesta todo de una vez. Los que la impusieron ven sus cartas cuando llega la respuesta. Es una versión simplificada del Cap. 7: no incluye los reenvites del Art. 76 ni el Art. 79.</p>
+  <p><b>A ley de juego:</b> en parejas y tercetos, cuando algún equipo ya entró en buenas, el equipo que va perdiendo (o el del mano, si van iguales) puede imponerla en cada mano antes de ver las cartas y la muestra (nadie ve sus cartas mientras se decide), o jugar normal. Los rivales, ya con sus cartas a la vista, dicen cada uno en su turno "con ley" si tienen flor o "a punto" si no, y después el pie de su equipo contesta todo de una vez. Los que la impusieron ven sus cartas cuando llega la respuesta. Si hay flor y no se quiere el envite, se cobra la flor y el envite no querido no suma para nadie. Es una versión simplificada del Cap. 7: no incluye los reenvites del Art. 76 ni el Art. 79.</p>
   <p><b>Reglas de la mesa:</b> en Configuración, desde el menú: puntos por chico, cantidad de chicos, tiempo para decidir, con o sin flor, qué pasa con tu flor si tu compañero toca o grita, cartas iguales, señas y dificultad.</p>
   <p class="small">Tocar es envido, gritar es truco, cantar es flor. Reglas según el Reglamento del Truco Uruguayo.</p>
   <div class="row"><button class="act" id="mOk">Entendido</button></div>`);

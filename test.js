@@ -517,7 +517,7 @@ t('parejas: si pasan los dos del equipo, pierden la mano', () => {
   act(G, 0, typ('paso')); act(G, 1, typ('play'));
   assert(!T.legal(G, 2).some(a => a.type === 'paso')); // el último del equipo solo puede irse al mazo
   act(G, 2, typ('mazo'));
-  assert.deepEqual(G.scores, [0, 1]);
+  assert.deepEqual(G.scores, [0, 2]);   // en la primera, sin tocar ni gritar, y Nacho todavía podía tocar: dos
 });
 
 
@@ -528,8 +528,8 @@ t('parejas: si no sos el pie y te vas al mazo, tu equipo sigue; si se va el pie,
   act(G, 0, typ('mazo'));
   assert.equal(G.phase, 'play'); assert(G.round.out[0]);
   act(G, 1, typ('play'));
-  act(G, 2, typ('mazo'));                     // el pie se va: pierde el equipo
-  assert.deepEqual(G.scores, [0, 1]);
+  act(G, 2, typ('mazo'));                     // el pie se va: pierde el equipo (en la primera y sin tocar: dos)
+  assert.deepEqual(G.scores, [0, 2]);
 });
 t('ley de juego: solo en parejas o tercetos y cuando alguien entró en buenas', () => {
   const G2 = setup([C(6,'oro'),C(7,'oro'),C(3,'basto')], [C(6,'basto'),C(1,'basto'),C(3,'copa')], C(4,'espada'), [5, 25]);
@@ -595,6 +595,83 @@ t('ley de juego: no querer nada da 1 por el envite y 1 por el truco', () => {
   act(G, T.actor(G), a => a.type === 'leyresp' && !a.env && !a.truco);
   assert.deepEqual(G.scores, [7, 25]);
   assert.equal(G.phase, 'roundEnd');
+});
+
+t('ley de juego: si hay flor y no se quiere el envite, la flor se cobra y el punto del envite no es para nadie', () => {
+  // Pocho (compañero del que impone la ley) tiene flor de copas; los otros dos dicen "a punto" y no quieren nada
+  const H = [[C(6,'oro'),C(7,'oro'),C(3,'copa')],[C(6,'basto'),C(1,'basto'),C(3,'oro')],[C(1,'copa'),C(12,'copa'),C(5,'copa')],[C(11,'copa'),C(10,'copa'),C(4,'basto')]];
+  const G = setup4(H, C(4,'espada'), 3); G.scores = [5, 25]; G.round = { dummy: true }; G.dealer = 2; G.roundNo = 0;
+  const order = []; for (let r = 0; r < 3; r++) for (let i = 0; i < 4; i++) order.push(H[i][r]); order.push(C(4,'espada'));
+  const rest = T.makeDeck().filter(c => !order.some(o => o.id === c.id)); T.startRound(G, rest.concat(order.reverse()));
+  assert(G.round.flor.has[2], 'Pocho tiene flor');
+  act(G, 0, a => a.type === 'ley' && a.form === 'falta_truco');
+  act(G, 1, a => a.type === 'leyest'); act(G, 3, a => a.type === 'leyest');
+  assert.equal(G.round.ley.envPart, 'falta');
+  act(G, T.actor(G), a => a.type === 'leyresp' && !a.env && !a.truco);
+  // flor de Pocho: 3; truco no querido: 1; el envite no querido: nada
+  assert.deepEqual(G.scores, [9, 25]);
+  assert(!G.round.gained[0].some(g => /envite no querido/.test(g.why)));
+});
+
+t('atajos al compañero: vení, jugá algo, gritá y tengo algo para el tanto (la computadora hace caso)', () => {
+  const H = () => [[C(4,'basto'),C(5,'oro'),C(6,'basto')],[C(3,'oro'),C(7,'basto'),C(11,'espada')],[C(4,'oro'),C(1,'basto'),C(2,'copa')],[C(10,'oro'),C(12,'espada'),C(6,'oro')]];
+  const sin = { flor: false };
+  // vení: Pocho le gana a la baza con la más baja que alcanza (el ancho de basto, no la pieza)
+  let G = setup4(H(), C(7,'copa'), 3, false, sin);
+  act(G, 0, a => a.type === 'play' && a.card.id === '4-basto');
+  act(G, 1, a => a.type === 'play' && a.card.id === '3-oro');
+  assert(T.pedir(G, 0, 'veni'));
+  assert.equal(G.round.said[0].text, '¡Vení!');
+  let a = AI.choose(G, 2, { samples: 10 });
+  assert.equal(a.type, 'play'); assert.equal(a.card.id, '1-basto');
+  // jugá algo, sin poder ganar: no tira la peor
+  G = setup4(H(), C(7,'copa'), 3, false, sin);
+  act(G, 0, a => a.type === 'play' && a.card.id === '4-basto');
+  act(G, 1, a => a.type === 'play' && a.card.id === '3-oro');
+  T.pedir(G, 0, 'algo');
+  a = AI.choose(G, 2, { samples: 10 });
+  assert.equal(a.card.id, '1-basto');
+  // gritá: canta truco en su turno
+  G = setup4(H(), C(7,'copa'), 3, false, sin);
+  T.pedir(G, 0, 'grita');
+  act(G, 0, typ('play')); act(G, 1, typ('play'));
+  assert.equal(AI.choose(G, 2, { samples: 10 }).type, 'truco');
+  // tengo algo para el tanto: toca (envido)
+  G = setup4(H(), C(7,'copa'), 3, false, sin);
+  T.pedir(G, 0, 'tanto');
+  act(G, 0, typ('play')); act(G, 1, typ('play'));
+  a = AI.choose(G, 2, { samples: 10 });
+  assert.equal(a.type, 'envido'); assert.equal(a.kind, 'envido');
+  // los rivales no le hacen caso, y en mano a mano no hay atajos
+  G = setup4(H(), C(7,'copa'), 3, false, sin);
+  T.pedir(G, 1, 'grita');
+  act(G, 0, typ('play')); act(G, 1, typ('play'));
+  const G2 = setup([C(4,'oro'),C(5,'copa'),C(6,'basto')], [C(4,'basto'),C(5,'oro'),C(6,'copa')], C(7,'espada'));
+  assert(!T.pedir(G2, 0, 'veni'));
+});
+
+t('mazo en la primera sin tocar ni gritar, si el otro todavía podía tocar: dos puntos', () => {
+  const sin = { flor: false };
+  // el mano se va enseguida: el pie todavía podía tocar
+  let G = setup([C(4,'oro'),C(5,'copa'),C(6,'basto')], [C(4,'basto'),C(5,'oro'),C(6,'copa')], C(7,'espada'), [0, 0], sin);
+  act(G, T.actor(G), typ('mazo'));
+  assert.equal(G.scores[1 - T.team(G.round.mano)], 2);
+  // el mano ya jugó y el pie se va: el mano ya no podía tocar, es uno
+  G = setup([C(4,'oro'),C(5,'copa'),C(6,'basto')], [C(4,'basto'),C(5,'oro'),C(6,'copa')], C(7,'espada'), [0, 0], sin);
+  const mano = T.actor(G); act(G, mano, typ('play'));
+  act(G, T.actor(G), typ('mazo'));
+  assert.equal(G.scores[T.team(mano)], 1);
+  // si ya se tocó (envido no querido), irse vale lo de siempre
+  G = setup([C(4,'oro'),C(5,'copa'),C(6,'basto')], [C(4,'basto'),C(5,'oro'),C(6,'copa')], C(7,'espada'), [0, 0], sin);
+  const m0 = T.actor(G); act(G, m0, a => a.type === 'envido' && a.kind === 'envido');
+  act(G, T.actor(G), typ('noquiero'));
+  const quien = T.actor(G), antes = G.scores.slice(); act(G, quien, typ('mazo'));
+  assert.equal(G.scores[1 - T.team(quien)] - antes[1 - T.team(quien)], 1);
+  // en la segunda baza, uno
+  G = setup([C(4,'oro'),C(5,'copa'),C(6,'basto')], [C(4,'basto'),C(5,'oro'),C(6,'copa')], C(7,'espada'), [0, 0], sin);
+  act(G, T.actor(G), typ('play')); act(G, T.actor(G), typ('play'));
+  const q2 = T.actor(G), a2 = G.scores.slice(); act(G, q2, typ('mazo'));
+  assert.equal(G.scores[1 - T.team(q2)] - a2[1 - T.team(q2)], 1);
 });
 
 t('ley de juego: mientras se decide nadie ve sus cartas; impuesta, los desafiantes tampoco hasta la respuesta', () => {

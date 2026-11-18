@@ -306,6 +306,7 @@ function onHostMsg(m){
       return;
     }
     case 'senas': if (s >= 0 && NET.started && GM && GM.phase === 'play') { T.setSenas(GM, s, Array.isArray(m.list) ? m.list.filter(k => T.SENAS[k]) : []); render(); } return;
+    case 'pedido': if (s >= 0 && NET.started && GM && GM.phase === 'play' && T.PEDIDOS[m.k] && T.pedir(GM, s, m.k)) render(); return;
     case 'ready': if (s >= 0 && NET.started && m.key === roundKey(GM)) { NET.ready.add(s); checkReady(); } return;
     case 'pref': if (s >= 0) NET.prefs[s] = !!m.realista; return;
     case 'chat': {
@@ -503,6 +504,16 @@ function seatsHTML(seats, opts){
   return '<div class="seats">' + [0, 1].map(t => `<div class="team t${t}"><h3>Equipo ${t === 0 ? 'celeste' : 'bordó'}</h3><ul>${seats.map((s, p) => team(p) === t ? row(s, p) : '').join('')}</ul></div>`).join('') + '</div>';
 }
 // si el partido va a contar para el ranking (solo en mesas del servidor, con cuentas en los dos equipos)
+// irse de una mesa del servidor con el partido en juego lo pierde: se pide confirmar (el botón cambia de texto)
+function enJuegoOnline(){ return !!(NET && NET.tr && NET.tr.kind === 'server' && G && G.phase !== 'matchEnd' && NET.seat >= 0); }
+function confirmarSalida(btn, salir){
+  if (!enJuegoOnline() || btn.dataset.seguro === '1') { salir(); return; }
+  btn.dataset.seguro = '1';
+  btn.textContent = 'Sí, irme y perder el partido';
+  const n = document.createElement('p'); n.className = 'hnote'; n.setAttribute('role', 'alert');
+  n.textContent = 'Si te vas ahora, perdés el partido: si tu equipo se queda sin personas, gana el otro, y en el ranking cuenta como abandono.';
+  btn.closest('.row, .hlinks').after(n);
+}
 function rankNote(L){
   if (!NET || !NET.tr || NET.tr.kind !== 'server' || !L || !L.seats || L.started) return '';
   const eq = [0, 1].map(t => L.seats.some((s, p) => team(p) === t && s.cuenta));
@@ -546,7 +557,7 @@ function renderPublicLobby(box, L){
   if ($('hInvAm')) $('hInvAm').onclick = () => cuentaIr('amigos', { volver: 'lobby' });
   if ($('hVote')) $('hVote').onclick = () => netPost({ t: 'empezar', si: !(L.votos || []).includes(NET.seat) });
   if ($('hGo')) $('hGo').onclick = () => continueGame();
-  if ($('hClose')) $('hClose').onclick = () => { leaveNet(); homeView = 'publicas'; renderHome(); };
+  if ($('hClose')) $('hClose').onclick = () => confirmarSalida($('hClose'), () => { leaveNet(); homeView = 'main'; renderHome(); });
   box.querySelectorAll('[data-sit]').forEach(b => b.onclick = () => netPost({ t: 'sit', seat: +b.dataset.sit, name: NET.name, realista }));
 }
 function renderLobby(box){
@@ -608,7 +619,7 @@ function renderLobby(box){
   };
   if ($('hShare')) $('hShare').onclick = () => navigator.share({ title: 'Truco uruguayo', text: `Vení a jugar al truco: mesa ${NET.code}`, url: $('hUrl').value }).catch(() => {});
   if ($('hUrl')) $('hUrl').onfocus = e => e.target.select();
-  $('hClose').onclick = () => { if (NET && NET.owner) netPost({ t: 'close' }); leaveNet(); homeView = 'main'; renderHome(); };
+  $('hClose').onclick = () => confirmarSalida($('hClose'), () => { if (NET && NET.owner && !(G && G.phase !== 'matchEnd')) netPost({ t: 'close' }); leaveNet(); homeView = 'main'; renderHome(); });
 }
 function renderJoin(box){
   box.innerHTML = `<div class="hbar"><button class="tool" id="hBack">Volver</button><h2>Unirme a una mesa</h2></div>

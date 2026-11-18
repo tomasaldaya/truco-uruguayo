@@ -320,6 +320,20 @@
       R.seen[o].push({ p, s });
     }
   }
+  // Lo que uno le dice en voz alta a su compañero (lo oye toda la mesa): la computadora compañera le hace caso
+  const PEDIDOS = {
+    veni: { texto: '¡Vení!', ayuda: 'que gane esta baza, aunque tenga que jugar la mejor' },
+    algo: { texto: '¡Jugá algo!', ayuda: 'que juegue una carta que valga algo, no la peor' },
+    grita: { texto: '¡Gritá!', ayuda: 'que cante truco' },
+    tanto: { texto: 'Tengo algo para el tanto', ayuda: 'que toque (envido) o quiera el envido' },
+  };
+  function pedir(G, p, k) {
+    const R = G.round;
+    if (!PEDIDOS[k] || !R || G.phase !== 'play' || G.n < 4 || !R.active[p] || R.out[p] || R.leyPhase) return false;
+    R.pedidos = (R.pedidos || []).concat([{ p, k, baza: R.tricks.length, t: G.log.length }]).slice(-12);
+    say(G, p, PEDIDOS[k].texto);
+    return true;
+  }
   function setSenas(G, p, list) {
     const R = G.round;
     if (!R || !G.rules.senas || R.duel) return;
@@ -369,6 +383,13 @@
     if (R.pending.length === 0) return R.turn === p;
     const top = R.pending[R.pending.length - 1];
     return R.pending.length === 1 && top.kind === 'truco' && top.to === p && top.level === 2;
+  }
+  // el equipo t se va en la primera baza sin haber tocado ni gritado nadie, y al otro le quedaba el envido
+  function puedeTocarElOtro(G, t) {
+    const R = G.round;
+    if (R.tricks.length || R.leyPhase || R.ley || R.envido.done || anyFlorSung(R) || R.trucoLevel > 1) return false;
+    if (R.saidTruco[0] || R.saidTruco[1] || R.saidQuiero[0] || R.saidQuiero[1] || R.pending.length) return false;
+    return fromMano(G).some(q => team(q) !== t && R.played[q] === 0);
   }
   function canReenvidar(G, p) { const t = team(p); return !G.round.saidTruco[t] && !G.round.saidQuiero[t]; }
 
@@ -795,9 +816,13 @@
           }
         }
       } else {
-        R.wonEnvite[t] = true;
-        addPoints(G, t, 1, 'envite no querido (a ley de juego)', 'envido');
-        if (afterPoints(G)) return;
+        // con flor en juego, el envite no querido no es para nadie: se cobra la flor y nada más
+        if (chd.length || chal.length) info(G, 'Hay flor: el envite no querido no suma para nadie.');
+        else {
+          R.wonEnvite[t] = true;
+          addPoints(G, t, 1, 'envite no querido (a ley de juego)', 'envido');
+          if (afterPoints(G)) return;
+        }
         if (chd.length || chal.length) {
           markSung(chd); markSung(chal);
           const F = florCount(G);
@@ -983,6 +1008,9 @@
           return;
         }
         R.pending = [];
+        // irse en la primera sin tocar ni gritar, cuando el otro todavía podía tocar: son dos puntos
+        // (uno de la mano y otro por el envido que se le quita al rival)
+        if (puedeTocarElOtro(G, t)) addPoints(G, 1 - t, 1, 'se fue en la primera sin tocar ni gritar', 'envido');
         winTruco(G, 1 - t, R.trucoLevel, G.n === 2 ? 'el rival se fue al mazo' : 'el otro equipo se fue al mazo');
         return;
       }
@@ -1027,7 +1055,7 @@
   const Truco = {
     setRng, makeDeck, shuffle, piezaRole, isPieza, rank, category, envVal, hasFlor,
     florPoints, envidoPoints, cardName, roundWinner, newMatch, startRound, actor,
-    legal, label, apply, nextRound, betTotal, validCanto, setSenas, senasFor, senasMinus, SENAS, SENA_MAX,
+    legal, label, apply, nextRound, betTotal, validCanto, setSenas, senasFor, senasMinus, SENAS, SENA_MAX, PEDIDOS, pedir,
     team, pos, inGame, esPie, leyDisponible, TRUCO_NAMES, SUITS, NUMS, DEFAULT_RULES, LEY_FORMS,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = Truco;

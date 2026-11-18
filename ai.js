@@ -246,6 +246,46 @@
       if (q !== p && T.team(q) === T.team(p) && T.inGame(R, q) && !R.acted[q] && R.played[q] === 0 && !R.flor.sung[q]) return true;
     return false;
   }
+  // Lo que pidió el compañero en voz alta ("¡Vení!", "¡Jugá algo!", "¡Gritá!", "Tengo algo para el tanto").
+  // Vale mientras tiene sentido: vení y jugá algo, en la baza en que se dijeron; gritá, mientras nadie gritó;
+  // el tanto, mientras no se jugó el envido.
+  function cumplirPedido(G, p, legal) {
+    const R = G.round;
+    if (!R || !R.pedidos || !R.pedidos.length || G.n < 4) return null;
+    const top = R.pending[R.pending.length - 1];
+    const vigente = x => team(x.p) === team(p) && x.p !== p && (
+      x.k === 'veni' || x.k === 'algo' ? x.baza === R.tricks.length && R.cur[p] === null
+      : x.k === 'grita' ? R.trucoLevel === 1 && !R.saidTruco[0] && !R.saidTruco[1]
+      : !R.envido.done && !R.flor.sung.some(Boolean));
+    const ped = R.pedidos.filter(vigente);
+    if (!ped.length) return null;
+    const quiere = k => ped.some(x => x.k === k);
+    if (quiere('tanto')) {
+      const q = top && top.kind === 'env' && find(legal, a => a.type === 'quiero');
+      if (q) return q;
+      const e = !top && find(legal, a => a.type === 'envido' && a.kind === 'envido');
+      if (e) return e;
+    }
+    if (quiere('grita') && (!top || top.kind === 'truco')) {
+      const tr = find(legal, a => a.type === 'truco');
+      if (tr) return tr;
+    }
+    const veni = quiere('veni'), algo = quiere('algo');
+    if ((veni || algo) && !top) {
+      const plays = legal.filter(a => a.type === 'play');
+      if (!plays.length) return null;
+      const m = R.muestra, rk = c => T.rank(c, m);
+      const orden = plays.slice().sort((a, b) => rk(a.card) - rk(b.card));
+      let mejor = null;
+      R.cur.forEach((c, q) => { if (c && (!mejor || rk(c) > rk(mejor.c))) mejor = { c, q }; });
+      if (mejor && team(mejor.q) === team(p)) return orden[0];                 // ya la va ganando el equipo
+      const ganan = mejor ? orden.filter(a => rk(a.card) > rk(mejor.c)) : [];
+      if (veni) return mejor ? (ganan[0] || orden[orden.length - 1]) : orden[orden.length - 1];
+      return mejor ? (ganan[0] || orden[Math.floor(orden.length / 2)]) : orden[Math.floor(orden.length / 2)];
+    }
+    return null;
+  }
+
   function choose(G, p, opts) {
     opts = opts || {};
     const level = opts.level || 'normal', L = LV[level] || LV.normal;
@@ -262,6 +302,8 @@
     const N = level === 'facil' ? LV.facil.samples : Math.round(base * L.samples);
 
     if (R.leyPhase) return leyDecide(G, p, acts);
+    const pedido = cumplirPedido(G, p, T.legal(G, p));
+    if (pedido) return pedido;
     if (top && top.kind === 'fenv') return florRespond(G, p, acts, top);
     if (R.florEnv && !R.florEnv.done && !(top && top.kind === 'fenv')) return florInit(G, p, acts);
     if (top && top.kind === 'env') return respondEnvido(G, p, acts, top, L);
