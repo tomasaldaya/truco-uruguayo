@@ -20,6 +20,10 @@ Juego de truco uruguayo para el navegador, según el *Reglamento del Truco Urugu
 - `naipes.py` — arma `naipes.part.js` a partir de los SVG originales.
 - `cards.part.js` — cartas en pantalla (la baraja del juego o el mazo que cargue el jugador).
 - `tally.part.js` — tanteador de fósforos.
+- `server/mesa.mjs` — una mesa compartida en el servidor: lugares, partido, computadora, tiempo, chat.
+- `server/worker.mjs` — el servidor en Cloudflare: sirve la página y una sala (Durable Object) por mesa.
+- `server/prueba-mesa.mjs` — pruebas de la mesa del servidor sin Cloudflare: `node server/prueba-mesa.mjs`.
+- `wrangler.jsonc`, `.github/workflows/servidor.yml` — configuración y publicación automática en Cloudflare.
 - `build.py` — arma `index.html` (un solo archivo; solo, anda sin internet; las tipografías se bajan de Google Fonts) a partir de lo anterior: `python3 build.py`.
 - `test.js` — pruebas de reglas y partidos simulados: `node test.js`.
 - `index.html` — el juego armado, listo para abrir en el navegador.
@@ -96,6 +100,21 @@ Mientras se ve la pantalla de inicio, el partido queda en pausa. Durante el jueg
 Menú, Mesa 3D/2D, Velocidad, Ayudas y Jerarquía.
 
 ## Jugar con otros (por internet)
+
+**Las mesas viven en un servidor** (Cloudflare Workers con Durable Objects: una sala por código).
+Nadie tiene que dejar una pestaña abierta: si quien creó la mesa se va o recarga, el partido sigue
+(la computadora juega por él hasta que vuelve con su lugar). El servidor corre el motor y la
+computadora y le manda a cada uno solo su vista, así nadie tiene en su navegador cartas ajenas. Los
+datos del partido van por una conexión web común (WebSocket), que pasa en cualquier red. La voz
+sigue yendo directo entre navegadores (una sala de Trystero aparte, solo para eso).
+
+Si el servidor no contesta en unos segundos, la mesa se abre como antes, de navegador a navegador
+(lo que sigue más abajo sobre "dejá esta pestaña abierta" vale para ese caso).
+
+Publicación: cada cambio en `main` corre las pruebas y publica con `wrangler deploy` (GitHub
+Actions, con el secreto `CLOUDFLARE_API_TOKEN`). Una mesa sin nadie conectado se borra a las dos
+horas. Para probar el servidor en la propia máquina: `npx wrangler dev` (con `public/index.html`) y
+abrir http://127.0.0.1:8787.
 
 El juego está publicado en **https://tomasaldaya.github.io/truco-uruguayo/** (GitHub Pages, desde
 la rama `main` de este repositorio). Desde la pantalla de inicio: **Crear una mesa** o **Unirme a

@@ -2,6 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 100 100%27%3E%3Ctext y=%27.9em%27 font-size=%2790%27%3E%F0%9F%83%8F%3C/text%3E%3C/svg%3E">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Truco Uruguayo</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -638,7 +639,7 @@ function statusBox(act){
     else if (act !== null && act !== undefined) st.innerHTML = `<span class="dots">${esc(G.names[act])} ${NET && G.humans.includes(act) ? 'está jugando' : 'está pensando'}</span>`;
   }
   if (isGuest() && NET.paused) st.innerHTML = `${esc(NET.host || 'El anfitrión')} está en el menú: el partido sigue cuando vuelva.`;
-  if (isGuest() && NET.hostLost) st.innerHTML = `Se cortó la conexión con ${esc(NET.host || 'el anfitrión')}. Esperando que vuelva…`;
+  if (isGuest() && NET.hostLost) st.innerHTML = NET.tr && NET.tr.kind === 'server' ? 'Se cortó la conexión con el servidor. Reconectando…' : `Se cortó la conexión con ${esc(NET.host || 'el anfitrión')}. Esperando que vuelva…`;
   box.appendChild(st);
   if (G.phase==='play' && clockLimit(G)) box.appendChild(el('div','clock', '<span class="bar"><i></i></span><b></b>'));
   const h = el('div','helper');

@@ -18,7 +18,52 @@ let netNote = '';   // aviso para mostrar en la pantalla de inicio (mesa cerrada
 let joinCode = '';  // código ya escrito en "Unirme a una mesa" (por ejemplo, el del link de invitación)
 const netOK = () => typeof BroadcastChannel !== 'undefined' || typeof Trystero !== 'undefined';
 const netMode = () => store.get('truco.red') === 'local' || typeof Trystero === 'undefined' || typeof RTCPeerConnection === 'undefined' ? 'local' : 'internet';
-const online = () => !!(NET && NET.tr && NET.tr.kind === 'internet');
+const online = () => !!(NET && NET.tr && (NET.tr.kind === 'internet' || NET.tr.kind === 'server'));
+// Servidor de mesas (Cloudflare): cada mesa vive ahí y nadie tiene que dejar una pestaña abierta. Si
+// la página se abre desde el mismo servidor, es la misma dirección; desde GitHub Pages, SERVIDOR.
+// Si el servidor no contesta, se vuelve a la conexión directa entre navegadores.
+const SERVIDOR = '';
+function serverURL(){
+  const o = store.get('truco.servidor');                // para pruebas: una dirección, o 'no'
+  if (o) return o === 'no' ? '' : o;
+  if (/^https?:$/.test(location.protocol) && (/\.workers\.dev$/.test(location.hostname) || /^(localhost|127\.0\.0\.1)$/.test(location.hostname))) return location.origin;
+  return SERVIDOR;
+}
+const serverOK = () => !!serverURL() && typeof WebSocket !== 'undefined';
+// identificador de esta pestaña para el servidor (para recuperar el lugar al volver)
+function myPid(){ let p = null; try { p = sessionStorage.getItem('truco.pid'); if (!p) { p = Math.random().toString(36).slice(2) + Date.now().toString(36); sessionStorage.setItem('truco.pid', p); } } catch (e) { p = p || 'p' + Math.random().toString(36).slice(2); } return p; }
+function openServerTransport(code, onMsg, onLink){
+  const url = serverURL().replace(/^http/, 'ws') + '/api/mesa/' + code;
+  let ws = null, closed = false, tries = 0;
+  const tr = {
+    kind: 'server',
+    post: m => { if (ws && ws.readyState === 1) try { ws.send(JSON.stringify(m)); } catch (e) {} },
+    close: () => { closed = true; try { if (ws) ws.close(); } catch (e) {} },
+  };
+  const connect = () => {
+    if (closed) return;
+    try { ws = new WebSocket(url); } catch (e) { onLink('fail'); return; }
+    ws.onopen = () => { tries = 0; onLink('open'); };
+    ws.onmessage = e => { let m; try { m = JSON.parse(e.data); } catch (x) { return; } onMsg(m); };
+    ws.onclose = () => { ws = null; if (closed) return; onLink('down'); setTimeout(connect, Math.min(10000, 800 * Math.pow(2, tries++))); };
+  };
+  connect();
+  return tr;
+}
+// la voz sigue yendo directo entre navegadores: con el servidor, se abre una sala aparte solo para eso
+function voiceRoom(code){
+  if (typeof Trystero === 'undefined' || typeof RTCPeerConnection === 'undefined' || store.get('truco.red') === 'local') return null;
+  const relays = (store.get('truco.relays') || '').split(',').filter(Boolean);
+  try {
+    const room = Trystero.joinRoom({ appId: APP_ID, identity: 'none', password: 'voz-' + code, ...(relays.length ? { relayConfig: { urls: relays } } : {}), ...(NET_TURN.length ? { turnConfig: NET_TURN } : {}) }, 'voz-' + code);
+    room.onPeerStream((stream, c) => vozAttach(c.peerId, stream));
+    room.onPeerJoin(c => { if (VOZ.stream) try { room.addStream(VOZ.stream, { target: c.peerId }); } catch (e) {} });
+    room.onPeerLeave(c => vozDetach(c.peerId));
+    room.onError(() => {});
+    return room;
+  } catch (e) { return null; }
+}
+const vozRoom = () => NET && (NET.vr || (NET.tr && NET.tr.room)) || null;
 // el nombre se recuerda, y cada pestaña tiene el suyo (para probar con varias pestañas a la vez)
 function myName(){ let s = null; try { s = sessionStorage.getItem('truco.nombre'); } catch (e) {} return (s !== null ? s : store.get('truco.nombre') || '').trim(); }
 function setMyName(v){ v = (v || '').trim().slice(0, 20); try { sessionStorage.setItem('truco.nombre', v); } catch (e) {} store.set('truco.nombre', v); }
@@ -57,8 +102,15 @@ function openTransport(code, onMsg, onPeer){
     close: () => { room.leave().catch(() => {}); },
   };
 }
-function openNet(role, code){
+function openNet(role, code, kind){
   const me = NET = { role, code, cid: role === 'host' ? 'host' : 'g' + Math.random().toString(36).slice(2, 10), prefs: {}, ready: new Set(), readyKey: null, hostPeer: null, lastHost: Date.now(), alive: {}, pingSeq: 0, chat: [], chatAt: {}, talking: {} };
+  if (kind === 'server') {
+    me.tr = openServerTransport(code, m => { if (NET === me && !me.mute && m && m.v === NETV && m.code === code) onGuestMsg(m); }, ev => { if (NET === me) onServerLink(ev); });
+    me.vr = voiceRoom(code);
+    setTimeout(renderChat, 0);
+    me.beat = setInterval(() => { if (NET === me && !me.mute) heartbeat(); }, 4000);
+    return;
+  }
   me.tr = openTransport(code, (m, peer) => {
     if (NET !== me || me.mute || !m || m.v !== NETV || m.code !== code) return;
     if (me.tr.kind === 'internet') {
@@ -81,7 +133,7 @@ const NET_ERR = {
 };
 function onPeerEvent(ev, peer, err){
   if (ev === 'stream') { vozAttach(peer, err); return; }
-  if (ev === 'join' && VOZ.stream) try { NET.tr.room.addStream(VOZ.stream, { target: peer }); } catch (e) {}
+  if (ev === 'join' && VOZ.stream && vozRoom()) try { vozRoom().addStream(VOZ.stream, { target: peer }); } catch (e) {}
   if (ev === 'leave') vozDetach(peer);
   if (ev === 'error') {
     const k = err && err.code === 'relay-failed' ? 'relay' : err && err.code === 'peer-connect-failed' && NET.role === 'guest' && !NET.lobby ? 'p2p' : null;
@@ -95,7 +147,16 @@ function onPeerEvent(ev, peer, err){
   if (ev === 'join' && (!NET.hostPeer || NET.hostPeer === peer)) sayHello(peer);
   if (ev === 'leave' && peer === NET.hostPeer) { NET.hostPeer = null; NET.hostLost = true; netStatus(); }
 }
+function serverHello(){
+  if (!NET || NET.tr.kind !== 'server') return;
+  NET.tr.post({ t: 'hello', v: NETV, code: NET.code, from: NET.cid, name: NET.name, pid: myPid(), realista, key: NET.ownerKey || undefined, crear: NET.crear || undefined });
+}
+// el servidor se cortó o volvió (se reconecta solo)
+function onServerLink(ev){
+  if (ev === 'down') { NET.hostLost = true; netStatus(); }
+}
 function sayHello(peer){
+  if (NET && NET.tr.kind === 'server') return serverHello();
   const go = () => { if (!NET || NET.role !== 'guest') return; try { NET.tr.post({ t: 'hello', name: NET.name, realista, v: NETV, code: NET.code, from: NET.cid }, peer || NET.hostPeer); } catch (e) {} };
   if (!NET.tr.self || NET.ready0) go(); else NET.onSelf = go;
 }
@@ -127,8 +188,8 @@ function leaveNet(soft){
   else if (NET.role === 'host') netPost({ t: 'away' }); else netPost({ t: 'bye' });
   clearTimeout(NET.helloT); clearInterval(NET.beat);
   vozStop();
-  const tr = NET.tr;
-  setTimeout(() => { try { tr.close(); } catch (e) {} }, soft ? 0 : 300);   // que llegue el último aviso
+  const tr = NET.tr, vr = NET.vr;
+  setTimeout(() => { try { tr.close(); } catch (e) {} try { if (vr) vr.leave().catch(() => {}); } catch (e) {} }, soft ? 0 : 300);   // que llegue el último aviso
   if (!soft) { netForget(); if (invitedCode()) try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {} }
   NET = null; ME = 0;
   // vuelve el partido que tenías guardado jugando solo (si había)
@@ -149,7 +210,7 @@ function netRemember(){
   try {
     const d = NET.role === 'host'
       ? { role: 'host', code: NET.code, n: NET.n, started: NET.started, seats: NET.seats.map(s => s.kind === 'guest' ? { kind: 'ai', name: s.name, left: true } : s), prefs: NET.prefs, G: NET.started ? GM : null, at: Date.now() }
-      : { role: 'guest', code: NET.code, name: NET.name, at: Date.now() };
+      : { role: 'guest', code: NET.code, name: NET.name, key: NET.ownerKey || null, server: NET.tr.kind === 'server', at: Date.now() };
     sessionStorage.setItem('truco.mesa', JSON.stringify(d));
   } catch (e) {}
 }
@@ -158,7 +219,7 @@ function netRestore(){
   let d = null;
   try { d = JSON.parse(sessionStorage.getItem('truco.mesa') || 'null'); } catch (e) {}
   if (!d || Date.now() - d.at > 6 * 3600e3) { netForget(); return false; }
-  if (d.role === 'guest') { joinTable(d.code, d.name, true); return true; }
+  if (d.role === 'guest') { joinTable(d.code, d.name, true, d.server ? (d.key ? { key: d.key } : {}) : { p2p: true }); return true; }
   openNet('host', d.code);
   NET.n = d.n; NET.seats = d.seats; NET.prefs = d.prefs || {}; NET.started = !!(d.started && d.G);
   if (NET.started) {
@@ -173,8 +234,13 @@ const inviteURL = code => /^https?:$/.test(location.protocol) ? location.origin 
 function invitedCode(){ const m = /mesa=([A-Za-z]{4})/.exec(location.hash || ''); return m ? m[1].toUpperCase() : ''; }
 
 // ---------- Anfitrión ----------
-function hostTable(n){
+function hostTable(n, p2p){
   leaveNet();
+  if (serverOK() && !p2p) {
+    const key = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
+    joinTable(newCode(), myName() || 'Anfitrión', false, { key, crear: { n, key } });
+    return;
+  }
   openNet('host', newCode());
   NET.n = n; NET.started = false;
   NET.seats = seatsFor(n);
@@ -326,25 +392,33 @@ function checkReady(){
 }
 
 // ---------- Invitado ----------
-function joinTable(code, name, back){
+function joinTable(code, name, back, opts){
+  opts = opts || {};
   leaveNet();
   code = (code || '').trim().toUpperCase();
   if (name !== undefined) setMyName(name);
-  openNet('guest', code);
+  const viaServer = serverOK() && !opts.p2p;
+  openNet('guest', code, viaServer ? 'server' : undefined);
   NET.name = myName() || 'Invitado';
   NET.lobby = null; NET.actor = null; NET.legal = []; NET.shownEnd = null; NET.hadSeat = false;
+  NET.ownerKey = opts.key || null; NET.owner = !!opts.key; NET.crear = opts.crear || null; NET.back = !!back;
   GM = null; G = null;
   const net = online();
-  if (!net) sayHello();   // por internet se saluda al conectarse con cada uno (onPeerEvent)
+  if (!net) sayHello();   // por internet se saluda al conectarse con cada uno (onPeerEvent); con el servidor, al recibir "hola"
   NET.helloT = setTimeout(() => {
     if (!NET || NET.role !== 'guest' || NET.lobby) return;
+    if (viaServer) {      // el servidor no contestó: como antes, de navegador a navegador
+      leaveNet();
+      if (opts.crear) hostTable(opts.crear.n, true); else joinTable(code, name, back, { p2p: true });
+      return;
+    }
     const err = NET.netErr;
     leaveNet();
     netNote = err ? NET_ERR[err] : back ? `No pude volver a la mesa ${code}: puede que se haya cerrado.`
       : net ? `No encontré la mesa ${code}. Revisá el código y que quien la creó la tenga abierta.`
       : `No encontré la mesa ${code}. Revisá el código y que la mesa esté abierta en otra pestaña de este navegador.`;
     joinCode = code; homeView = 'join'; renderHome();
-  }, net ? 25000 : 1500);
+  }, viaServer ? 7000 : net ? 25000 : 1500);
   netRemember();
   homeView = 'lobby'; renderHome();
 }
@@ -354,6 +428,15 @@ function onGuestMsg(m){
   if (NET.hostLost && m.t !== 'away') { NET.hostLost = false; netStatus(); }
   switch (m.t) {
     case 'ping': netPost({ t: 'pong', s: m.s, seated: NET.seat >= 0 }); return;
+    case 'hola': NET.cid = m.cid; serverHello(); return;
+    case 'nomesa': {         // el servidor no tiene esa mesa: puede ser una mesa de navegador a navegador
+      const c = NET.code, nm = NET.name, back = NET.back, owner = NET.owner;
+      clearTimeout(NET.helloT); leaveNet();
+      if (netMode() === 'internet' && !owner) joinTable(c, nm, back, { p2p: true });
+      else { netNote = back || owner ? `La mesa ${c} ya no existe.` : `No encontré la mesa ${c}. Revisá el código.`; joinCode = owner ? '' : c; homeView = owner ? 'main' : 'join'; renderHome(); }
+      return;
+    }
+    case 'ocupada': { const cr = NET.crear; leaveNet(); joinTable(newCode(), myName() || 'Anfitrión', false, { key: cr.key, crear: cr }); return; }
     case 'lobby': {
       clearTimeout(NET.helloT);
       NET.lobby = m;
@@ -396,34 +479,38 @@ function seatsHTML(seats, opts){
   const mine = p => NET && NET.role === 'guest' ? p === NET.seat : p === 0;
   const row = (s, p) => {
     const who = s.kind === 'ai' ? `${esc(s.name)} <small>(computadora)</small>` : `${esc(s.name)}${s.kind === 'host' ? ' <small>(anfitrión)</small>' : ''}`;
-    const sit = opts.canSit && s.kind === 'ai' && !mine(p) ? `<button class="tool" data-sit="${p}">Sentarme acá</button>` : '';
+    const sit = opts.canSit && s.kind === 'ai' && !s.host && !mine(p) ? `<button class="tool" data-sit="${p}">Sentarme acá</button>` : '';
     return `<li class="${mine(p) ? 'me' : ''}"><span>${who}${mine(p) ? ' <b>· vos</b>' : ''}</span>${sit}</li>`;
   };
   return '<div class="seats">' + [0, 1].map(t => `<div class="team t${t}"><h3>Equipo ${t === 0 ? 'celeste' : 'bordó'}</h3><ul>${seats.map((s, p) => team(p) === t ? row(s, p) : '').join('')}</ul></div>`).join('') + '</div>';
 }
 function renderLobby(box){
   if (!NET) { homeView = 'main'; return renderHome(); }
+  const viaServer = NET.tr && NET.tr.kind === 'server';
+  // el dueño de la mesa: el anfitrión de siempre o, con el servidor, el que la creó
+  const owner = NET.role === 'host' || NET.owner;
+  const L = NET.role === 'host' ? { n: NET.n, started: NET.started, seats: NET.seats } : NET.lobby;
   let h = `<div class="hbar"><button class="tool" id="hBack">Volver</button><h2>Mesa ${esc(NET.code)}</h2></div>`;
   if (NET.netErr) h += `<p class="hnote" role="alert">${NET_ERR[NET.netErr]}</p>`;
-  if (NET.role === 'host') {
+  if (NET.hostLost && L) h += `<p class="hnote" role="status">${viaServer ? 'Se cortó la conexión con el servidor. Reconectando…' : `Se cortó la conexión con ${esc((L.seats.find(s => s.kind === 'host') || {}).name || 'el anfitrión')}. Esperando que vuelva…`}</p>`;
+  if (owner) {
     const url = online() ? inviteURL(NET.code) : '';
     h += online()
       ? `<p class="lob">Pasale ${url ? 'el link o ' : ''}el código <b class="code">${esc(NET.code)}</b> a quien quiera jugar. Entra desde su navegador, en la compu o en el celular, con "Unirme a una mesa".</p>
         ${url ? `<div class="invite"><input id="hUrl" readonly value="${esc(url)}" aria-label="Link de la mesa"><button class="tool" id="hCopy">Copiar link</button>${navigator.share ? '<button class="tool" id="hShare">Compartir</button>' : ''}</div>` : ''}
-        <p class="hkey">Dejá esta pestaña abierta mientras dure el partido: el partido corre en tu navegador.</p>`
+        <p class="hkey">${viaServer ? 'La mesa queda en el servidor: podés cerrar esta pestaña o recargar y el partido sigue.' : 'Dejá esta pestaña abierta mientras dure el partido: el partido corre en tu navegador.'}</p>`
       : `<p class="lob">Pasale el código <b class="code">${esc(NET.code)}</b> a quien quiera jugar. Sin internet funciona entre pestañas de este navegador: abrí el juego en otra pestaña, tocá "Unirme a una mesa" y escribí el código.</p>`;
-    h += `
-      <div class="cfg"><label for="hName">Tu nombre</label><input id="hName" maxlength="20" value="${esc(myName())}" placeholder="Anfitrión">
-      <span class="lbl">Modo</span><div class="seg" role="group" aria-label="Modo">${MODES.map(([n, nm]) => `<button type="button" data-mode="${n}" aria-pressed="${NET.n === n}" ${NET.started ? 'disabled' : ''}>${nm}</button>`).join('')}</div></div>
-      ${seatsHTML(NET.seats, { canSit: false })}
-      <p class="hkey">Los lugares sin persona los juega la computadora. Si alguien se va en medio del partido, la computadora sigue por él.</p>
-      <div class="row">${NET.started ? '<button class="act flor" id="hGo">Volver a la mesa</button>' : '<button class="act flor" id="hGo">Empezar partido</button>'}<button class="act mazo" id="hClose">Cerrar la mesa</button></div>`;
+    if (!L) h += '<p class="lob">Abriendo la mesa…</p>';
+    else h += `
+      <div class="cfg"><label for="hName">Tu nombre</label><input id="hName" maxlength="20" value="${esc(myName())}" placeholder="Anfitrión" ${L.started ? 'disabled' : ''}>
+      <span class="lbl">Modo</span><div class="seg" role="group" aria-label="Modo">${MODES.map(([n, nm]) => `<button type="button" data-mode="${n}" aria-pressed="${L.n === n}" ${L.started ? 'disabled' : ''}>${nm}</button>`).join('')}</div></div>
+      ${seatsHTML(L.seats, { canSit: false })}
+      <p class="hkey">Los lugares sin persona los juega la computadora. Si alguien se va en medio del partido, la computadora sigue por él.</p>`;
+    h += `<div class="row">${L ? (L.started ? '<button class="act flor" id="hGo">Volver a la mesa</button>' : '<button class="act flor" id="hGo">Empezar partido</button>') : ''}<button class="act mazo" id="hClose">Cerrar la mesa</button></div>`;
   } else {
-    const L = NET.lobby;
     if (!L) h += `<p class="lob">Buscando la mesa ${esc(NET.code)}…${online() ? ' Puede tardar unos segundos.' : ''}</p>`;
     else {
-      const host = (L.seats.find(s => s.kind === 'host') || {}).name || 'el anfitrión';
-      if (NET.hostLost) h += `<p class="hnote" role="status">Se cortó la conexión con ${esc(host)}. Esperando que vuelva…</p>`;
+      const host = (L.seats.find(s => s.kind === 'host' || s.host) || {}).name || 'el anfitrión';
       const sentado = NET.seat >= 0;
       h += `<p class="lob">${MODES.find(m => m[0] === L.n)[1]}, mesa de ${esc(host)}. ${L.started ? (sentado ? 'El partido ya empezó.' : 'El partido ya empezó: elegí un lugar libre para entrar.') : `Esperando a que ${esc(host)} empiece el partido.`}</p>
         ${seatsHTML(L.seats, { canSit: true })}`;
@@ -434,10 +521,18 @@ function renderLobby(box){
   box.innerHTML = h;
   bindChat('lc'); renderChat();
   $('hBack').onclick = () => { homeView = 'main'; renderHome(); };
-  if ($('hName')) $('hName').oninput = e => { setMyName(e.target.value); if (NET && NET.role === 'host' && !NET.started) { NET.seats[0].name = myName() || 'Anfitrión'; netPost(lobbyMsg()); } };
-  box.querySelectorAll('[data-mode]').forEach(b => b.onclick = () => setTableMode(+b.dataset.mode));
+  if ($('hName')) $('hName').oninput = e => {
+    setMyName(e.target.value);
+    if (NET && NET.role === 'host' && !NET.started) { NET.seats[0].name = myName() || 'Anfitrión'; netPost(lobbyMsg()); }
+    else if (NET && NET.owner) { NET.name = myName() || 'Anfitrión'; netPost({ t: 'name', name: NET.name }); }
+  };
+  box.querySelectorAll('[data-mode]').forEach(b => b.onclick = () => NET.role === 'host' ? setTableMode(+b.dataset.mode) : netPost({ t: 'mode', n: +b.dataset.mode }));
   box.querySelectorAll('[data-sit]').forEach(b => b.onclick = () => netPost({ t: 'sit', seat: +b.dataset.sit, name: NET.name, realista }));
-  if ($('hGo')) $('hGo').onclick = () => { if (NET.role === 'host' && !NET.started) startTable(); else continueGame(); };
+  if ($('hGo')) $('hGo').onclick = () => {
+    if (NET.role === 'host' && !NET.started) startTable();
+    else if (NET.owner && L && !L.started) netPost({ t: 'start', rules: tableRules, speed, level });
+    else continueGame();
+  };
   if ($('hCopy')) $('hCopy').onclick = () => {
     const done = () => { $('hCopy').textContent = 'Copiado'; setTimeout(() => { if ($('hCopy')) $('hCopy').textContent = 'Copiar link'; }, 1600); };
     if (navigator.clipboard) navigator.clipboard.writeText($('hUrl').value).then(done, () => { $('hUrl').select(); });
@@ -445,7 +540,7 @@ function renderLobby(box){
   };
   if ($('hShare')) $('hShare').onclick = () => navigator.share({ title: 'Truco uruguayo', text: `Vení a jugar al truco: mesa ${NET.code}`, url: $('hUrl').value }).catch(() => {});
   if ($('hUrl')) $('hUrl').onfocus = e => e.target.select();
-  $('hClose').onclick = () => { leaveNet(); homeView = 'main'; renderHome(); };
+  $('hClose').onclick = () => { if (NET && NET.owner) netPost({ t: 'close' }); leaveNet(); homeView = 'main'; renderHome(); };
 }
 function renderJoin(box){
   box.innerHTML = `<div class="hbar"><button class="tool" id="hBack">Volver</button><h2>Unirme a una mesa</h2></div>
@@ -518,7 +613,7 @@ function chatToast(m){
 // Por la misma conexión directa entre navegadores (WebRTC). El micrófono se pide la primera vez que
 // se pulsa, y solo manda sonido mientras se mantiene apretado el botón (o la tecla V).
 const VOZ = { stream: null, on: false, audios: {}, mute: store.get('truco.voces') === '0', err: '' };
-const vozOK = () => online() && !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia) && !!(NET.tr.room && NET.tr.room.addStream);
+const vozOK = () => online() && !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia) && !!(vozRoom() && vozRoom().addStream);
 async function vozMic(){
   if (VOZ.stream) return true;
   try {
@@ -529,7 +624,7 @@ async function vozMic(){
   }
   VOZ.err = '';
   VOZ.stream.getAudioTracks().forEach(t => { t.enabled = false; });
-  if (NET && NET.tr.room) try { NET.tr.room.addStream(VOZ.stream); } catch (e) {}
+  if (vozRoom()) try { vozRoom().addStream(VOZ.stream); } catch (e) {}
   return true;
 }
 async function talk(on){

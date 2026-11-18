@@ -1,0 +1,10 @@
+// Configuración del servidor en Cloudflare (lo publica GitHub Actions: .github/workflows/servidor.yml)
+{
+  "name": "truco-uruguayo",
+  "main": "server/worker.mjs",
+  "compatibility_date": "2025-09-01",
+  "assets": { "directory": "./public", "binding": "ASSETS", "run_worker_first": ["/api/*"] },
+  "durable_objects": { "bindings": [{ "name": "MESAS", "class_name": "MesaDO" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["MesaDO"] }],
+  "observability": { "enabled": true }
+}

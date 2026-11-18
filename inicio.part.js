@@ -78,7 +78,7 @@ function renderHome(){
   netNote = '';
   if (NET) {
     const started = NET.role === 'host' ? NET.started : !!G;
-    h += `<button class="cont" id="hCont"><b>${started ? 'Volver a la mesa' : 'Ver la mesa'}</b><span>Mesa ${esc(NET.code)}${NET.role === 'host' ? ', sos el anfitrión' : ''}${started ? '' : '. Todavía no empezó el partido'}.</span></button>
+    h += `<button class="cont" id="hCont"><b>${started ? 'Volver a la mesa' : 'Ver la mesa'}</b><span>Mesa ${esc(NET.code)}${NET.role === 'host' || NET.owner ? ', sos el anfitrión' : ''}${started ? '' : '. Todavía no empezó el partido'}.</span></button>
       <div class="hlinks"><button class="tool" id="hLobby">Lugares de la mesa</button><button class="tool" id="hLeave">${NET.role === 'host' ? 'Cerrar la mesa' : 'Salir de la mesa'}</button></div>`;
   } else if (inGame) {
     const ch = G.chicos[0] + G.chicos[1];
