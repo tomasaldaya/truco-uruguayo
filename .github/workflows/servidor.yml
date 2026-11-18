@@ -21,12 +21,36 @@ jobs:
         run: node server/prueba-mesa.mjs
       - name: Preparar la página
         run: mkdir -p public && cp index.html public/
+      - name: Dirección en workers.dev
+        # La primera vez la cuenta de Cloudflare no tiene subdominio en workers.dev y wrangler no puede
+        # elegirlo solo; acá se registra uno (se puede cambiar después en el panel de Cloudflare).
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -o pipefail
+          API="https://api.cloudflare.com/client/v4/accounts/$ACCOUNT/workers/subdomain"
+          AUTH="Authorization: Bearer $CLOUDFLARE_API_TOKEN"
+          sub=$(curl -s -H "$AUTH" "$API" | jq -r '.result.subdomain // empty')
+          if [ -z "$sub" ]; then
+            for nombre in tomasaldaya truco-uruguayo truco-uy-juego; do
+              r=$(curl -s -X PUT -H "$AUTH" -H 'Content-Type: application/json' --data "{\"subdomain\":\"$nombre\"}" "$API")
+              if echo "$r" | jq -e '.success' >/dev/null; then sub=$nombre; echo "Subdominio registrado: $sub"; break; fi
+              echo "No se pudo con $nombre: $(echo "$r" | jq -c '.errors')"
+            done
+          fi
+          if [ -z "$sub" ]; then echo "::error::No hay subdominio de workers.dev"; exit 1; fi
+          echo "SUB=$sub" >> "$GITHUB_ENV"
       - name: Publicar
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
+          set -o pipefail
           if [ -n "$ACCOUNT" ]; then export CLOUDFLARE_ACCOUNT_ID="$ACCOUNT"; fi
           npx --yes wrangler@4 deploy 2>&1 | tee deploy.log
+          url=$(grep -o 'https://[a-z0-9.-]*workers\.dev' deploy.log | head -1)
+          [ -n "$url" ] || url="https://truco-uruguayo.$SUB.workers.dev"
           echo "## Dirección del servidor" >> "$GITHUB_STEP_SUMMARY"
-          grep -o 'https://[a-z0-9.-]*workers\.dev' deploy.log | head -1 >> "$GITHUB_STEP_SUMMARY" || true
+          echo "$url" >> "$GITHUB_STEP_SUMMARY"
+          echo "Servidor: $url"
