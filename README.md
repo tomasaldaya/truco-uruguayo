@@ -15,7 +15,9 @@ Juego de truco uruguayo para el navegador, según el *Reglamento del Truco Urugu
 - `mesa3d.part.js` — la mesa 3D: escena, jugadores con cara y señas, cartas animadas, cámara.
 - `three.min.js` — recorte de Three.js r187 (licencia MIT) con solo lo que usa la mesa 3D.
 - `three-entry.js` — lista de lo que entra en `three.min.js` y el comando para regenerarlo.
-- `cards.part.js` — dibujo de las cartas (diseño propio) y carga del mazo del jugador.
+- `naipes.part.js` — las 40 cartas y el dorso: baraja española libre de Basquetteur (ver "Cartas").
+- `naipes.py` — arma `naipes.part.js` a partir de los SVG originales.
+- `cards.part.js` — cartas en pantalla (la baraja del juego o el mazo que cargue el jugador).
 - `tally.part.js` — tanteador de fósforos.
 - `build.py` — arma `index.html` (un solo archivo; solo, anda sin internet; las tipografías se bajan de Google Fonts) a partir de lo anterior: `python3 build.py`.
 - `test.js` — pruebas de reglas y partidos simulados: `node test.js`.
@@ -29,7 +31,15 @@ Tocar = envido, gritar = truco, cantar = flor (o cantar los tantos).
 
 - Cartas iguales de rivales: parda (Arts. 57–59). Opción: gana el más mano (Art. 12).
 - La flor se canta en tu turno; si alguien la cantó, los demás en orden del mano al que dio.
-- Si tu compañero toca y tenés flor: queda negada (por defecto) o decís "tengo flor" (opción).
+- Si tu compañero toca o grita antes de que cantes tu flor: queda anulada (por defecto, sin pena)
+  o decís "tengo flor" (opción). Solo lo sabés vos: a los demás no les llega.
+- La computadora no toca ni grita mientras un compañero suyo todavía puede cantar flor (no habló
+  ni jugó): en parejas y tercetos canta el que ya tiene a sus compañeros jugados, normalmente el
+  pie. Una persona sí puede hacerlo, y se atiene a las consecuencias.
+- Señas pescadas: de cada 50 señas hechas, una la pesca algún rival.
+- Tiempo para decidir: 30 segundos por decisión de cada persona (opción: 60 o sin límite). Si se
+  acaba, decide la computadora por esa persona; la cuenta se frena con un menú abierto. En una
+  mesa compartida, si alguien no toca "Siguiente mano", pasado ese tiempo se sigue igual.
 - Si tocan y un rival tiene flor, la canta antes de contestar y anula el envido (Art. 27).
 - El envido está primero: se puede tocar contra un truco mientras no hayas jugado tu primera carta.
 - Si un rival te canta algo y podés contestar, contestás vos (no tu compañero de la computadora).
@@ -38,7 +48,19 @@ Tocar = envido, gritar = truco, cantar = flor (o cantar los tantos).
 - A ley de juego: solo en parejas y tercetos, cuando algún equipo entró en buenas; versión
   simplificada del Cap. 7 (sin los reenvites del Art. 76 ni el Art. 79).
 - Modo realista: faltas ocultas que se descubren al verse las cartas (Art. 45 o tres cartas jugadas).
-- Las ilustraciones del mazo Tatú no se incluyen; el jugador puede cargar su propia imagen del mazo.
+- Las ilustraciones del mazo Tatú no se incluyen: el juego usa la baraja española libre de
+  Basquetteur (ver "Cartas"), y el jugador puede cargar su propia imagen del mazo en "Tu mazo".
+
+## Cartas
+
+Baraja española libre de **Basquetteur**, publicada en
+[Wikimedia Commons](https://commons.wikimedia.org/wiki/Category:Spanish_playing_cards) con licencia
+[CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/deed.es). Los SVG vienen de
+[gjenkins20/spanish-playing-cards-svg](https://github.com/gjenkins20/spanish-playing-cards-svg).
+Cambios hechos para este juego: se pasaron a WebP de 320 px con fondo claro y esquinas
+redondeadas, y se dejaron solo las 40 cartas del truco (sin ochos ni nueves). Esas imágenes
+(`naipes.part.js`) se comparten con la misma licencia CC BY-SA 3.0. El crédito también aparece en
+la pantalla de inicio.
 
 ## Pantalla de inicio
 
@@ -117,9 +139,10 @@ Si el navegador no tiene WebGL, se juega en 2D y el botón queda desactivado.
   "Tu lugar" (o doble clic) vuelve a tu silla; "Desde arriba" muestra toda la mesa.
 - **Tus cartas:** abajo, pegadas a la cámara. Las que podés jugar se levantan un poco; clic
   o toque para jugarlas, o las teclas 1, 2 y 3. Con Ayudas se ven las insignias pieza, mata y fío.
-- **Mazo:** queda sobre la mesa a la derecha del que dio, con la muestra arriba (como en la mesa
-  2D), así se ve enseguida quién dio. Al empezar cada mano se desliza hasta el nuevo repartidor.
-  Cuando das vos, va donde tus cartas no lo tapan.
+- **Mazo:** queda sobre la mesa a la derecha del que dio, con la muestra boca arriba debajo,
+  asomando hacia el centro como se pone en la realidad (en la mesa 2D, asomando al costado), así
+  se ve enseguida quién dio. Al empezar cada mano se desliza hasta el nuevo repartidor. Cuando
+  das vos, va donde tus cartas no lo tapan.
 - **Cartas:** se juntan en el mazo y se reparten desde ahí, la muestra se da vuelta (boca abajo
   mientras se decide a ley de juego), cada carta jugada vuela a la fila de quien la jugó, una
   columna por baza. La baza ganada tiene borde dorado; la parda, gris. Al terminar la mano, las

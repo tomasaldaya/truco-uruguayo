@@ -62,44 +62,33 @@ const V3 = (function(){
   // ---------- texturas de las cartas ----------
   const TW = 280, TH = 426, TEX = { face:{}, back:null, badge:{} };
   function faceTex(id){
-    const src = (customDeck && customDeck[id]) || '';
+    const own = ownDeck(id), src = own || NAIPES[id] || '';
     const prev = TEX.face[id];
     if (prev && prev.src === src) return prev.tex;
     const cv = document.createElement('canvas'); cv.width = TW; cv.height = TH;
     const x = cv.getContext('2d'), tex = canvasTex(cv);
     const paint = img => {
       x.clearRect(0, 0, TW, TH);
-      x.save(); rrect(x, 2, 2, TW-4, TH-4, 22); x.fillStyle = '#fbf6ea'; x.fill(); x.clip();
+      x.save(); rrect(x, 2, 2, TW-4, TH-4, 18); x.fillStyle = '#f2f2f2'; x.fill(); x.clip();
       if (img) {
-        if (src) { const k = Math.max(TW/img.width, TH/img.height), w = img.width*k, h = img.height*k; x.drawImage(img, (TW-w)/2, (TH-h)/2, w, h); }
-        else if (svgOk(img)) x.drawImage(img, 0, 0, TW, TH);
-        else plainFace(x, id);
-      }
+        // el mazo del jugador se recorta para llenar la carta; el del juego ya tiene la medida justa
+        if (own) { const k = Math.max(TW/img.width, TH/img.height), w = img.width*k, h = img.height*k; x.drawImage(img, (TW-w)/2, (TH-h)/2, w, h); }
+        else x.drawImage(img, 2, 2, TW-4, TH-4);
+      } else if (img === false) plainFace(x, id);
       x.restore();
-      x.lineWidth = 3; x.strokeStyle = '#d9cba9'; rrect(x, 2, 2, TW-4, TH-4, 22); x.stroke();
+      x.lineWidth = 2; x.strokeStyle = '#cfc6b4'; rrect(x, 2, 2, TW-4, TH-4, 18); x.stroke();
       tex.needsUpdate = true;
     };
     paint(null);
     const img = new Image();
     img.onload = () => paint(img);
-    if (src) img.src = src;
-    else {
-      const [n, s] = id.split('-');
-      img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(cardSVG({ n: +n, s, id }).replace('<svg ', `<svg width="${TW}" height="${TH}" `));
-    }
+    img.onerror = () => paint(false);
+    if (src) img.src = src; else paint(false);
     if (prev) prev.tex.dispose();
     TEX.face[id] = { src, tex };
     return tex;
   }
-  // Algunos navegadores no dejan pasar a WebGL un canvas con un SVG dibujado: se prueba una vez
-  // en un canvas aparte y, si no se puede, las cartas se dibujan simples (número y palo).
-  function svgOk(img){
-    if (TEX.svgOk === undefined) {
-      try { const c = document.createElement('canvas'); c.width = c.height = 4; const x = c.getContext('2d'); x.drawImage(img, 0, 0, 4, 4); x.getImageData(0, 0, 1, 1); TEX.svgOk = true; }
-      catch (e) { TEX.svgOk = false; }
-    }
-    return TEX.svgOk;
-  }
+  // carta de repuesto (número y palo) si no se pudo cargar la imagen
   function plainFace(x, id){
     const [n, s] = id.split('-'), col = SUIT_COLOR[s];
     x.strokeStyle = col; x.lineWidth = 5; rrect(x, 22, 22, TW-44, TH-44, 12); x.stroke();
@@ -110,17 +99,19 @@ const V3 = (function(){
   }
   function backTex(){
     const cv = document.createElement('canvas'); cv.width = TW; cv.height = TH;
-    const x = cv.getContext('2d');
-    rrect(x, 2, 2, TW-4, TH-4, 22); x.fillStyle = '#fbf6ea'; x.fill();
-    x.save(); rrect(x, 18, 18, TW-36, TH-36, 12); x.fillStyle = '#8e2a22'; x.fill(); x.clip();
-    x.strokeStyle = 'rgba(255,255,255,.14)'; x.lineWidth = 9;
-    for (let k = -TH; k < TW + TH; k += 30) {
-      x.beginPath(); x.moveTo(k, 0); x.lineTo(k + TH, TH); x.stroke();
-      x.beginPath(); x.moveTo(k + TH, 0); x.lineTo(k, TH); x.stroke();
-    }
-    x.restore();
-    x.lineWidth = 3; x.strokeStyle = '#d9cba9'; rrect(x, 2, 2, TW-4, TH-4, 22); x.stroke();
-    return canvasTex(cv);
+    const x = cv.getContext('2d'), tex = canvasTex(cv);
+    const paint = img => {
+      x.clearRect(0, 0, TW, TH);
+      x.save(); rrect(x, 2, 2, TW-4, TH-4, 18); x.fillStyle = '#f2f2f2'; x.fill(); x.clip();
+      if (img) x.drawImage(img, 2, 2, TW-4, TH-4);
+      else { rrect(x, 18, 18, TW-36, TH-36, 12); x.fillStyle = '#2b3570'; x.fill(); }
+      x.restore();
+      x.lineWidth = 2; x.strokeStyle = '#cfc6b4'; rrect(x, 2, 2, TW-4, TH-4, 18); x.stroke();
+      tex.needsUpdate = true;
+    };
+    paint(null);
+    const img = new Image(); img.onload = () => paint(img); img.src = NAIPES.back;
+    return tex;
   }
   function badgeTex(cat){
     const cv = document.createElement('canvas'); cv.width = 192; cv.height = 60;
@@ -311,7 +302,7 @@ const V3 = (function(){
     Lay.deckPos = deckSpot(G.dealer); Lay.dealer = G.dealer;
     const edge = std(0xece2c8, .7);
     Lay.deck = mesh(new THREE.BoxGeometry(CW*.98, .48, CH*.98), [edge, edge, new THREE.MeshStandardMaterial({ map: TEX.back, roughness: .55 }), edge, edge, edge]);
-    Lay.deck.position.copy(Lay.deckPos); Lay.deck.rotation.y = -.1; root.add(Lay.deck);
+    Lay.deck.position.copy(Lay.deckPos); Lay.deck.rotation.y = deckYaw(Lay.deckPos); root.add(Lay.deck);
     Lay.glow = new THREE.Mesh(GEO.glow, new THREE.MeshBasicMaterial({ map: glowTex(), transparent: true, depthWrite: false, opacity: 0 }));
     Lay.glow.rotation.x = -PI/2; Lay.glow.position.y = .012; Lay.glow.scale.set(1.9, 1.3, 1); root.add(Lay.glow);
     root.updateMatrixWorld(true);
@@ -568,17 +559,20 @@ const V3 = (function(){
     return n;
   }
   const ownerOf = id => id === 'xm' ? 'm' : +id.slice(1).split('-')[0]; // de quién es una carta tapada
-  // El mazo va a la derecha del que dio (así se ve enseguida quién dio) y la muestra arriba del mazo,
-  // corrida hacia el centro, como en la mesa 2D. Al cambiar de mano el mazo se desliza al nuevo repartidor.
+  // El mazo va a la derecha del que dio (así se ve enseguida quién dio) y la muestra boca arriba debajo
+  // del mazo, asomando hacia el centro de la mesa, como se pone en la realidad. Al cambiar de mano el
+  // mazo se desliza al nuevo repartidor, girado para que la muestra asome siempre hacia el medio.
   function deckSpot(dealer){
     const a = ang(dealer), k = dealer === ME ? Lay.dk0 : Lay.dk, E = onCircle(a, k[0]);
     return v3(E.x - Math.sin(a)*k[1], 0, E.z - Math.cos(a)*k[1]);
   }
-  function deckH(){ return .48*deckCount()/40; }
-  function deckTop(){ const d = Lay.deck.position; return flat(d.x, deckH() + .01, d.z, false, -.1); }
+  const MUE_Y = .014;   // el mazo apoya sobre la muestra
+  function deckH(){ return .48*deckCount()/40 + MUE_Y; }
+  function deckYaw(pos){ return Math.atan2(-pos.x, -pos.z); }   // el largo de la carta apunta al centro
+  function deckTop(){ const d = Lay.deck.position; return flat(d.x, deckH() + .01, d.z, false, Lay.deck.rotation.y); }
   function muePose(up){
-    const d = Lay.deck.position, a = ang(Lay.dealer);
-    return flat(d.x - Math.cos(a)*.3 + .18, deckH() + .014, d.z + Math.sin(a)*.3 + .14, up, .07);
+    const d = Lay.deck.position, y = Lay.deck.rotation.y, k = CH*.78;
+    return flat(d.x + Math.sin(y)*k, .006, d.z + Math.cos(y)*k, up, y + .05);
   }
   function handLayout(){
     const D = 4, h = 2*D*Math.tan(camera.fov*PI/360), w = h*camera.aspect;
@@ -703,7 +697,7 @@ const V3 = (function(){
     if (customDeck !== S.deckSig) { S.deckSig = customDeck; for (const id in CARDS) if (CARDS[id].face) setFace(CARDS[id], true); }
     resume();
     camera.updateMatrixWorld(true);
-    if (Lay.dealer !== G.dealer || fresh) { Lay.dealer = G.dealer; Lay.deckPos = deckSpot(G.dealer); if (fresh) Lay.deck.position.set(Lay.deckPos.x, Lay.deck.position.y, Lay.deckPos.z); }
+    if (Lay.dealer !== G.dealer || fresh) { Lay.dealer = G.dealer; Lay.deckPos = deckSpot(G.dealer); if (fresh) { Lay.deck.position.set(Lay.deckPos.x, Lay.deck.position.y, Lay.deckPos.z); Lay.deck.rotation.y = deckYaw(Lay.deckPos); } }
     S.playable = new Set(myLegal.filter(a => a.type === 'play').map(a => a.card.id));
     S.myTurn = act === ME && G.phase === 'play';
     S.myOut = !R.active[ME] || R.out[ME];
@@ -1009,8 +1003,10 @@ const V3 = (function(){
     for (const id in CARDS) stepCard(CARDS[id], t, dt);
     updateChars(t, dt);
     const n = deckCount(), dp = Lay.deck.position, kf = Math.min(1, dt*4);
-    Lay.deck.scale.y = Math.max(.02, n/40); dp.y = .24*Lay.deck.scale.y;
+    Lay.deck.scale.y = Math.max(.02, n/40); dp.y = .24*Lay.deck.scale.y + MUE_Y;
     dp.x += (Lay.deckPos.x - dp.x)*kf; dp.z += (Lay.deckPos.z - dp.z)*kf;
+    const yw = deckYaw(Lay.deckPos); let dy = yw - Lay.deck.rotation.y; dy = Math.atan2(Math.sin(dy), Math.cos(dy));
+    Lay.deck.rotation.y += dy*kf;
     const a = G.phase === 'play' ? lastAct : null;
     if (a !== null && a !== undefined) {
       const rc = rowCenter(a), d = rowDir(a);

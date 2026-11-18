@@ -88,7 +88,8 @@ function renderHome(){
     <p class="hkey">${netMode() === 'internet' ? 'Por internet: creá una mesa y pasale el link a quien quieras, o unite con el código que te pasaron.' : 'Sin internet: entre pestañas de este navegador, para probar cómo se ve el partido desde cada lugar.'}</p></section>`;
   h += `<nav class="hlinks" aria-label="Más opciones">
     <button class="tool" id="hCfg">Configuración</button><button class="tool" id="hDeck">Tu mazo</button>
-    <button class="tool" id="hHow">Cómo se juega</button><button class="tool" id="hStats">Estadísticas</button></nav>`;
+    <button class="tool" id="hHow">Cómo se juega</button><button class="tool" id="hStats">Estadísticas</button></nav>
+    <p class="hcred">Cartas: baraja española libre de <a href="https://commons.wikimedia.org/wiki/Category:Spanish_playing_cards" target="_blank" rel="noopener">Basquetteur</a> (Wikimedia Commons), con licencia <a href="https://creativecommons.org/licenses/by-sa/3.0/deed.es" target="_blank" rel="noopener">CC BY-SA 3.0</a>.</p>`;
   box.innerHTML = h;
   if ($('hCont')) $('hCont').onclick = () => {
     if (NET && !(NET.role === 'host' ? NET.started : G)) { homeView = 'lobby'; renderHome(); } else continueGame();

@@ -32,7 +32,7 @@
         R.initial[q] = R.initial[q].map((c, i) => inHand.has(c.id) ? tapada('y', q, i) : c);
         R.hands[q] = R.hands[q].map((c, i) => tapada('x', q, i));
         R.florHas[q] = null; R.florPts[q] = null; R.envPts[q] = null;
-        if (R.flor) { R.flor.has[q] = null; R.flor.pts[q] = null; R.flor.negada[q] = false; R.flor.lost[q] = false; }
+        if (R.flor) { R.flor.has[q] = null; R.flor.pts[q] = null; R.flor.negada[q] = false; R.flor.lost[q] = false; if (R.flor.lostBy) R.flor.lostBy[q] = null; }
       }
       R.senas[q] = null;
       if (R.faults) R.faults[q] = [];

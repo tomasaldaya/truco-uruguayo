@@ -21,10 +21,11 @@
     target: 40,               // Art. 4 (en muchas mesas se juega a 30)
     chicosToWin: 2,           // al mejor de tres chicos (1 = un solo chico)
     flor: true,               // con o sin flor
-    florCompanero: 'niega',   // si tu compañero toca y tenés flor: 'niega' o 'tengo' (decís "tengo flor")
+    florCompanero: 'niega',   // si tu compañero toca o grita antes de que cantes tu flor: 'niega' (se anula) o 'tengo' (decís "tengo flor")
     iguales: 'parda',         // cartas iguales de rivales: 'parda' (Art. 57) o 'mano' (Art. 12, gana el más mano)
     senas: true,              // señas entre compañeros (Art. 102)
     mazo: 'solo',             // irse al mazo sin ser el pie: 'solo' (sale ese jugador) o 'equipo' (Art. 90)
+    tiempo: 30,               // segundos por decisión de cada persona (0 = sin límite); al vencer decide la computadora (lo maneja la interfaz)
   };
   const LEY_FORMS = {
     todo: 'Todo dicho', falta: 'La falta envido', resto: 'El resto', falta_resto: 'Falta envido y resto',
@@ -283,7 +284,7 @@
     if (R.duel) R.falta = Math.min(R.falta, 10); // Art. 86
     R.flor = {
       has: R.florHas.map((h, q) => h && R.active[q]), pts: R.florPts.slice(),
-      sung: arr(false), negada: arr(false), lost: arr(false), achico: [false, false], sungPts: {}, declined: {},
+      sung: arr(false), negada: arr(false), lost: arr(false), lostBy: arr(null), achico: [false, false], sungPts: {}, declined: {},
     };
     R.florQueue = []; R.florEnv = null;
     R.envido = { done: false, result: null };
@@ -297,12 +298,15 @@
   }
 
   // Señas: cuando p le hace señas a sus compañeros, cada rival puede pescar una (una vez por mano).
-  const CATCH = 0.2;
+  const CATCH = 1 / 50;   // de cada 50 señas hechas, una la pesca algún rival
   function catchSenas(G, R, p, list) {
     if (G.n < 4 || !list.length) return;
-    for (let o = 0; o < G.n; o++) {
-      if (team(o) === team(p) || R.seen[o].some(x => x.p === p)) continue;
-      if (rng() < CATCH) R.seen[o].push({ p, s: list[Math.floor(rng() * list.length)] });
+    const rivals = [];
+    for (let o = 0; o < G.n; o++) if (team(o) !== team(p)) rivals.push(o);
+    for (const s of list) {
+      if (rng() >= CATCH) continue;
+      const o = rivals[Math.floor(rng() * rivals.length)];
+      if (!R.seen[o].some(x => x.p === p && x.s === s)) R.seen[o].push({ p, s });
     }
   }
   function setSenas(G, p, list) {
@@ -903,13 +907,19 @@
           // Al tocar: la flor del compañero queda negada o se dice "tengo flor" (según la mesa),
           // y los rivales que tengan flor la cantan antes de contestar (la flor anula el envido).
           if (G.rules.florCompanero === 'niega')
-            fromMano(G).forEach(q => { if (q !== p && team(q) === t && florCandidate(G, q)) R.flor.lost[q] = true; });
+            fromMano(G).forEach(q => { if (q !== p && team(q) === t && florCandidate(G, q)) { R.flor.lost[q] = true; R.flor.lostBy[q] = 'toco'; } });
           R.florQueue = fromMano(G).filter(q => q !== p && florCandidate(G, q) && (team(q) !== t || G.rules.florCompanero === 'tengo'));
         }
         return;
       }
       case 'truco': {
         say(G, p, TRUCO_NAMES[a.level]);
+        // Gritar antes de que un compañero cante su flor se la anula (o dice "tengo flor", según la mesa)
+        if (G.rules.flor) {
+          if (G.rules.florCompanero === 'niega')
+            fromMano(G).forEach(q => { if (q !== p && team(q) === t && florCandidate(G, q)) { R.flor.lost[q] = true; R.flor.lostBy[q] = 'grito'; } });
+          else R.florQueue = fromMano(G).filter(q => q !== p && team(q) === t && florCandidate(G, q));
+        }
         if (top && top.kind === 'truco') {
           R.pending.pop();
           R.trucoLevel = top.level;

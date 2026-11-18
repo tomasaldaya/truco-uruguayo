@@ -238,10 +238,25 @@
     return find(acts, a => a.env === (Ly.envPart ? env : false) && a.truco === (Ly.truco ? tr : false)) || acts[0];
   }
 
+  // Compañeros que todavía no hablaron ni jugaron: pueden tener una flor sin cantar, y tocar o gritar
+  // antes se la anularía. La computadora no lo hace (en parejas y tercetos toca y grita el que ya
+  // tiene a sus compañeros jugados, normalmente el pie).
+  function partnerMayHaveFlor(G, p) {
+    const R = G.round;
+    if (G.n < 4 || !G.rules.flor || R.duel) return false;
+    for (let q = 0; q < G.n; q++)
+      if (q !== p && T.team(q) === T.team(p) && T.inGame(R, q) && !R.acted[q] && R.played[q] === 0 && !R.flor.sung[q]) return true;
+    return false;
+  }
   function choose(G, p, opts) {
     opts = opts || {};
     const level = opts.level || 'normal', L = LV[level] || LV.normal;
-    const acts = T.legal(G, p);
+    let acts = T.legal(G, p);
+    const top0 = G.round && G.round.pending[G.round.pending.length - 1];
+    if (acts.length > 1 && !(top0 && (top0.kind === 'env' || top0.kind === 'fenv')) && partnerMayHaveFlor(G, p)) {
+      const calm = acts.filter(a => a.type !== 'envido' && a.type !== 'truco');
+      if (calm.length) acts = calm;
+    }
     if (acts.length <= 1) return acts[0];
     const R = G.round;
     const top = R.pending[R.pending.length - 1];

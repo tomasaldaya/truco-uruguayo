@@ -420,6 +420,68 @@ t('parejas: si Tito toca, Nacho dice "tengo flor" y se juega la flor (regla "ten
   assert(G.round.envido.done);
   assert.equal(T.actor(G), 1);               // sigue jugando el mano
 });
+t('parejas: si Tito grita antes de que Nacho cante su flor, se la anula (regla "niega")', () => {
+  const G = setup4(H4(), C(7,'espada'), 0, false, { florCompanero: 'niega' });
+  act(G, 1, typ('truco'));
+  assert(G.round.flor.lost[3]);
+  assert.equal(G.round.flor.lostBy[3], 'grito');
+  assert.equal(T.actor(G), 0);               // contestás vos, Nacho no canta
+  act(G, 0, typ('quiero'));
+  while (G.phase === 'play' && T.legal(G, T.actor(G)).some(a => a.type === 'play')) {
+    const p = T.actor(G); assert(!T.legal(G, p).some(a => a.type === 'flor')); T.apply(G, p, T.legal(G, p).find(a => a.type === 'play'));
+  }
+  assert(!G.round.flor.sung[3]);
+  assert.deepEqual(G.round.flor.negada, [false, false, false, false]);   // anulada no es negada: no hay pena
+});
+t('parejas: si Tito grita, Nacho dice "tengo flor" (regla "tengo")', () => {
+  const G = setup4(H4(), C(7,'espada'), 0, false, { florCompanero: 'tengo' });
+  act(G, 1, typ('truco'));
+  assert.equal(T.actor(G), 3);
+  act(G, 3, typ('flor'));
+  assert.deepEqual(G.scores, [0, 3]);
+  assert.equal(T.actor(G), 0);               // después se contesta el truco
+});
+t('parejas: la vista de los demás no deja saber que a alguien le anularon la flor', () => {
+  const V = require('./vista.js');
+  const G = setup4(H4(), C(7,'espada'), 0, false, { florCompanero: 'niega' });
+  act(G, 1, typ('truco'));
+  for (const s of [0, 1, 2]) { const v = V.viewFor(G, s); assert(!v.round.flor.lost[3] && !v.round.flor.lostBy[3]); }
+  assert.equal(V.viewFor(G, 3).round.flor.lostBy[3], 'grito');
+});
+t('señas: se pesca más o menos una de cada 50', () => {
+  T.setRng(seeded(77));
+  let hechas = 0, pescadas = 0;
+  for (let k = 0; k < 3000; k++) {
+    const G = T.newMatch({ players: 4 }); T.startRound(G);
+    const R = G.round, list = T.senasFor(R.initial[0], R.muestra);
+    if (!list.length) continue;
+    T.setSenas(G, 0, list);
+    for (let q = 0; q < 4; q++) hechas += (R.senasShown[q] || []).length;   // las de la computadora se hacen al repartir
+    for (let o = 0; o < 4; o++) pescadas += R.seen[o].length;
+  }
+  const r = pescadas / hechas;
+  assert(r > 0.012 && r < 0.03, 'proporción ' + r.toFixed(4) + ' (' + pescadas + ' de ' + hechas + ')');
+  T.setRng(Math.random);
+});
+t('la computadora no toca ni grita mientras un compañero puede cantar flor', () => {
+  T.setRng(seeded(5)); AI.setRng(seeded(6));
+  let calls = 0;
+  for (const n of [4, 6]) for (let k = 0; k < (n === 4 ? 30 : 15); k++) {
+    const G = T.newMatch({ players: n }); T.startRound(G);
+    let guard = 0;
+    while (G.phase === 'play' && guard++ < 200) {
+      const p = T.actor(G), a = AI.choose(G, p, { samples: 8 }), R = G.round, top = R.pending[R.pending.length - 1];
+      if ((a.type === 'envido' || a.type === 'truco') && !(top && (top.kind === 'env' || top.kind === 'fenv')) && G.rules.flor && !R.duel) {
+        calls++;
+        for (let q = 0; q < n; q++) if (q !== p && T.team(q) === T.team(p) && T.inGame(R, q))
+          assert(R.acted[q] || R.played[q] > 0 || R.flor.sung[q], `${G.names[p]} dijo ${a.type} antes de que ${G.names[q]} hablara`);
+      }
+      T.apply(G, p, a);
+    }
+  }
+  assert(calls > 5, 'casi no hubo cantos: ' + calls);
+  T.setRng(Math.random); AI.setRng(Math.random);
+});
 t('parejas: si tocan y un rival que no contesta tiene flor, la canta y anula el envido', () => {
   const h = H4(); [h[2], h[3]] = [[C(1,'oro'),C(3,'oro'),C(6,'oro')], [C(7,'copa'),C(12,'oro'),C(11,'basto')]];
   const G = setup4(h, C(7,'espada'), 0);

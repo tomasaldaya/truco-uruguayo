@@ -276,9 +276,18 @@ function publish(){
   const act = T.actor(GM), key = roundKey(GM);
   NET.seats.forEach((s, p) => {
     if (s.kind !== 'guest') return;
-    netPost({ t: 'state', to: s.cid, seat: p, view: TV.viewFor(GM, p), actor: act, legal: act === p ? T.legal(GM, p) : [], key, waiting: waitingNames(), paused: toolOpen(), host: NET.seats[0].name });
+    netPost({ t: 'state', to: s.cid, seat: p, view: TV.viewFor(GM, p), actor: act, legal: act === p ? T.legal(GM, p) : [], key, waiting: waitingNames(), paused: toolOpen(), host: NET.seats[0].name, clock: clockForGuests() });
   });
   netRemember();
+}
+// Fin de mano: si alguien no toca "Siguiente mano", pasado el tiempo por decisión (y unos segundos
+// para leer el resumen) se sigue igual, así nadie deja la mesa esperando
+function netEndWait(){
+  if (!GM || !NET.started || GM.phase === 'play' || GM.phase === 'matchEnd') { NET.endKey = null; return; }
+  const lim = clockLimit(GM), k = roundKey(GM);
+  if (!lim) return;
+  if (NET.endKey !== k || toolOpen()) { NET.endKey = k; NET.endAt = Date.now(); return; }
+  if (Date.now() - NET.endAt > lim + 4000) { NET.seats.forEach((s, p) => { if (s.kind !== 'ai') NET.ready.add(p); }); checkReady(); }
 }
 // personas que todavía no tocaron "Siguiente mano"
 function waitingNames(){ return NET.seats.map((s, p) => s.kind !== 'ai' && !NET.ready.has(p) ? s.name : null).filter(Boolean); }
@@ -347,6 +356,7 @@ function onState(m){
   const first = !G;
   ME = m.seat; G = m.view; NET.actor = m.actor; NET.legal = m.legal || []; NET.key = m.key;
   NET.paused = !!m.paused; NET.host = m.host;
+  NET.clock = m.clock ? { ...m.clock, at: Date.now() } : null;
   showWaiting((m.waiting || []).filter(x => x !== G.names[ME]));
   if (m.actor !== ME) errMsg = '';
   notePauses(G);
