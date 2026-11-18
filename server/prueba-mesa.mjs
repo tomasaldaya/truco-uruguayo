@@ -39,11 +39,11 @@ const T_actor = m => m.GM.phase === 'play' ? T.actor(m.GM) : null;
 const last = (inbox, cid, type) => (inbox[cid] || []).filter(m => m.t === type).pop();
 // un jugador "humano" que contesta lo que le piden
 function vivo(mesa, W, cid) { const p = last(W.inbox, cid, 'ping'); if (p) mesa.onMessage(cid, { t: 'pong', s: p.s }); }
-function juega(mesa, W, cid) {
+function juega(mesa, W, cid, sinListo) {
   vivo(mesa, W, cid);
   const st = last(W.inbox, cid, 'state');
   if (!st) return false;
-  if (st.view.phase !== 'play' && st.view.phase !== 'matchEnd') { if (!st.waiting.length || st.waiting.includes(st.view.names[st.seat])) mesa.onMessage(cid, { t: 'ready', key: st.key }); return false; }
+  if (st.view.phase !== 'play' && st.view.phase !== 'matchEnd') { if (sinListo) return false; if (!st.waiting.length || st.waiting.includes(st.view.names[st.seat])) mesa.onMessage(cid, { t: 'ready', key: st.key }); return false; }
   if (st.actor !== st.seat || !st.legal.length) return false;
   let a = st.legal.find(x => x.type === 'play') || st.legal.find(x => x.type === 'quiero') || st.legal[0];
   if (a.type === 'sing' && a.pts === null) a = { ...a, pts: st.view.round.envPts[st.seat] };
@@ -95,7 +95,7 @@ t('partido entre dos personas y la computadora: avanza, valida jugadas y sigue s
   for (let i = 0; i < 4000 && m.GM.roundNo < 4 && m.GM.phase !== 'matchEnd'; i++) { juega(m, W, 'a'); juega(m, W, 'b'); W.run(500); }
   assert(m.GM.roundNo >= 4, 'mano ' + m.GM.roundNo);
   // Juan no toca "Siguiente mano": a los 15 segundos se sigue igual
-  for (let i = 0; i < 4000 && m.GM.phase === 'play'; i++) { juega(m, W, 'a'); juega(m, W, 'b'); W.run(500); }
+  for (let i = 0; i < 4000 && m.GM.phase === 'play'; i++) { juega(m, W, 'a', true); juega(m, W, 'b', true); W.run(500); }
   const r = m.GM.roundNo;
   const sa2 = last(W.inbox, 'a', 'state'); m.onMessage('a', { t: 'ready', key: sa2.key });
   assert.equal(m.GM.roundNo, r);
