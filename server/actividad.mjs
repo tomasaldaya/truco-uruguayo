@@ -67,6 +67,23 @@ async function valores(key, filters) {
   if (!r.success) throw new Error(JSON.stringify(r.errors).slice(0, 200));
   return [...new Set((r.result || []).map(x => String(x.value)))];
 }
+async function eventosDeMesas() {
+  const out = []; let offset;
+  for (let i = 0; i < 20; i++) {
+    const r = await cf(`/accounts/${CUENTA}/workers/observability/telemetry/query`, {
+      queryId: 'actividad-mesas', view: 'events', limit: 2000, timeframe: { from: +desde, to: +hasta }, offset,
+      parameters: { datasets: ['cloudflare-workers'], filterCombination: 'and',
+        filters: [{ kind: 'filter', key: '$workers.event.request.url', operation: 'includes', type: 'string', value: '/api/mesa/' }] },
+    });
+    if (!r.success) throw new Error(JSON.stringify(r.errors).slice(0, 200));
+    const ev = (r.result && r.result.events && r.result.events.events) || [];
+    out.push(...ev);
+    if (ev.length < 2000) break;
+    offset = ev[ev.length - 1].$metadata && ev[ev.length - 1].$metadata.id;
+    if (!offset) break;
+  }
+  return out;
+}
 // las pruebas automáticas de cada publicación (para no contarlas como mesas)
 async function ventanasDePrueba() {
   const repo = process.env.GITHUB_REPOSITORY, gh = process.env.GITHUB_TOKEN;
@@ -105,21 +122,35 @@ async function resumen() {
   const conVarios = deGente.filter(m => m.gente >= 2);
   const minutos = m => m.tramos * 5;
   const totalMin = deGente.reduce((t, m) => t + minutos(m), 0);
-  say(`- **Mesas abiertas**: ${deGente.length} (${conVarios.length} con dos o más personas conectadas a la vez)`);
+  say(`- **Mesas abiertas** (según el servidor): ${deGente.length} (${conVarios.length} con dos o más personas conectadas a la vez)`);
   say(`- **Tiempo total con mesas abiertas**: ${durTxt(totalMin)}`);
   if (deGente.length) {
     const max = Math.max(...deGente.map(m => m.gente));
     say(`- **Lo máximo en una mesa**: ${plural(max, 'persona conectada', 'personas conectadas')} a la vez`);
   }
   try {
-    const ips = await valores('$workers.event.request.headers.cf-connecting-ip', DE_GENTE);
-    const paises = await valores('$workers.event.request.cf.country', DE_GENTE);
-    const uas = await valores('$workers.event.request.headers.user-agent', DE_GENTE);
-    const tipo = ua => /iPhone|iPad/.test(ua) ? 'iPhone/iPad' : /Android/.test(ua) ? 'Android' : /Windows/.test(ua) ? 'Windows' : /Macintosh/.test(ua) ? 'Mac' : /Linux|CrOS/.test(ua) ? 'Linux/Chromebook' : 'otro';
-    const porTipo = {}; for (const u of uas) porTipo[tipo(u)] = (porTipo[tipo(u)] || 0) + 1;
-    say(`- **Conexiones distintas** (más o menos, casas o celulares distintos): ${ips.length}`);
-    say(`- **Desde**: ${paises.sort().join(', ') || '—'}`);
-    say(`- **Aparatos** (combinaciones distintas de aparato y navegador): ${Object.entries(porTipo).sort((a, b) => b[1] - a[1]).map(([k, n]) => `${k} ${n}`).join(', ') || '—'}`);
+    const ev = await eventosDeMesas();
+    const get = (e, k) => { if (k in e) return e[k]; return k.replace(/^\$/, '$').split('.').reduce((o, p) => o == null ? o : o[p], e); };
+    const campo = (e, k) => get(e, k) ?? get(e, k.replace('$workers.', '$workers.')) ?? '';
+    const gente = ev.filter(e => /^Mozilla\//.test(campo(e, '$workers.event.request.headers.user-agent')) && !/microsoft/i.test(campo(e, '$workers.event.request.cf.asOrganization')));
+    const ips = new Set(gente.map(e => campo(e, '$workers.event.request.headers.cf-connecting-ip')));
+    const paises = new Set(gente.map(e => campo(e, '$workers.event.request.cf.country')));
+    const codigos = new Map();
+    for (const e of gente) {
+      const c = (/\/api\/mesa\/([A-Z]{4})/.exec(campo(e, '$workers.event.request.url')) || [])[1];
+      if (!c) continue;
+      const x = codigos.get(c) || new Set(); x.add(campo(e, '$workers.event.request.headers.cf-connecting-ip')); codigos.set(c, x);
+    }
+    const tipo = ua => /iPhone|iPad/.test(ua) ? 'iPhone/iPad' : /Android/.test(ua) ? 'Android' : /Windows/.test(ua) ? 'Windows' : /Macintosh/.test(ua) ? 'Mac' : /CrOS/.test(ua) ? 'Chromebook' : /Linux/.test(ua) ? 'Linux' : 'otro';
+    const aparatos = new Map();
+    for (const e of gente) aparatos.set(campo(e, '$workers.event.request.headers.cf-connecting-ip') + '|' + campo(e, '$workers.event.request.headers.user-agent'), tipo(campo(e, '$workers.event.request.headers.user-agent')));
+    const porTipo = {}; for (const t of aparatos.values()) porTipo[t] = (porTipo[t] || 0) + 1;
+    const juntas = [...codigos.values()].filter(x => x.size >= 2).length;
+    say(`- **Códigos de mesa usados**: ${codigos.size} (${juntas} con gente de dos o más lugares distintos)`);
+    say(`- **Conexiones distintas** (más o menos, casas o redes de celular distintas): ${ips.size}`);
+    say(`- **Aparatos** (aparato + navegador, aproximado): ${Object.entries(porTipo).sort((a, b) => b[1] - a[1]).map(([k, n]) => `${k} ${n}`).join(', ') || '—'}`);
+    say(`- **Desde**: ${[...paises].sort().join(', ') || '—'}`);
+    say(`- Registros de conexión leídos: ${ev.length} (${ev.length - gente.length} de pruebas automáticas, programas o robots, que no se cuentan)`);
   } catch (e) { say(`- (No pude leer los registros de conexiones: ${e.message})`); }
   // mesa por mesa
   if (deGente.length) {
@@ -138,6 +169,9 @@ async function resumen() {
 try {
   if (modo === 'sondeo') await sondeo();
   else if (modo === 'detalle') {
+    const ev = await eventosDeMesas();
+    const forma = o => o && typeof o === 'object' ? Object.fromEntries(Object.entries(o).map(([k, v]) => [k, forma(v)])) : typeof o;
+    console.log('eventos:', ev.length, 'forma:', JSON.stringify(forma(ev[0])).slice(0, 1500));
     const mesa = [DE_GENTE[0]];
     console.log('redes:', (await valores('$workers.event.request.cf.asOrganization', mesa)).join(' | '));
     console.log('redes con el filtro:', (await valores('$workers.event.request.cf.asOrganization', DE_GENTE)).join(' | '));
