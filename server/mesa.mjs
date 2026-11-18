@@ -4,6 +4,8 @@
 //   del jugador: hello, sit, bye, act, senas, ready, pref, chat, talk, pong; y el dueño: mode, name, start, close
 //   al jugador:  hola, lobby, state, err, full, closed, nomesa, ocupada, chat, chatlog, talk, ping
 // No toca la red ni el reloj directamente: todo pasa por "io" (así se prueba en Node sin Cloudflare).
+// Con cuentas: quien manda su token en "hello" queda anotado con su cuenta, y al terminar el partido
+// se manda el resumen (para el ranking, las estadísticas y el historial) por io.registrar.
 import T from '../engine.js';
 import AI from '../ai.js';
 import TV from '../vista.js';
@@ -31,7 +33,8 @@ function matchLegal(legal, a) {
 const roundKey = S => S.roundNo + ':' + (S.round && S.round.duel ? S.round.duel.idx : 0) + ':' + S.phase;
 
 export class Mesa {
-  // io: { send(cid, msg), close(cid), now(), setTimeout, clearTimeout, setInterval, clearInterval, save(data), end(), idle() }
+  // io: { send(cid, msg), close(cid), now(), setTimeout, clearTimeout, setInterval, clearInterval, save(data), end(), idle(),
+  //       cuenta(token) -> Promise<{id, apodo}|null>, registrar(resumen) -> Promise }   (los dos últimos pueden faltar)
   constructor(io, saved) {
     this.io = io;
     this.conns = new Map();            // cid -> { pid, alive, chatAt, msgs }
@@ -45,8 +48,11 @@ export class Mesa {
     this.speed = s.speed || 'normal'; this.level = s.level || 'normal';
     this.chat = s.chat || []; this.GM = s.GM || null;
     // al despertar, nadie está conectado: los lugares de personas pasan a la computadora hasta que vuelvan
-    this.seats = (s.seats || []).map((x, p) => x.kind === 'ai' ? x : p === 0 && !this.started ? { ...x, cid: null } : { kind: 'ai', name: x.name, left: true, pid: x.pid, host: p === 0 });
+    this.seats = (s.seats || []).map((x, p) => x.kind === 'ai' ? x : p === 0 && !this.started ? { ...x, cid: null } : { kind: 'ai', name: x.name, left: true, pid: x.pid, host: p === 0, uid: x.uid || null });
     if (this.GM) this.GM.humans = [];
+    // cuentas que juegan este partido: uid -> { equipo, abandono, stats }; hasta que vuelvan, figuran como que se fueron
+    this.cuentas = new Map((s.cuentas || []).map(([uid, c]) => [uid, { ...c, abandono: true }]));
+    this.anotada = s.anotada ?? null; this.registrado = !!s.registrado;
   }
 
   // ---------- conexión ----------
@@ -99,6 +105,9 @@ export class Mesa {
   hello(cid, m) {
     const c = this.conns.get(cid), name = cleanName(m.name), pid = String(m.pid || '').slice(0, 40) || null;
     c.pid = pid;
+    if (typeof m.token === 'string' && m.token && this.io.cuenta && !c.uid) {
+      Promise.resolve(this.io.cuenta(m.token.slice(0, 200))).then(u => this.conCuenta(cid, u)).catch(() => {});
+    }
     const key = m.crear && typeof m.crear.key === 'string' ? m.crear.key : typeof m.key === 'string' ? m.key : null;
     if (!this.key) {
       if (!m.crear || !key) { this.send(cid, { t: 'nomesa' }); return; }
@@ -148,8 +157,28 @@ export class Mesa {
     if (s >= 0) this.freeSeat(s);
     this.takeSeat(p, { ...who, cid }, m.realista);
   }
+  // llegó la respuesta del servidor de cuentas: el lugar de esa conexión queda con su cuenta y su apodo
+  conCuenta(cid, u) {
+    const c = this.conns.get(cid);
+    if (!c || !u || typeof u.id !== 'number') return;
+    c.uid = u.id; c.apodo = cleanName(u.apodo);
+    const p = this.seatOf(cid);
+    if (p < 0) return;
+    this.seats[p].uid = u.id;
+    if (!this.started) this.seats[p].name = c.apodo;
+    this.notarCuenta(p);
+    this.lobbyChanged();
+  }
+  notarCuenta(p) {
+    const s = this.seats[p];
+    if (!this.started || !s || !s.uid || s.kind === 'ai') return;
+    const c = this.cuentas.get(s.uid);
+    if (c) { c.equipo = team(p); c.abandono = false; }
+    else this.cuentas.set(s.uid, { equipo: team(p), abandono: false, stats: { manos: 0, manosGanadas: 0, envidos: 0, flores: 0, trucos: 0 } });
+  }
   takeSeat(p, who, realista) {
-    this.seats[p] = { kind: who.kind, name: who.name, cid: who.cid, pid: who.pid };
+    const cc = this.conns.get(who.cid);
+    this.seats[p] = { kind: who.kind, name: who.name, cid: who.cid, pid: who.pid, uid: (cc && cc.uid) || null };
     if (realista !== undefined) this.prefs[p] = !!realista;
     const c = this.conns.get(who.cid); if (c) c.alive = this.pingSeq;
     if (this.started && this.GM) {
@@ -157,13 +186,15 @@ export class Mesa {
       this.GM.names[p] = who.name;
       this.GM.teamNames = this.GM.n > 2 ? [0, 1].map(t => joinY(this.GM.names.filter((_, q) => team(q) === t))) : this.GM.names.slice();
     }
+    this.notarCuenta(p);
     this.lobbyChanged();
     this.sendChatlog(who.cid);
     if (this.started) { this.publish(); if (this.GM && this.GM.phase === 'play') this.step(); else this.endWait(); }
   }
   freeSeat(p) {
     const prev = this.seats[p];
-    this.seats[p] = this.started ? { kind: 'ai', name: prev.name, left: true, pid: prev.pid, host: p === 0 } : { kind: 'ai', name: AI_NAMES[this.n][p] };
+    this.seats[p] = this.started ? { kind: 'ai', name: prev.name, left: true, pid: prev.pid, host: p === 0, uid: prev.uid || null } : { kind: 'ai', name: AI_NAMES[this.n][p] };
+    if (this.started && prev.uid && this.cuentas.has(prev.uid)) this.cuentas.get(prev.uid).abandono = true;
     this.ready.delete(p);
     if (this.started && this.GM) {
       this.GM.humans = this.GM.humans.filter(q => q !== p);
@@ -184,7 +215,7 @@ export class Mesa {
   }
   seatOf(cid) { return this.seats ? this.seats.findIndex(s => s.kind !== 'ai' && s.cid === cid) : -1; }
   isOwner(cid) { return this.seats && this.seats[0] && this.seats[0].kind === 'host' && this.seats[0].cid === cid; }
-  lobbyMsg() { return { t: 'lobby', n: this.n, started: this.started, owner: 0, seats: this.seats.map((s, p) => ({ kind: s.kind, name: s.name, cid: s.cid || null, host: p === 0 || undefined })) }; }
+  lobbyMsg() { return { t: 'lobby', n: this.n, started: this.started, owner: 0, seats: this.seats.map((s, p) => ({ kind: s.kind, name: s.name, cid: s.cid || null, host: p === 0 || undefined, cuenta: s.kind !== 'ai' && !!s.uid || undefined })) }; }
   lobbyChanged() { if (this.seats) this.broadcast(this.lobbyMsg()); this.save(); }
 
   // ---------- el partido ----------
@@ -202,6 +233,8 @@ export class Mesa {
     this.GM.id = this.io.now().toString(36) + Math.random().toString(36).slice(2, 7);
     T.startRound(this.GM);
     this.started = true; this.ready = new Set(); this.lastRoundKey = null; this.clock = null;
+    this.cuentas = new Map(); this.anotada = null; this.registrado = false;
+    this.seats.forEach((_, p) => this.notarCuenta(p));
     this.lobbyChanged();
     this.step();
   }
@@ -230,6 +263,7 @@ export class Mesa {
     this.io.clearTimeout(this.timer); this.timer = null;
     const G = this.GM; if (!G) return;
     const extra = this.notePauses();
+    this.anotar();
     this.clockSync();
     this.publish();
     this.save();
@@ -246,6 +280,40 @@ export class Mesa {
         this.step();
       }, delay);
     } else this.endWait();
+  }
+  // al terminar cada mano, lo de cada cuenta que está sentada; al terminar el partido, el resumen
+  anotar() {
+    const G = this.GM, R = G && G.round;
+    if (!G || !R || !['roundEnd', 'chicoEnd', 'matchEnd'].includes(G.phase)) return;
+    if (this.anotada !== G.roundNo) {
+      this.anotada = G.roundNo;
+      const pts = (t, cat) => (R.gained[t] || []).filter(g => g.cat === cat).reduce((a, g) => a + g.pts, 0);
+      this.seats.forEach((s, p) => {
+        if (s.kind === 'ai' || !s.uid || !this.cuentas.has(s.uid)) return;
+        const st = this.cuentas.get(s.uid).stats, t = team(p);
+        st.manos++;
+        if (pts(t, 'truco') > 0) st.manosGanadas++;
+        if (pts(t, 'envido') > 0) st.envidos++;
+        if (pts(t, 'truco') >= 2) st.trucos++;
+        if (R.flor && R.flor.sung[p] && R.flor.has[p]) st.flores++;
+      });
+    }
+    if (G.phase === 'matchEnd' && !this.registrado) {
+      this.registrado = true;
+      if (!this.io.registrar || ![0, 1].every(t => [...this.cuentas.values()].some(c => c.equipo === t))) return;
+      const equipos = [0, 1].map(t => this.seats.map((s, p) => team(p) === t ? { nombre: s.name, cuenta: s.kind !== 'ai' && s.uid || null, compu: s.kind === 'ai' } : null).filter(Boolean));
+      const tanteador = G.chicosToWin > 1 ? `${G.chicos[0]} a ${G.chicos[1]} en chicos` : `${G.scores[0]} a ${G.scores[1]}`;
+      const resumen = { id: G.id, n: G.n, ganador: G.matchWinner, tanteador, equipos,
+        cuentas: [...this.cuentas].map(([uid, c]) => ({ uid, equipo: c.equipo, abandono: c.abandono, stats: c.stats })) };
+      Promise.resolve(this.io.registrar(resumen)).then(r => {
+        if (!r || !r.anotado) return;
+        // a cada uno, cómo le fue en el ranking
+        for (const j of r.jugadores || []) {
+          const p = this.seats.findIndex(s => s.kind !== 'ai' && s.uid === j.uid);
+          if (p >= 0 && this.seats[p].cid) this.send(this.seats[p].cid, { t: 'ranking', ...j });
+        }
+      }).catch(() => {});
+    }
   }
   // tiempo por decisión de cada persona: si se le acaba, decide la computadora por ella
   clockSync() {
@@ -348,7 +416,8 @@ export class Mesa {
   data() {
     if (!this.key) return null;
     return { code: this.code, key: this.key, n: this.n, started: this.started, prefs: this.prefs, speed: this.speed, level: this.level, chat: this.chat, GM: this.GM,
-      seats: (this.seats || []).map(s => ({ kind: s.kind, name: s.name, pid: s.pid || null, left: !!s.left, host: !!s.host })) };
+      seats: (this.seats || []).map(s => ({ kind: s.kind, name: s.name, pid: s.pid || null, left: !!s.left, host: !!s.host, uid: s.uid || null })),
+      cuentas: [...this.cuentas], anotada: this.anotada, registrado: this.registrado };
   }
   save() { if (this.saveT) return; this.saveT = this.io.setTimeout(() => { this.saveT = null; this.saveNow(); }, 800); }
   saveNow() { const d = this.data(); if (d) this.io.save(d); }

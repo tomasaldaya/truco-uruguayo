@@ -21,7 +21,12 @@ Juego de truco uruguayo para el navegador, según el *Reglamento del Truco Urugu
 - `cards.part.js` — cartas en pantalla (la baraja del juego o el mazo que cargue el jugador).
 - `tally.part.js` — tanteador de fósforos.
 - `server/mesa.mjs` — una mesa compartida en el servidor: lugares, partido, computadora, tiempo, chat.
-- `server/worker.mjs` — el servidor en Cloudflare: sirve la página y una sala (Durable Object) por mesa.
+- `server/worker.mjs` — el servidor en Cloudflare: sirve la página, una sala (Durable Object) por mesa y el objeto de las cuentas.
+- `server/cuentas.mjs` — cuentas, ranking (general y del mes), estadísticas, historial y amigos, en SQLite.
+- `server/google.mjs` — verifica el token del botón "Acceder con Google" (firma, app y vencimiento).
+- `server/prueba-cuentas.mjs` — pruebas de las cuentas con SQLite de Node: `node server/prueba-cuentas.mjs`.
+- `cuentas.part.js` — las pantallas de la cuenta: entrar, perfil, ranking, amigos e invitaciones.
+- `privacidad.html` — la política de privacidad (la pide Google para el acceso con Google).
 - `server/prueba-mesa.mjs` — pruebas de la mesa del servidor sin Cloudflare: `node server/prueba-mesa.mjs`.
 - `server/prueba-vivo.mjs` — prueba del servidor ya publicado (dos jugadores por WebSocket).
 - `server/actividad.mjs` — cuánto se usó el juego (mesas, gente, aparatos, errores), solo totales. En GitHub: Actions → "Actividad del juego" → Run workflow.
@@ -183,6 +188,43 @@ Sin internet (o con `localStorage['truco.red'] = 'local'`), la mesa compartida f
 pestañas del mismo navegador con BroadcastChannel, que es como se prueba sin red. Para probar la
 conexión de verdad sin salir de una máquina: un relay Nostr local y
 `localStorage['truco.relays'] = 'ws://127.0.0.1:7777'`.
+
+## Cuentas y ranking
+
+Se puede jugar sin cuenta. Con cuenta (**Acceder con Google**, en "Tu cuenta" del inicio) cada uno
+tiene un apodo, que es su nombre en las mesas, y además:
+
+- **Ranking** general y **del mes** (arranca de cero el primer día de cada mes, hora de Uruguay). Todos
+  empiezan con 1000 puntos y cada partido suma o resta según el sistema ELO (K = 32; en parejas y
+  tercetos, contra el promedio del otro equipo): ganarle a alguien con más puntos da más.
+- **Qué partidos cuentan**: los que terminan en mesas del servidor con al menos una persona con cuenta
+  en cada equipo; la computadora puede completar lugares. Contra la computadora sola no cuenta. Quien se
+  va en medio del partido y no vuelve antes de que termine se anota un abandono y lo pierde, aunque su
+  equipo gane. Las mesas de navegador a navegador (si el servidor no contesta) no cuentan.
+- **Perfil**: puntos y puesto, partidos ganados, racha y mejor racha, manos ganadas, envidos ganados (manos
+  en las que su equipo se llevó puntos de envido), flores cantadas, trucos ganados (manos ganadas con
+  truco cantado), abandonos, lo del mes y los últimos 20 partidos. El perfil de cualquiera se abre
+  desde el ranking, el historial o los amigos.
+- **Amigos**: se buscan por apodo; la solicitud se acepta o se rechaza. Se ve quién está en línea y, desde
+  una mesa del servidor, se lo invita: le aparece el aviso y entra con un toque.
+- **Borrar mi cuenta**, en el perfil, borra todo lo suyo. No se guarda el correo ni la foto
+  ([privacidad.html](privacidad.html)).
+
+Cómo funciona: un Durable Object `CuentasDO` (uno solo, con SQLite) guarda usuarios, sesiones, partidos,
+jugadas y amigos. El botón de Google devuelve un token firmado que el servidor verifica con las claves
+públicas de Google (no hace falta secreto; el ID de cliente está en `wrangler.jsonc`, en `vars`). La
+sesión es un código al azar que el navegador guarda y manda en cada pedido (encabezado `Authorization`,
+sin cookies, así funciona desde GitHub Pages) y en el `hello` de la mesa; el servidor guarda solo su
+hash. La mesa pregunta a las cuentas quién es cada uno y, al terminar el partido, les manda el resumen
+(los dos por RPC entre Durable Objects): ningún navegador puede anotar resultados. Quien tiene el juego
+abierto con su cuenta queda conectado por un WebSocket "hibernable" (el objeto duerme mientras nadie
+habla y el `ping` lo contesta Cloudflare solo), que sirve para saber quién está en línea y recibir
+invitaciones.
+
+El ID de cliente de Google es del proyecto "Truco Uruguayo" en Google Cloud (Google Auth Platform), con
+los orígenes `https://tomasaldaya.github.io` y `https://truco-uruguayo.tomasaldaya.workers.dev`. Para
+probar en la máquina: un archivo `.dev.vars` con `DEV_LOGIN=1` (no se sube) habilita "Entrar de prueba"
+en `wrangler dev`, sin Google.
 
 ## Mesa 3D
 

@@ -52,6 +52,19 @@ await t('la página y /api/salud contestan', async () => {
   const p = await fetch(BASE + '/'); const html = await p.text();
   assert.equal(p.status, 200); assert.ok(/Truco/i.test(html) && html.length > 100000, 'la página no parece el juego');
 });
+await t('las cuentas contestan: configuración de Google, ranking y permisos para GitHub Pages', async () => {
+  const c = await (await fetch(BASE + '/api/cuenta/config')).json();
+  assert.match(c.google || '', /\.apps\.googleusercontent\.com$/, 'falta el ID de cliente de Google');
+  assert.equal(c.prueba, false, 'la entrada de prueba no puede estar prendida en el servidor de verdad');
+  const r = await (await fetch(BASE + '/api/ranking')).json();
+  assert(Array.isArray(r.lista));
+  const pre = await fetch(BASE + '/api/cuenta/yo', { method: 'OPTIONS', headers: { origin: 'https://tomasaldaya.github.io', 'access-control-request-method': 'GET', 'access-control-request-headers': 'authorization' } });
+  assert.equal(pre.status, 204); assert.equal(pre.headers.get('access-control-allow-origin'), '*');
+  const sin = await fetch(BASE + '/api/cuenta/yo');
+  assert.equal(sin.status, 401);
+  const g = await fetch(BASE + '/api/cuenta/google', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ credential: 'a.b.c' }) });
+  assert.equal(g.status, 401, 'un token falso de Google tiene que rechazarse');
+});
 await t('entrar a una mesa que no existe avisa "nomesa"', async () => {
   const X = await jugador('Nadie', {});
   await espera(X, m => m.t === 'nomesa', 'nomesa');

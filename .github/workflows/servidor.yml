@@ -19,6 +19,8 @@ jobs:
         run: node test.js
       - name: Pruebas del servidor
         run: node server/prueba-mesa.mjs
+      - name: Pruebas de las cuentas
+        run: node server/prueba-cuentas.mjs
       - name: Preparar la página
         run: mkdir -p public && cp index.html public/
       - name: Dirección en workers.dev

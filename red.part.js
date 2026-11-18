@@ -65,7 +65,9 @@ function voiceRoom(code){
 }
 const vozRoom = () => NET && (NET.vr || (NET.tr && NET.tr.room)) || null;
 // el nombre se recuerda, y cada pestaña tiene el suyo (para probar con varias pestañas a la vez)
-function myName(){ let s = null; try { s = sessionStorage.getItem('truco.nombre'); } catch (e) {} return (s !== null ? s : store.get('truco.nombre') || '').trim(); }
+// la cuenta de quien juega (cuentas.part.js): con cuenta, el nombre en las mesas es su apodo
+const CUENTA = { token: store.get('truco.sesion') || null, yo: (() => { try { return JSON.parse(store.get('truco.yo') || 'null'); } catch (e) { return null; } })(), cfg: null, ws: null, amigos: null };
+function myName(){ if (CUENTA.token && CUENTA.yo) return CUENTA.yo.apodo; let s = null; try { s = sessionStorage.getItem('truco.nombre'); } catch (e) {} return (s !== null ? s : store.get('truco.nombre') || '').trim(); }
 function setMyName(v){ v = (v || '').trim().slice(0, 20); try { sessionStorage.setItem('truco.nombre', v); } catch (e) {} store.set('truco.nombre', v); }
 function newCode(){ const L = 'ABCDEFGHJKLMNPQRSTUVWXYZ'; let s = ''; for (let i = 0; i < 4; i++) s += L[Math.floor(Math.random() * L.length)]; return s; }
 function netPost(msg){
@@ -149,7 +151,7 @@ function onPeerEvent(ev, peer, err){
 }
 function serverHello(){
   if (!NET || NET.tr.kind !== 'server') return;
-  NET.tr.post({ t: 'hello', v: NETV, code: NET.code, from: NET.cid, name: NET.name, pid: myPid(), realista, key: NET.ownerKey || undefined, crear: NET.crear || undefined });
+  NET.tr.post({ t: 'hello', v: NETV, code: NET.code, from: NET.cid, name: NET.name, pid: myPid(), realista, key: NET.ownerKey || undefined, crear: NET.crear || undefined, token: CUENTA.token || undefined });
 }
 // el servidor se cortó o volvió (se reconecta solo)
 function onServerLink(ev){
@@ -451,6 +453,7 @@ function onGuestMsg(m){
     case 'err': errMsg = m.msg; NET.legal = []; render(); return;
     case 'away': NET.hostLost = true; NET.hostPeer = null; netStatus(); return;   // el anfitrión recarga la página
     case 'chat': chatAdd({ p: m.p, name: m.name, text: m.text }, false); return;
+    case 'ranking': cuentaRanking(m); return;
     case 'chatlog': NET.chat = (m.list || []).slice(-80); renderChat(); return;
     case 'talk': setTalking(m.p, !!m.on); return;
     case 'full': leaveNet(); netNote = 'La mesa está completa.'; homeView = 'join'; showHome('join'); return;
@@ -478,11 +481,19 @@ function onState(m){
 function seatsHTML(seats, opts){
   const mine = p => NET && NET.role === 'guest' ? p === NET.seat : p === 0;
   const row = (s, p) => {
-    const who = s.kind === 'ai' ? `${esc(s.name)} <small>(computadora)</small>` : `${esc(s.name)}${s.kind === 'host' ? ' <small>(anfitrión)</small>' : ''}`;
+    const who = s.kind === 'ai' ? `${esc(s.name)} <small>(computadora)</small>` : `${esc(s.name)}${s.cuenta ? ' <span class="ccta" title="Tiene cuenta">★</span>' : ''}${s.kind === 'host' ? ' <small>(anfitrión)</small>' : ''}`;
     const sit = opts.canSit && s.kind === 'ai' && !s.host && !mine(p) ? `<button class="tool" data-sit="${p}">Sentarme acá</button>` : '';
     return `<li class="${mine(p) ? 'me' : ''}"><span>${who}${mine(p) ? ' <b>· vos</b>' : ''}</span>${sit}</li>`;
   };
   return '<div class="seats">' + [0, 1].map(t => `<div class="team t${t}"><h3>Equipo ${t === 0 ? 'celeste' : 'bordó'}</h3><ul>${seats.map((s, p) => team(p) === t ? row(s, p) : '').join('')}</ul></div>`).join('') + '</div>';
+}
+// si el partido va a contar para el ranking (solo en mesas del servidor, con cuentas en los dos equipos)
+function rankNote(L){
+  if (!NET || !NET.tr || NET.tr.kind !== 'server' || !L || !L.seats || L.started) return '';
+  const eq = [0, 1].map(t => L.seats.some((s, p) => team(p) === t && s.cuenta));
+  if (eq[0] && eq[1]) return '<p class="hkey rk-si">★ Este partido cuenta para el ranking: hay gente con cuenta en los dos equipos.</p>';
+  if (eq[0] || eq[1]) return '<p class="hkey">★ Para que cuente en el ranking tiene que haber alguien con cuenta en cada equipo.</p>';
+  return '';
 }
 function renderLobby(box){
   if (!NET) { homeView = 'main'; return renderHome(); }
@@ -498,13 +509,14 @@ function renderLobby(box){
     h += online()
       ? `<p class="lob">Pasale ${url ? 'el link o ' : ''}el código <b class="code">${esc(NET.code)}</b> a quien quiera jugar. Entra desde su navegador, en la compu o en el celular, con "Unirme a una mesa".</p>
         ${url ? `<div class="invite"><input id="hUrl" readonly value="${esc(url)}" aria-label="Link de la mesa"><button class="tool" id="hCopy">Copiar link</button>${navigator.share ? '<button class="tool" id="hShare">Compartir</button>' : ''}</div>` : ''}
-        <p class="hkey">${viaServer ? 'La mesa queda en el servidor: podés cerrar esta pestaña o recargar y el partido sigue.' : 'Dejá esta pestaña abierta mientras dure el partido: el partido corre en tu navegador.'}</p>`
+        <p class="hkey">${viaServer ? 'La mesa queda en el servidor: podés cerrar esta pestaña o recargar y el partido sigue.' : 'Dejá esta pestaña abierta mientras dure el partido: el partido corre en tu navegador.'}</p>${viaServer && CUENTA.token && CUENTA.yo ? '<div class="hlinks"><button class="tool" id="hInvAm">Invitar amigos</button></div>' : ''}`
       : `<p class="lob">Pasale el código <b class="code">${esc(NET.code)}</b> a quien quiera jugar. Sin internet funciona entre pestañas de este navegador: abrí el juego en otra pestaña, tocá "Unirme a una mesa" y escribí el código.</p>`;
     if (!L) h += '<p class="lob">Abriendo la mesa…</p>';
     else h += `
-      <div class="cfg"><label for="hName">Tu nombre</label><input id="hName" maxlength="20" value="${esc(myName())}" placeholder="Anfitrión" ${L.started ? 'disabled' : ''}>
+      <div class="cfg"><label for="hName">Tu nombre</label><input id="hName" maxlength="20" value="${esc(myName())}" placeholder="Anfitrión" ${L.started || CUENTA.yo && CUENTA.token ? 'disabled' : ''}>
       <span class="lbl">Modo</span><div class="seg" role="group" aria-label="Modo">${MODES.map(([n, nm]) => `<button type="button" data-mode="${n}" aria-pressed="${L.n === n}" ${L.started ? 'disabled' : ''}>${nm}</button>`).join('')}</div></div>
       ${seatsHTML(L.seats, { canSit: false })}
+      ${rankNote(L)}
       <p class="hkey">Los lugares sin persona los juega la computadora. Si alguien se va en medio del partido, la computadora sigue por él.</p>`;
     h += `<div class="row">${L ? (L.started ? '<button class="act flor" id="hGo">Volver a la mesa</button>' : '<button class="act flor" id="hGo">Empezar partido</button>') : ''}<button class="act mazo" id="hClose">Cerrar la mesa</button></div>`;
   } else {
@@ -513,12 +525,13 @@ function renderLobby(box){
       const host = (L.seats.find(s => s.kind === 'host' || s.host) || {}).name || 'el anfitrión';
       const sentado = NET.seat >= 0;
       h += `<p class="lob">${MODES.find(m => m[0] === L.n)[1]}, mesa de ${esc(host)}. ${L.started ? (sentado ? 'El partido ya empezó.' : 'El partido ya empezó: elegí un lugar libre para entrar.') : `Esperando a que ${esc(host)} empiece el partido.`}</p>
-        ${seatsHTML(L.seats, { canSit: true })}`;
+        ${seatsHTML(L.seats, { canSit: true })}${rankNote(L)}${viaServer && CUENTA.token && CUENTA.yo ? '<div class="hlinks"><button class="tool" id="hInvAm">Invitar amigos</button></div>' : ''}`;
     }
     h += `<div class="row">${G ? '<button class="act flor" id="hGo">Volver a la mesa</button>' : ''}<button class="act mazo" id="hClose">Salir de la mesa</button></div>`;
   }
   h += `<section class="lchat"><h3>Chat de la mesa</h3>${chatUI('lc')}</section>`;
   box.innerHTML = h;
+  if ($('hInvAm')) $('hInvAm').onclick = () => cuentaIr('amigos', { volver: 'lobby' });
   bindChat('lc'); renderChat();
   $('hBack').onclick = () => { homeView = 'main'; renderHome(); };
   if ($('hName')) $('hName').oninput = e => {
@@ -546,7 +559,7 @@ function renderJoin(box){
   box.innerHTML = `<div class="hbar"><button class="tool" id="hBack">Volver</button><h2>Unirme a una mesa</h2></div>
     ${netNote ? `<p class="hnote" role="alert">${esc(netNote)}</p>` : ''}
     <form class="cfg" id="hJoinForm">
-      <label for="hName">Tu nombre</label><input id="hName" maxlength="20" value="${esc(myName())}" placeholder="Invitado" autocomplete="nickname">
+      <label for="hName">Tu nombre</label><input id="hName" maxlength="20" value="${esc(myName())}" placeholder="Invitado" autocomplete="nickname" ${CUENTA.yo && CUENTA.token ? 'disabled title="Con cuenta se usa tu apodo; se cambia en tu perfil"' : ''}>
       <label for="hCode">Código de la mesa</label><input id="hCode" maxlength="4" placeholder="ABCD" autocomplete="off" value="${esc(joinCode)}" style="text-transform:uppercase;width:7em">
       <span></span><button class="act flor" type="submit">Unirme</button>
     </form>

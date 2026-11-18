@@ -302,6 +302,55 @@ aside{display:flex;flex-direction:column;gap:14px;margin-top:13px}
 .cfgnote{font-size:13.5px;color:var(--muted);margin:8px 0 0}
 .home :focus-visible,.tools :focus-visible{outline:3px solid var(--gold);outline-offset:2px}
 .hnote{background:rgba(199,65,47,.16);border:1px solid rgba(199,65,47,.5);border-radius:12px;padding:10px 14px;margin:0}
+.hnote.ok{background:rgba(127,191,142,.14);border-color:rgba(127,191,142,.5)}
+/* cuentas */
+.cficha{display:flex;align-items:center;gap:12px;margin:0 0 12px}
+.cficha div{display:flex;flex-direction:column;gap:2px;min-width:0}
+.cficha b{font-family:'Alegreya',serif;font-size:21px;line-height:1.1}
+.cficha span{font-size:14px;color:var(--muted)}
+.cficha.grande b{font-size:28px}
+.avt{display:inline-flex;align-items:center;justify-content:center;flex:none;width:40px;height:40px;border-radius:50%;color:#2b1d10;font-weight:700;font-size:15px;letter-spacing:.5px}
+.avt.g{width:58px;height:58px;font-size:21px}
+.avt.c{width:26px;height:26px;font-size:11px;vertical-align:middle}
+.cbadge{color:var(--gold)}
+.gsi{min-height:44px;margin:4px 0 10px}
+.hcuenta .hkey.cta{margin:0 0 12px;font-size:14px}
+.hcuenta input,.hmain form.hlinks input{font:inherit;font-size:15px;padding:8px 12px;border-radius:999px;border:1px solid rgba(255,255,255,.2);background:#2a1d13;color:var(--ink);min-width:0;flex:1 1 160px;max-width:280px}
+.ccta{color:var(--gold);font-size:13px}
+.rk-si{color:var(--gold)}
+.h3{font-size:19px!important;margin:18px 0 8px!important}
+.stiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(122px,1fr));gap:8px;margin:4px 0 6px}
+.stile{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:10px 12px;display:flex;flex-direction:column;gap:2px}
+.stile b{font-family:'Alegreya',serif;font-size:24px;line-height:1.1}
+.stile span{font-size:12.5px;color:var(--muted);line-height:1.3}
+.rk{width:100%;border-collapse:collapse;margin:12px 0 4px;font-size:15px}
+.rk th{text-align:left;font-size:12.5px;font-weight:600;color:var(--muted);padding:4px 6px;border-bottom:1px solid rgba(255,255,255,.15)}
+.rk td{padding:7px 6px;border-bottom:1px solid rgba(255,255,255,.07)}
+.rk td:first-child,.rk th:first-child{width:2.2em;color:var(--muted)}
+.rk td:nth-child(n+3),.rk th:nth-child(n+3){text-align:right;font-variant-numeric:tabular-nums}
+.rk tbody tr[data-id]{cursor:pointer}
+.rk tbody tr[data-id]:hover,.rk tbody tr[data-id]:focus-visible{background:rgba(255,255,255,.07)}
+.rk tr.me td{color:var(--gold);font-weight:700}
+.rk tr.sep td{text-align:center;color:var(--muted);border:0;padding:2px}
+.hist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.hist li{position:relative;padding:8px 54px 8px 12px;border-radius:12px;background:rgba(255,255,255,.05);border-left:4px solid #8b2335}
+.hist li.w{border-left-color:var(--gold)}
+.hist small{color:var(--muted)}
+.hist .hcon{font-size:13.5px;color:var(--muted)}
+.hist .hd{position:absolute;right:12px;top:50%;transform:translateY(-50%);font-weight:700;font-variant-numeric:tabular-nums}
+.amg{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.amg li{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:6px 10px;border-radius:12px;background:rgba(255,255,255,.05)}
+.amg small{color:var(--muted);margin-right:auto}
+.lnk{background:none;border:0;color:var(--ink);font:inherit;font-weight:700;cursor:pointer;padding:2px;text-decoration:underline;text-decoration-color:rgba(255,255,255,.3);text-underline-offset:3px}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:rgba(255,255,255,.25);flex:none}
+.dot.on{background:#5fd07a;box-shadow:0 0 0 3px rgba(95,208,122,.2)}
+.tool.sec{opacity:.75}
+.ctatoast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:40;display:flex;align-items:center;gap:10px;flex-wrap:wrap;width:max-content;max-width:min(560px,calc(100vw - 24px));
+  background:var(--paper);color:#2b1d10;border-radius:16px;padding:10px 12px 10px 16px;box-shadow:0 14px 40px rgba(0,0,0,.5);animation:pop .25s ease-out;font-size:15px}
+.ctatoast .tool{background:#e4d9bf;color:#2b1d10;border-color:transparent}
+.ctatoast.inv{bottom:auto;top:18px;width:min(560px,calc(100vw - 24px))}
+.hmain .hkey a{color:var(--gold)}
+.ctatoast span{flex:1 1 200px}
 .lob{margin:0 0 14px;line-height:1.45}
 .lob .code{font-family:'Alegreya',serif;font-size:26px;letter-spacing:3px;color:var(--gold);padding:0 4px}
 .clock{display:flex;align-items:center;justify-content:center;gap:8px;margin:2px auto 0;font-size:13px;color:var(--muted, #cbbd9f)}
@@ -8247,6 +8296,9 @@ function renderHome(){
   if (homeView === 'config') return renderConfig(box);
   if (homeView === 'lobby') return renderLobby(box);
   if (homeView === 'join') return renderJoin(box);
+  if (homeView === 'perfil') return renderPerfil(box);
+  if (homeView === 'ranking') return renderRanking(box);
+  if (homeView === 'amigos') return renderAmigos(box);
   const inGame = !!NET || (GM && GM.phase !== 'matchEnd');
   let h = netNote ? `<p class="hnote" role="alert">${esc(netNote)}</p>` : '';
   netNote = '';
@@ -8266,6 +8318,7 @@ function renderHome(){
   h += '</section>';
   if (!NET) h += `<section><h2>Jugar con otros</h2><div class="hlinks"><button class="tool" id="hHost">Crear una mesa</button><button class="tool" id="hJoin">Unirme a una mesa</button></div>
     <p class="hkey">${netMode() === 'internet' ? 'Por internet: creá una mesa y pasale el link a quien quieras, o unite con el código que te pasaron.' : 'Sin internet: entre pestañas de este navegador, para probar cómo se ve el partido desde cada lugar.'}</p></section>`;
+  h += cuentaHTML();
   h += `<nav class="hlinks" aria-label="Más opciones">
     <button class="tool" id="hCfg">Configuración</button><button class="tool" id="hDeck">Tu mazo</button>
     <button class="tool" id="hHow">Cómo se juega</button><button class="tool" id="hStats">Estadísticas</button></nav>
@@ -8287,6 +8340,7 @@ function renderHome(){
   $('hDeck').onclick = deckModal;
   $('hHow').onclick = howToModal;
   $('hStats').onclick = statsModal;
+  bindCuenta();
 }
 
 // ---------- Configuración ----------
@@ -8416,7 +8470,9 @@ function voiceRoom(code){
 }
 const vozRoom = () => NET && (NET.vr || (NET.tr && NET.tr.room)) || null;
 // el nombre se recuerda, y cada pestaña tiene el suyo (para probar con varias pestañas a la vez)
-function myName(){ let s = null; try { s = sessionStorage.getItem('truco.nombre'); } catch (e) {} return (s !== null ? s : store.get('truco.nombre') || '').trim(); }
+// la cuenta de quien juega (cuentas.part.js): con cuenta, el nombre en las mesas es su apodo
+const CUENTA = { token: store.get('truco.sesion') || null, yo: (() => { try { return JSON.parse(store.get('truco.yo') || 'null'); } catch (e) { return null; } })(), cfg: null, ws: null, amigos: null };
+function myName(){ if (CUENTA.token && CUENTA.yo) return CUENTA.yo.apodo; let s = null; try { s = sessionStorage.getItem('truco.nombre'); } catch (e) {} return (s !== null ? s : store.get('truco.nombre') || '').trim(); }
 function setMyName(v){ v = (v || '').trim().slice(0, 20); try { sessionStorage.setItem('truco.nombre', v); } catch (e) {} store.set('truco.nombre', v); }
 function newCode(){ const L = 'ABCDEFGHJKLMNPQRSTUVWXYZ'; let s = ''; for (let i = 0; i < 4; i++) s += L[Math.floor(Math.random() * L.length)]; return s; }
 function netPost(msg){
@@ -8500,7 +8556,7 @@ function onPeerEvent(ev, peer, err){
 }
 function serverHello(){
   if (!NET || NET.tr.kind !== 'server') return;
-  NET.tr.post({ t: 'hello', v: NETV, code: NET.code, from: NET.cid, name: NET.name, pid: myPid(), realista, key: NET.ownerKey || undefined, crear: NET.crear || undefined });
+  NET.tr.post({ t: 'hello', v: NETV, code: NET.code, from: NET.cid, name: NET.name, pid: myPid(), realista, key: NET.ownerKey || undefined, crear: NET.crear || undefined, token: CUENTA.token || undefined });
 }
 // el servidor se cortó o volvió (se reconecta solo)
 function onServerLink(ev){
@@ -8802,6 +8858,7 @@ function onGuestMsg(m){
     case 'err': errMsg = m.msg; NET.legal = []; render(); return;
     case 'away': NET.hostLost = true; NET.hostPeer = null; netStatus(); return;   // el anfitrión recarga la página
     case 'chat': chatAdd({ p: m.p, name: m.name, text: m.text }, false); return;
+    case 'ranking': cuentaRanking(m); return;
     case 'chatlog': NET.chat = (m.list || []).slice(-80); renderChat(); return;
     case 'talk': setTalking(m.p, !!m.on); return;
     case 'full': leaveNet(); netNote = 'La mesa está completa.'; homeView = 'join'; showHome('join'); return;
@@ -8829,11 +8886,19 @@ function onState(m){
 function seatsHTML(seats, opts){
   const mine = p => NET && NET.role === 'guest' ? p === NET.seat : p === 0;
   const row = (s, p) => {
-    const who = s.kind === 'ai' ? `${esc(s.name)} <small>(computadora)</small>` : `${esc(s.name)}${s.kind === 'host' ? ' <small>(anfitrión)</small>' : ''}`;
+    const who = s.kind === 'ai' ? `${esc(s.name)} <small>(computadora)</small>` : `${esc(s.name)}${s.cuenta ? ' <span class="ccta" title="Tiene cuenta">★</span>' : ''}${s.kind === 'host' ? ' <small>(anfitrión)</small>' : ''}`;
     const sit = opts.canSit && s.kind === 'ai' && !s.host && !mine(p) ? `<button class="tool" data-sit="${p}">Sentarme acá</button>` : '';
     return `<li class="${mine(p) ? 'me' : ''}"><span>${who}${mine(p) ? ' <b>· vos</b>' : ''}</span>${sit}</li>`;
   };
   return '<div class="seats">' + [0, 1].map(t => `<div class="team t${t}"><h3>Equipo ${t === 0 ? 'celeste' : 'bordó'}</h3><ul>${seats.map((s, p) => team(p) === t ? row(s, p) : '').join('')}</ul></div>`).join('') + '</div>';
+}
+// si el partido va a contar para el ranking (solo en mesas del servidor, con cuentas en los dos equipos)
+function rankNote(L){
+  if (!NET || !NET.tr || NET.tr.kind !== 'server' || !L || !L.seats || L.started) return '';
+  const eq = [0, 1].map(t => L.seats.some((s, p) => team(p) === t && s.cuenta));
+  if (eq[0] && eq[1]) return '<p class="hkey rk-si">★ Este partido cuenta para el ranking: hay gente con cuenta en los dos equipos.</p>';
+  if (eq[0] || eq[1]) return '<p class="hkey">★ Para que cuente en el ranking tiene que haber alguien con cuenta en cada equipo.</p>';
+  return '';
 }
 function renderLobby(box){
   if (!NET) { homeView = 'main'; return renderHome(); }
@@ -8849,13 +8914,14 @@ function renderLobby(box){
     h += online()
       ? `<p class="lob">Pasale ${url ? 'el link o ' : ''}el código <b class="code">${esc(NET.code)}</b> a quien quiera jugar. Entra desde su navegador, en la compu o en el celular, con "Unirme a una mesa".</p>
         ${url ? `<div class="invite"><input id="hUrl" readonly value="${esc(url)}" aria-label="Link de la mesa"><button class="tool" id="hCopy">Copiar link</button>${navigator.share ? '<button class="tool" id="hShare">Compartir</button>' : ''}</div>` : ''}
-        <p class="hkey">${viaServer ? 'La mesa queda en el servidor: podés cerrar esta pestaña o recargar y el partido sigue.' : 'Dejá esta pestaña abierta mientras dure el partido: el partido corre en tu navegador.'}</p>`
+        <p class="hkey">${viaServer ? 'La mesa queda en el servidor: podés cerrar esta pestaña o recargar y el partido sigue.' : 'Dejá esta pestaña abierta mientras dure el partido: el partido corre en tu navegador.'}</p>${viaServer && CUENTA.token && CUENTA.yo ? '<div class="hlinks"><button class="tool" id="hInvAm">Invitar amigos</button></div>' : ''}`
       : `<p class="lob">Pasale el código <b class="code">${esc(NET.code)}</b> a quien quiera jugar. Sin internet funciona entre pestañas de este navegador: abrí el juego en otra pestaña, tocá "Unirme a una mesa" y escribí el código.</p>`;
     if (!L) h += '<p class="lob">Abriendo la mesa…</p>';
     else h += `
-      <div class="cfg"><label for="hName">Tu nombre</label><input id="hName" maxlength="20" value="${esc(myName())}" placeholder="Anfitrión" ${L.started ? 'disabled' : ''}>
+      <div class="cfg"><label for="hName">Tu nombre</label><input id="hName" maxlength="20" value="${esc(myName())}" placeholder="Anfitrión" ${L.started || CUENTA.yo && CUENTA.token ? 'disabled' : ''}>
       <span class="lbl">Modo</span><div class="seg" role="group" aria-label="Modo">${MODES.map(([n, nm]) => `<button type="button" data-mode="${n}" aria-pressed="${L.n === n}" ${L.started ? 'disabled' : ''}>${nm}</button>`).join('')}</div></div>
       ${seatsHTML(L.seats, { canSit: false })}
+      ${rankNote(L)}
       <p class="hkey">Los lugares sin persona los juega la computadora. Si alguien se va en medio del partido, la computadora sigue por él.</p>`;
     h += `<div class="row">${L ? (L.started ? '<button class="act flor" id="hGo">Volver a la mesa</button>' : '<button class="act flor" id="hGo">Empezar partido</button>') : ''}<button class="act mazo" id="hClose">Cerrar la mesa</button></div>`;
   } else {
@@ -8864,12 +8930,13 @@ function renderLobby(box){
       const host = (L.seats.find(s => s.kind === 'host' || s.host) || {}).name || 'el anfitrión';
       const sentado = NET.seat >= 0;
       h += `<p class="lob">${MODES.find(m => m[0] === L.n)[1]}, mesa de ${esc(host)}. ${L.started ? (sentado ? 'El partido ya empezó.' : 'El partido ya empezó: elegí un lugar libre para entrar.') : `Esperando a que ${esc(host)} empiece el partido.`}</p>
-        ${seatsHTML(L.seats, { canSit: true })}`;
+        ${seatsHTML(L.seats, { canSit: true })}${rankNote(L)}${viaServer && CUENTA.token && CUENTA.yo ? '<div class="hlinks"><button class="tool" id="hInvAm">Invitar amigos</button></div>' : ''}`;
     }
     h += `<div class="row">${G ? '<button class="act flor" id="hGo">Volver a la mesa</button>' : ''}<button class="act mazo" id="hClose">Salir de la mesa</button></div>`;
   }
   h += `<section class="lchat"><h3>Chat de la mesa</h3>${chatUI('lc')}</section>`;
   box.innerHTML = h;
+  if ($('hInvAm')) $('hInvAm').onclick = () => cuentaIr('amigos', { volver: 'lobby' });
   bindChat('lc'); renderChat();
   $('hBack').onclick = () => { homeView = 'main'; renderHome(); };
   if ($('hName')) $('hName').oninput = e => {
@@ -8897,7 +8964,7 @@ function renderJoin(box){
   box.innerHTML = `<div class="hbar"><button class="tool" id="hBack">Volver</button><h2>Unirme a una mesa</h2></div>
     ${netNote ? `<p class="hnote" role="alert">${esc(netNote)}</p>` : ''}
     <form class="cfg" id="hJoinForm">
-      <label for="hName">Tu nombre</label><input id="hName" maxlength="20" value="${esc(myName())}" placeholder="Invitado" autocomplete="nickname">
+      <label for="hName">Tu nombre</label><input id="hName" maxlength="20" value="${esc(myName())}" placeholder="Invitado" autocomplete="nickname" ${CUENTA.yo && CUENTA.token ? 'disabled title="Con cuenta se usa tu apodo; se cambia en tu perfil"' : ''}>
       <label for="hCode">Código de la mesa</label><input id="hCode" maxlength="4" placeholder="ABCD" autocomplete="off" value="${esc(joinCode)}" style="text-transform:uppercase;width:7em">
       <span></span><button class="act flor" type="submit">Unirme</button>
     </form>
@@ -9047,6 +9114,373 @@ document.addEventListener('visibilitychange', () => { if (document.hidden) talk(
 
 // al abrir: si esta pestaña estaba en una mesa (se recargó la página), vuelve a ella
 const netBack = netOK() && netRestore();
+
+// ---------- Cuentas: entrar con Google, perfil, ranking, historial y amigos ----------
+// Las cuentas viven en el servidor (server/cuentas.mjs). El token de la sesión queda en este navegador
+// (localStorage 'truco.sesion') y va en cada pedido; con las mesas del servidor va en el "hello".
+let cuentaVista = { perfil: null, tipo: 'general', volver: 'main', datos: null, cargando: false, error: '', buscar: '', resultados: null, quitar: null, borrar: false, aviso: '' };
+const cuentaOK = () => serverOK();
+const conCuenta = () => !!(CUENTA.token && CUENTA.yo);
+
+async function api(ruta, cuerpo){
+  const h = {};
+  if (CUENTA.token) h.authorization = 'Bearer ' + CUENTA.token;
+  if (cuerpo) h['content-type'] = 'application/json';
+  let r;
+  try { r = await fetch(serverURL() + '/api/' + ruta, { method: cuerpo ? 'POST' : 'GET', headers: h, body: cuerpo ? JSON.stringify(cuerpo) : undefined }); }
+  catch (e) { throw new Error('No hay conexión con el servidor.'); }
+  let j = {}; try { j = await r.json(); } catch (e) {}
+  if (r.status === 401 && CUENTA.token && !/^cuenta\/google/.test(ruta)) cuentaOlvidar();
+  if (!r.ok) throw new Error(j.error || 'Algo falló (' + r.status + ').');
+  return j;
+}
+function cuentaGuardar(token, yo){
+  if (token !== undefined) { CUENTA.token = token; if (token) store.set('truco.sesion', token); else store.del('truco.sesion'); }
+  CUENTA.yo = yo || null;
+  if (yo) store.set('truco.yo', JSON.stringify(yo)); else store.del('truco.yo');
+}
+function cuentaOlvidar(){
+  cuentaGuardar(null, null);
+  CUENTA.amigos = null;
+  if (CUENTA.ws) { const w = CUENTA.ws; CUENTA.ws = null; try { w.close(); } catch (e) {} }
+  try { if (window.google && google.accounts) google.accounts.id.disableAutoSelect(); } catch (e) {}
+  cuentaRepintar();
+}
+function cuentaRepintar(){ if (!$('home').hidden && ['main', 'perfil', 'ranking', 'amigos', 'lobby', 'join'].includes(homeView)) renderHome(); }
+
+async function cuentaInit(){
+  if (!cuentaOK()) return;
+  try { CUENTA.cfg = await api('cuenta/config'); } catch (e) { CUENTA.cfg = null; return; }
+  if (CUENTA.token) {
+    try { const r = await api('cuenta/yo'); cuentaGuardar(undefined, r.yo); cuentaConectar(); cuentaAmigos(); }
+    catch (e) { /* sin red: queda lo guardado; sin sesión: api() ya la olvidó */ }
+  }
+  cuentaRepintar();
+}
+async function cuentaEntro(r){
+  cuentaGuardar(r.token, r.yo);
+  cuentaConectar(); cuentaAmigos();
+  // si ya estaba en una mesa del servidor, que la mesa sepa de la cuenta
+  if (NET && NET.tr && NET.tr.kind === 'server') { NET.name = myName(); serverHello(); }
+  cuentaVista.aviso = `Entraste como ${r.yo.apodo}.`;
+  cuentaRepintar();
+}
+async function cuentaGoogle(credential){
+  try { cuentaEntro(await api('cuenta/google', { credential })); }
+  catch (e) { cuentaVista.aviso = e.message; cuentaRepintar(); }
+}
+async function cuentaSalir(){
+  try { await api('cuenta/salir', {}); } catch (e) {}
+  cuentaOlvidar();
+}
+
+// ---------- el botón de Google ----------
+let gsiListo = null;
+function gsiCargar(){
+  if (gsiListo) return gsiListo;
+  gsiListo = new Promise((res, rej) => {
+    if (window.google && google.accounts && google.accounts.id) return res();
+    const s = document.createElement('script');
+    s.src = 'https://accounts.google.com/gsi/client'; s.async = true; s.onload = () => res(); s.onerror = () => { gsiListo = null; rej(new Error('No se pudo cargar Google')); };
+    document.head.appendChild(s);
+  }).then(() => {
+    google.accounts.id.initialize({ client_id: CUENTA.cfg.google, callback: r => cuentaGoogle(r.credential), ux_mode: 'popup', auto_select: false, cancel_on_tap_outside: true, context: 'signin' });
+  });
+  return gsiListo;
+}
+function gsiBoton(el){
+  if (!el || !CUENTA.cfg || !CUENTA.cfg.google) return;
+  gsiCargar().then(() => {
+    if (!el.isConnected) return;
+    el.innerHTML = '';
+    google.accounts.id.renderButton(el, { theme: 'filled_black', size: 'large', shape: 'pill', text: 'signin_with', locale: 'es-419', width: 250 });
+  }).catch(() => { el.innerHTML = '<p class="hkey">No se pudo cargar el botón de Google. Revisá la conexión.</p>'; });
+}
+
+// ---------- conectado: quién está en línea e invitaciones ----------
+let cuentaReintento = 0;
+function cuentaConectar(){
+  if (!CUENTA.token || CUENTA.ws || typeof WebSocket === 'undefined' || !cuentaOK()) return;
+  let ws;
+  try { ws = new WebSocket(serverURL().replace(/^http/, 'ws') + '/api/cuenta/ws'); } catch (e) { return; }
+  CUENTA.ws = ws;
+  let ping = null;
+  ws.onopen = () => { cuentaReintento = 0; ws.send(JSON.stringify({ t: 'hola', token: CUENTA.token })); ping = setInterval(() => { if (ws.readyState === 1) ws.send('ping'); }, 30000); };
+  ws.onmessage = e => {
+    if (e.data === 'pong') return;
+    let m; try { m = JSON.parse(e.data); } catch (x) { return; }
+    if (m.t === 'nosesion') { cuentaOlvidar(); return; }
+    if (m.t === 'invita') invitacion(m);
+    if (m.t === 'amigos') { if (m.solicitud) avisoCuenta(`${m.solicitud} quiere ser tu amigo.`, 'amigos'); cuentaAmigos(); }
+    if (m.t === 'presencia') {
+      const a = CUENTA.amigos && CUENTA.amigos.amigos.find(x => x.id === m.id);
+      if (a) { a.enLinea = !!m.enLinea; if (homeView === 'amigos' || homeView === 'main') cuentaRepintar(); }
+    }
+  };
+  ws.onclose = () => {
+    clearInterval(ping);
+    if (CUENTA.ws === ws) CUENTA.ws = null;
+    if (CUENTA.token) setTimeout(cuentaConectar, Math.min(30000, 1500 * Math.pow(2, cuentaReintento++)));
+  };
+}
+async function cuentaAmigos(){
+  if (!conCuenta()) return;
+  try { CUENTA.amigos = await api('amigos'); } catch (e) { return; }
+  if (homeView === 'amigos' || homeView === 'main') cuentaRepintar();
+}
+// al terminar un partido que contó para el ranking
+function cuentaRanking(m){
+  if (!conCuenta()) return;
+  const d = m.delta > 0 ? `+${m.delta}` : String(m.delta);
+  avisoCuenta(`Ranking: ${d} puntos. Ahora tenés ${m.puntos}.`);
+  api('cuenta/yo').then(r => { cuentaGuardar(undefined, r.yo); }).catch(() => {});
+}
+
+// avisos flotantes (invitaciones, solicitudes, ranking), en cualquier pantalla
+function avisoCuenta(texto, ir){
+  let el = $('ctaToast');
+  if (!el) { el = document.createElement('div'); el.id = 'ctaToast'; el.className = 'ctatoast'; el.setAttribute('role', 'status'); document.body.appendChild(el); }
+  el.innerHTML = `<span>${esc(texto)}</span>${ir ? '<button class="tool" id="ctaVer">Ver</button>' : ''}<button class="tool" id="ctaX" aria-label="Cerrar">✕</button>`;
+  el.hidden = false;
+  SND.play('chat');
+  if (ir) $('ctaVer').onclick = () => { el.hidden = true; if ($('home').hidden) showHome(); cuentaIr(ir); };
+  $('ctaX').onclick = () => { el.hidden = true; };
+  clearTimeout(avisoCuenta.t); avisoCuenta.t = setTimeout(() => { el.hidden = true; }, 9000);
+}
+function invitacion(m){
+  let el = $('invToast');
+  if (!el) { el = document.createElement('div'); el.id = 'invToast'; el.className = 'ctatoast inv'; el.setAttribute('role', 'alert'); document.body.appendChild(el); }
+  const enEsa = NET && NET.code === m.codigo;
+  el.innerHTML = `<span><b>${esc(m.de.apodo)}</b> te invita a jugar en su mesa <b>${esc(m.codigo)}</b>${NET && !enEsa ? ' (vas a salir de la mesa en la que estás)' : ''}.</span>
+    <button class="act flor" id="invSi">${enEsa ? 'Ya estás ahí' : 'Entrar'}</button><button class="tool" id="invNo">Ahora no</button>`;
+  el.hidden = false;
+  SND.play('call', .2);
+  $('invSi').onclick = () => {
+    el.hidden = true;
+    if (!enEsa) { if ($('home').hidden) showHome('lobby'); joinTable(m.codigo, myName()); }
+  };
+  $('invNo').onclick = () => { el.hidden = true; };
+  clearTimeout(invitacion.t); invitacion.t = setTimeout(() => { el.hidden = true; }, 60000);
+}
+async function invitar(id){
+  if (!NET || !NET.code) return;
+  try {
+    const r = await api('amigos/invitar', { id, codigo: NET.code });
+    cuentaVista.aviso = r.enviada ? 'Invitación enviada.' : 'No está conectado ahora: pasale el código ' + NET.code + '.';
+  } catch (e) { cuentaVista.aviso = e.message; }
+  renderHome();
+}
+
+// ---------- pantallas ----------
+function cuentaIr(vista, o){
+  o = o || {};
+  if (o.volver) cuentaVista.volver = o.volver;
+  else if (homeView === 'main' || homeView === 'lobby') cuentaVista.volver = homeView;
+  if (vista === 'perfil') cuentaVista.perfil = o.id || null;
+  cuentaVista.datos = null; cuentaVista.error = ''; cuentaVista.quitar = null; cuentaVista.borrar = false;
+  homeView = vista; renderHome();
+  window.scrollTo(0, 0);
+}
+async function cuentaCargar(vista, ruta){
+  if (cuentaVista.cargando) return;
+  cuentaVista.cargando = true; cuentaVista.error = '';
+  try { const d = await api(ruta); if (homeView === vista) cuentaVista.datos = d; }
+  catch (e) { cuentaVista.error = e.message; }
+  cuentaVista.cargando = false;
+  if (homeView === vista) renderHome();
+}
+const iniciales = a => String(a || '?').split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase();
+const COLORES = ['#86b9e6', '#e8b13a', '#c9705c', '#7fbf8e', '#b48ad6', '#d98fb2', '#8fc7c4'];
+const avatar = (u, cls) => `<span class="avt ${cls || ''}" style="background:${COLORES[(u.id || 0) % COLORES.length]}" aria-hidden="true">${esc(iniciales(u.apodo))}</span>`;
+const pct = (a, b) => b ? Math.round(100 * a / b) + '%' : '—';
+const fechaCorta = t => new Date(t).toLocaleDateString('es-UY', { day: 'numeric', month: 'short' }) + ' ' + new Date(t).toLocaleTimeString('es-UY', { hour: '2-digit', minute: '2-digit' });
+const barra = titulo => `<div class="hbar"><button class="tool" id="hBack">Volver</button><h2>${titulo}</h2></div>`;
+function volverDeCuenta(){ homeView = cuentaVista.volver === 'lobby' && NET ? 'lobby' : 'main'; renderHome(); }
+function avisoHTML(){ const a = cuentaVista.aviso; cuentaVista.aviso = ''; return a ? `<p class="hnote ok" role="status">${esc(a)}</p>` : ''; }
+
+// en el inicio: entrar, o la ficha de la cuenta
+function cuentaHTML(){
+  if (!cuentaOK() || !CUENTA.cfg) return '';
+  let h = '<section class="hcuenta"><h2>Tu cuenta</h2>' + avisoHTML();
+  if (conCuenta()) {
+    const y = CUENTA.yo, A = CUENTA.amigos;
+    const en = A ? A.amigos.filter(a => a.enLinea).length : 0, sol = A ? A.recibidas.length : 0;
+    h += `<div class="cficha">${avatar(y)}<div><b>${esc(y.apodo)}</b><span>${y.partidos ? `${y.puntos} puntos${y.posicion ? ` · puesto ${y.posicion} del ranking` : ''}` : 'Todavía sin partidos en el ranking'}</span></div></div>
+      <div class="hlinks"><button class="tool" id="cPerfil">Mi perfil</button><button class="tool" id="cRank">Ranking</button>
+      <button class="tool" id="cAmigos">Amigos${en ? ` · ${en} en línea` : ''}${sol ? ` · <b class="cbadge">${sol} ${sol === 1 ? 'solicitud' : 'solicitudes'}</b>` : ''}</button></div>`;
+  } else {
+    h += `<p class="hkey cta">Entrá con tu cuenta para aparecer en el ranking, guardar tus estadísticas e historial y jugar con amigos. Sin cuenta se puede jugar igual.</p>`;
+    if (CUENTA.cfg.google) h += '<div id="hGsi" class="gsi"></div>';
+    if (CUENTA.cfg.prueba) h += `<form id="cPrueba" class="hlinks"><input id="cPruebaN" placeholder="Nombre de prueba" maxlength="20" aria-label="Nombre de prueba"><button class="tool" type="submit">Entrar de prueba</button></form>`;
+    h += '<div class="hlinks"><button class="tool" id="cRank">Ver el ranking</button></div>';
+  }
+  return h + '</section>';
+}
+function bindCuenta(){
+  if ($('cPerfil')) $('cPerfil').onclick = () => cuentaIr('perfil');
+  if ($('cRank')) $('cRank').onclick = () => cuentaIr('ranking');
+  if ($('cAmigos')) $('cAmigos').onclick = () => cuentaIr('amigos');
+  if ($('hGsi')) gsiBoton($('hGsi'));
+  if ($('cPrueba')) $('cPrueba').onsubmit = async e => {
+    e.preventDefault();
+    try { cuentaEntro(await api('cuenta/prueba', { nombre: $('cPruebaN').value })); } catch (x) { cuentaVista.aviso = x.message; renderHome(); }
+  };
+}
+
+function historialHTML(lista, uid){
+  if (!lista || !lista.length) return '<p class="hkey">Todavía no hay partidos en el ranking.</p>';
+  const nom = x => esc(x.nombre) + (x.compu ? ' <small>(compu)</small>' : '');
+  return '<ul class="hist">' + lista.map(r => {
+    const mio = r.equipos[r.equipo] || [], otros = r.equipos[1 - r.equipo] || [];
+    const con = mio.filter(x => x.cuenta !== uid);
+    const res = r.abandono ? 'Abandonó' : r.gano ? 'Ganó' : 'Perdió';
+    const d = r.delta > 0 ? '+' + r.delta : String(r.delta);
+    const tm = /^(\d+) a (\d+)(.*)$/.exec(r.tanteador || ''), tant = tm && r.equipo === 1 ? `${tm[2]} a ${tm[1]}${tm[3]}` : r.tanteador || '';   // primero lo de su equipo
+    return `<li class="${r.gano ? 'w' : 'l'}"><div><b>${res}</b> ${esc(tant)} <small>· ${esc(modeName(r.n))} · ${fechaCorta(r.fecha)}</small></div>
+      <div class="hcon">${con.length ? 'con ' + con.map(nom).join(', ') + ' ' : ''}contra ${otros.map(nom).join(', ')}</div><span class="hd">${d}</span></li>`;
+  }).join('') + '</ul>';
+}
+function statsHTML(p){
+  const tile = (n, l) => `<div class="stile"><b>${n}</b><span>${l}</span></div>`;
+  return `<div class="stiles">
+    ${tile(p.partidos ? p.puntos : '—', p.posicion ? `puntos · puesto ${p.posicion}` : 'puntos')}
+    ${tile(p.partidos ? `${p.ganados}/${p.partidos}` : '0', `partidos ganados (${pct(p.ganados, p.partidos)})`)}
+    ${tile(p.racha, `racha (mejor: ${p.mejorRacha})`)}
+    ${tile(p.mes.partidos ? p.mes.puntos : '—', `este mes · ${p.mes.partidos} ${p.mes.partidos === 1 ? 'partido' : 'partidos'}`)}
+    ${tile(pct(p.manosGanadas, p.manos), `manos ganadas (${p.manos})`)}
+    ${tile(p.envidos, 'envidos ganados')}
+    ${tile(p.flores, 'flores cantadas')}
+    ${tile(p.trucos, 'trucos ganados')}
+    ${p.abandonos ? tile(p.abandonos, p.abandonos === 1 ? 'abandono' : 'abandonos') : ''}
+  </div>`;
+}
+
+function renderPerfil(box){
+  const propio = !cuentaVista.perfil || (CUENTA.yo && cuentaVista.perfil === CUENTA.yo.id);
+  if (propio && !conCuenta()) { homeView = 'main'; return renderHome(); }
+  const D = cuentaVista.datos;
+  if (!D) {
+    box.innerHTML = barra('Perfil') + (cuentaVista.error ? `<p class="hnote">${esc(cuentaVista.error)}</p>` : '<p class="lob">Cargando…</p>');
+    $('hBack').onclick = volverDeCuenta;
+    if (!cuentaVista.error) cuentaCargar('perfil', propio ? 'cuenta/yo' : 'cuenta/perfil?id=' + cuentaVista.perfil);
+    return;
+  }
+  const p = propio ? D.yo : D.perfil;
+  if (propio) cuentaGuardar(undefined, p);
+  let h = barra(propio ? 'Mi perfil' : 'Perfil') + avisoHTML();
+  h += `<div class="cficha grande">${avatar(p, 'g')}<div><b>${esc(p.apodo)}</b><span>${p.enLinea ? '<i class="dot on"></i> En línea · ' : ''}Juega desde ${new Date(p.desde).toLocaleDateString('es-UY', { month: 'long', year: 'numeric' })}</span></div></div>`;
+  h += statsHTML(p);
+  if (!propio && D.relacion) {
+    const r = D.relacion;
+    h += '<div class="hlinks">' + (r === 'no' ? '<button class="tool" id="pAm" data-a="pedir">Agregar a amigos</button>'
+      : r === 'enviada' ? '<span class="hkey">Solicitud enviada.</span><button class="tool" id="pAm" data-a="borrar">Cancelar solicitud</button>'
+      : r === 'recibida' ? '<button class="act flor" id="pAm" data-a="aceptar">Aceptar solicitud de amistad</button>'
+      : `<span class="hkey">Son amigos.</span>${NET && NET.code && p.enLinea ? '<button class="tool" id="pInv">Invitar a mi mesa</button>' : ''}`) + '</div>';
+  }
+  h += `<section><h2 class="h3">Últimos partidos</h2>${historialHTML(D.historial, p.id)}</section>`;
+  if (propio) {
+    h += `<section class="cfgsec"><h3>Apodo</h3><form class="hlinks" id="pApodoF"><input id="pApodo" maxlength="20" value="${esc(p.apodo)}" aria-label="Apodo"><button class="tool" type="submit">Cambiar</button></form>
+      <p class="hkey">Es el nombre que ven todos en las mesas y en el ranking.</p></section>
+      <div class="hlinks"><button class="tool" id="pSalir">Salir de la cuenta</button>${cuentaVista.borrar
+        ? '<span class="hkey">Se borran tu cuenta, tus puntos, estadísticas, historial y amigos. No se puede deshacer.</span><button class="act mazo" id="pBorrarSi">Sí, borrar mi cuenta</button><button class="tool" id="pBorrarNo">Cancelar</button>'
+        : '<button class="tool" id="pBorrar">Borrar mi cuenta</button>'}</div>
+      <p class="hkey"><a href="https://tomasaldaya.github.io/truco-uruguayo/privacidad.html" target="_blank" rel="noopener">Qué se guarda de tu cuenta</a></p>`;
+  }
+  box.innerHTML = h;
+  $('hBack').onclick = volverDeCuenta;
+  if ($('pAm')) $('pAm').onclick = async () => {
+    try { const r = await api('amigos/' + $('pAm').dataset.a, { id: p.id }); D.relacion = r.relacion; cuentaAmigos(); } catch (e) { cuentaVista.aviso = e.message; }
+    renderHome();
+  };
+  if ($('pInv')) $('pInv').onclick = () => invitar(p.id);
+  if ($('pApodoF')) $('pApodoF').onsubmit = async e => {
+    e.preventDefault();
+    try { const r = await api('cuenta/apodo', { apodo: $('pApodo').value }); D.yo = r.yo; cuentaGuardar(undefined, r.yo); cuentaVista.aviso = 'Listo, ahora sos ' + r.yo.apodo + '.'; if (NET && NET.tr && NET.tr.kind === 'server' && !NET.lobby?.started) { NET.name = myName(); netPost({ t: 'name', name: NET.name }); } }
+    catch (x) { cuentaVista.aviso = x.message; }
+    renderHome();
+  };
+  if ($('pSalir')) $('pSalir').onclick = async () => { await cuentaSalir(); homeView = 'main'; renderHome(); };
+  if ($('pBorrar')) $('pBorrar').onclick = () => { cuentaVista.borrar = true; renderHome(); $('pBorrarNo').focus(); };
+  if ($('pBorrarNo')) $('pBorrarNo').onclick = () => { cuentaVista.borrar = false; renderHome(); };
+  if ($('pBorrarSi')) $('pBorrarSi').onclick = async () => {
+    try { await api('cuenta/borrar', {}); cuentaOlvidar(); cuentaVista.aviso = 'Tu cuenta se borró.'; homeView = 'main'; }
+    catch (e) { cuentaVista.aviso = e.message; }
+    renderHome();
+  };
+}
+
+function renderRanking(box){
+  const D = cuentaVista.datos, tipo = cuentaVista.tipo;
+  let h = barra('Ranking') + `<div class="seg" role="group" aria-label="Qué ranking"><button type="button" data-t="general" aria-pressed="${tipo === 'general'}">General</button><button type="button" data-t="mes" aria-pressed="${tipo === 'mes'}">Este mes</button></div>`;
+  if (!D || D.tipo !== tipo) {
+    h += cuentaVista.error ? `<p class="hnote">${esc(cuentaVista.error)}</p>` : '<p class="lob">Cargando…</p>';
+    if (!cuentaVista.error) setTimeout(() => cuentaCargar('ranking', 'ranking' + (tipo === 'mes' ? '?tipo=mes' : '')), 0);
+  } else {
+    const yo = CUENTA.yo && CUENTA.yo.id;
+    const fila = r => `<tr class="${r.id === yo ? 'me' : ''}" data-id="${r.id}" tabindex="0"><td>${r.pos}</td><td>${avatar(r, 'c')} ${esc(r.apodo)}</td><td>${r.puntos}</td><td>${r.partidos}</td><td>${pct(r.ganados, r.partidos)}</td></tr>`;
+    h += D.lista.length
+      ? `<table class="rk"><thead><tr><th>#</th><th>Jugador</th><th>Puntos</th><th>Partidos</th><th>Ganados</th></tr></thead><tbody>${D.lista.map(fila).join('')}${D.mio ? '<tr class="sep"><td colspan="5">…</td></tr>' + fila(D.mio) : ''}</tbody></table>`
+      : `<p class="lob">${tipo === 'mes' ? 'Este mes todavía no se jugó ningún partido para el ranking.' : 'Todavía no hay partidos en el ranking.'}</p>`;
+    const mes = new Date(D.mes + '-15').toLocaleDateString('es-UY', { month: 'long' });
+    h += `<p class="hkey">Cuentan los partidos terminados en mesas por internet donde hay alguien con cuenta en cada equipo (la computadora puede completar lugares). Todos arrancan con 1000 puntos: ganarle a alguien con más puntos da más.${tipo === 'mes' ? ` El ranking de ${mes} arranca de cero el primer día del mes.` : ''}${conCuenta() ? '' : ' Entrá con tu cuenta para aparecer.'}</p>`;
+  }
+  box.innerHTML = h;
+  $('hBack').onclick = volverDeCuenta;
+  box.querySelectorAll('[data-t]').forEach(b => b.onclick = () => { cuentaVista.tipo = b.dataset.t; cuentaVista.datos = null; cuentaVista.error = ''; renderHome(); });
+  box.querySelectorAll('tr[data-id]').forEach(tr => { const ir = () => cuentaIr('perfil', { id: +tr.dataset.id, volver: cuentaVista.volver }); tr.onclick = ir; tr.onkeydown = e => { if (e.key === 'Enter') ir(); }; });
+}
+
+function renderAmigos(box){
+  if (!conCuenta()) { homeView = 'main'; return renderHome(); }
+  const A = CUENTA.amigos, enMesa = NET && NET.code && NET.tr && NET.tr.kind === 'server';
+  let h = barra('Amigos') + avisoHTML();
+  h += `<form class="hlinks" id="aBuscarF" role="search"><input id="aBuscar" maxlength="20" placeholder="Buscar por apodo" value="${esc(cuentaVista.buscar)}" aria-label="Buscar por apodo"><button class="tool" type="submit">Buscar</button></form>`;
+  const R = cuentaVista.resultados;
+  if (R) h += R.length ? '<ul class="amg">' + R.map(r => `<li>${avatar(r, 'c')}<button class="lnk" data-p="${r.id}">${esc(r.apodo)}</button><small>${r.puntos} pts</small>${
+      r.relacion === 'no' ? `<button class="tool" data-ac="pedir" data-id="${r.id}">Agregar</button>`
+      : r.relacion === 'recibida' ? `<button class="tool" data-ac="aceptar" data-id="${r.id}">Aceptar</button>`
+      : `<span class="hkey">${r.relacion === 'amigos' ? 'Ya son amigos' : 'Solicitud enviada'}</span>`}</li>`).join('') + '</ul>'
+    : '<p class="hkey">No encontré a nadie con ese apodo.</p>';
+  if (!A) { h += '<p class="lob">Cargando…</p>'; setTimeout(cuentaAmigos, 0); }
+  else {
+    if (A.recibidas.length) h += '<section><h2 class="h3">Te quieren agregar</h2><ul class="amg">' + A.recibidas.map(r => `<li>${avatar(r, 'c')}<button class="lnk" data-p="${r.id}">${esc(r.apodo)}</button><small>${r.puntos} pts</small><button class="act flor" data-ac="aceptar" data-id="${r.id}">Aceptar</button><button class="tool" data-ac="borrar" data-id="${r.id}">Rechazar</button></li>`).join('') + '</ul></section>';
+    h += '<section><h2 class="h3">Tus amigos</h2>';
+    h += A.amigos.length ? '<ul class="amg">' + A.amigos.map(r => `<li><i class="dot ${r.enLinea ? 'on' : ''}" title="${r.enLinea ? 'En línea' : 'Desconectado'}"></i>${avatar(r, 'c')}<button class="lnk" data-p="${r.id}">${esc(r.apodo)}</button><small>${r.enLinea ? 'en línea' : r.puntos + ' pts'}</small>${
+        enMesa && r.enLinea ? `<button class="tool" data-inv="${r.id}">Invitar a la mesa ${esc(NET.code)}</button>` : ''}${
+        cuentaVista.quitar === r.id ? `<button class="act mazo" data-ac="borrar" data-id="${r.id}">Sí, quitar</button><button class="tool" data-q="">No</button>` : `<button class="tool sec" data-q="${r.id}" aria-label="Quitar a ${esc(r.apodo)} de tus amigos">Quitar</button>`}</li>`).join('') + '</ul>'
+      : '<p class="hkey">Todavía no tenés amigos agregados. Buscalos por su apodo, o entrá al perfil de alguien desde el ranking o tu historial.</p>';
+    h += '</section>';
+    if (A.enviadas.length) h += '<section><h2 class="h3">Solicitudes que mandaste</h2><ul class="amg">' + A.enviadas.map(r => `<li>${avatar(r, 'c')}<button class="lnk" data-p="${r.id}">${esc(r.apodo)}</button><button class="tool" data-ac="borrar" data-id="${r.id}">Cancelar</button></li>`).join('') + '</ul></section>';
+    h += `<p class="hkey">${enMesa ? 'Los amigos en línea reciben la invitación al instante y entran a tu mesa con un toque.' : 'Para invitar a un amigo, primero creá una mesa o entrá a una.'}</p>`;
+  }
+  box.innerHTML = h;
+  $('hBack').onclick = volverDeCuenta;
+  $('aBuscarF').onsubmit = async e => {
+    e.preventDefault();
+    cuentaVista.buscar = $('aBuscar').value.trim();
+    if (cuentaVista.buscar.length < 2) { cuentaVista.resultados = null; cuentaVista.aviso = 'Escribí al menos dos letras.'; renderHome(); return; }
+    try { cuentaVista.resultados = (await api('amigos/buscar?q=' + encodeURIComponent(cuentaVista.buscar))).lista; } catch (x) { cuentaVista.aviso = x.message; }
+    renderHome(); $('aBuscar').focus();
+  };
+  box.querySelectorAll('[data-p]').forEach(b => b.onclick = () => cuentaIr('perfil', { id: +b.dataset.p, volver: cuentaVista.volver }));
+  box.querySelectorAll('[data-inv]').forEach(b => b.onclick = () => invitar(+b.dataset.inv));
+  box.querySelectorAll('[data-q]').forEach(b => b.onclick = () => { cuentaVista.quitar = b.dataset.q ? +b.dataset.q : null; renderHome(); });
+  box.querySelectorAll('[data-ac]').forEach(b => b.onclick = async () => {
+    const id = +b.dataset.id;
+    try {
+      const r = await api('amigos/' + b.dataset.ac, { id });
+      if (cuentaVista.resultados) cuentaVista.resultados.forEach(x => { if (x.id === id) x.relacion = r.relacion; });
+      cuentaVista.quitar = null;
+      await cuentaAmigos();
+    } catch (x) { cuentaVista.aviso = x.message; }
+    renderHome();
+  });
+}
+
+window.__trucoCuentaIr = (v, o) => { if ($('home').hidden) showHome(); cuentaIr(v, o); };
+window.__trucoCuentaSalir = () => cuentaSalir(); window.__trucoNombre = () => myName(); window.__trucoSalirMesa = () => leaveNet(); window.__trucoHomeView = () => homeView;
+window.__trucoCuenta = () => ({ token: !!CUENTA.token, yo: CUENTA.yo, cfg: CUENTA.cfg, ws: !!CUENTA.ws && CUENTA.ws.readyState, amigos: CUENTA.amigos });
+cuentaInit();
 
 $('chatBox').innerHTML = chatUI('ch'); bindChat('ch'); bindPtt($('pttFab'));
 window.__trucoSnd = SND; window.__trucoVoz = VOZ; window.__trucoChat = t => chatSend(t);

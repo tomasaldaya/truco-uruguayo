@@ -1,0 +1,295 @@
+// Cuentas de jugador, ranking, estadísticas, historial y amigos. Todo vive en una base SQLite
+// (la del Durable Object de cuentas, en Cloudflare; en las pruebas, node:sqlite).
+// No toca la red directamente: recibe "sql", el reloj, cómo verificar el token de Google y cómo
+// avisarle algo a quien está conectado (amigos, invitaciones).
+//
+//   sql(consulta, ...valores) -> filas (objetos)
+//   google(credential, clientId) -> { sub, nombre, dado }
+//   avisar(uid, mensaje)   enLinea() -> Set de uids conectados
+export const ELO0 = 1000, K = 32;
+const SESION_MS = 120 * 864e5;           // una sesión dura cuatro meses (se renueva al usarla)
+const MAX_AMIGOS = 200;
+export const mesDe = t => new Date(t - 3 * 3600e3).toISOString().slice(0, 7);   // el mes en hora de Uruguay
+const limpiarApodo = v => String(v || '').normalize('NFC').replace(/[^\p{L}\p{N} ._-]/gu, '').replace(/\s+/g, ' ').trim().slice(0, 20);
+const int = v => { const n = Number(v); return Number.isInteger(n) ? n : null; };
+const hex = buf => [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
+const b64u = bytes => btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+const hash = async s => hex(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s)));
+const esperado = (a, b) => 1 / (1 + Math.pow(10, (b - a) / 400));
+const ok = j => ({ s: 200, j });
+const mal = (s, error) => ({ s, j: { error } });
+
+export class Cuentas {
+  constructor(o) {
+    this.sql = o.sql; this.now = o.now || Date.now;
+    this.google = o.google || null; this.googleId = o.googleId || '';
+    this.prueba = !!o.prueba;
+    this.avisar = o.avisar || (() => {}); this.enLinea = o.enLinea || (() => new Set());
+    this.invitado = new Map();             // "de>para" -> cuándo invitó (para no llenar de invitaciones)
+  }
+  q(s, ...a) { return this.sql(s, ...a); }
+  q1(s, ...a) { return this.sql(s, ...a)[0] || null; }
+
+  init() {
+    this.q(`CREATE TABLE IF NOT EXISTS usuarios (
+      id INTEGER PRIMARY KEY, google TEXT UNIQUE, apodo TEXT NOT NULL, apodo_min TEXT UNIQUE, creado INTEGER, visto INTEGER,
+      elo REAL DEFAULT ${ELO0}, partidos INTEGER DEFAULT 0, ganados INTEGER DEFAULT 0, abandonos INTEGER DEFAULT 0,
+      racha INTEGER DEFAULT 0, mejor_racha INTEGER DEFAULT 0,
+      manos INTEGER DEFAULT 0, manos_ganadas INTEGER DEFAULT 0, envidos INTEGER DEFAULT 0, flores INTEGER DEFAULT 0, trucos INTEGER DEFAULT 0,
+      mes TEXT, elo_mes REAL DEFAULT ${ELO0}, partidos_mes INTEGER DEFAULT 0, ganados_mes INTEGER DEFAULT 0)`);
+    this.q(`CREATE TABLE IF NOT EXISTS sesiones (token TEXT PRIMARY KEY, usuario INTEGER, vence INTEGER)`);
+    this.q(`CREATE TABLE IF NOT EXISTS partidos (id TEXT PRIMARY KEY, fecha INTEGER, n INTEGER, ganador INTEGER, tanteador TEXT, equipos TEXT)`);
+    this.q(`CREATE TABLE IF NOT EXISTS jugadas (partido TEXT, usuario INTEGER, equipo INTEGER, gano INTEGER, abandono INTEGER, delta REAL, elo REAL, fecha INTEGER, PRIMARY KEY (partido, usuario))`);
+    this.q(`CREATE TABLE IF NOT EXISTS amigos (de INTEGER, para INTEGER, estado TEXT, desde INTEGER, PRIMARY KEY (de, para))`);
+    this.q(`CREATE INDEX IF NOT EXISTS jugadas_usuario ON jugadas (usuario, fecha)`);
+    this.q(`CREATE INDEX IF NOT EXISTS usuarios_elo ON usuarios (elo)`);
+    this.q(`CREATE INDEX IF NOT EXISTS amigos_para ON amigos (para)`);
+  }
+
+  // ---------- sesiones ----------
+  async nuevaSesion(uid) {
+    const bytes = crypto.getRandomValues(new Uint8Array(32)), token = b64u(bytes);
+    this.q(`DELETE FROM sesiones WHERE vence < ?`, this.now());
+    this.q(`INSERT INTO sesiones (token, usuario, vence) VALUES (?, ?, ?)`, await hash(token), uid, this.now() + SESION_MS);
+    return token;
+  }
+  async sesionDe(token) {
+    if (typeof token !== 'string' || token.length < 20 || token.length > 100) return null;
+    const h = await hash(token), s = this.q1(`SELECT usuario, vence FROM sesiones WHERE token = ?`, h);
+    if (!s || s.vence < this.now()) return null;
+    const u = this.q1(`SELECT * FROM usuarios WHERE id = ?`, s.usuario);
+    if (!u) return null;
+    if (s.vence - this.now() < SESION_MS - 864e5) this.q(`UPDATE sesiones SET vence = ? WHERE token = ?`, this.now() + SESION_MS, h);
+    if (this.now() - (u.visto || 0) > 60e3) this.q(`UPDATE usuarios SET visto = ? WHERE id = ?`, this.now(), u.id);
+    return u;
+  }
+  apodoLibre(base, menos) {
+    base = limpiarApodo(base);
+    if (base.length < 2) base = 'Jugador';
+    for (let i = 1; i < 1000; i++) {
+      const cand = i === 1 ? base : base.slice(0, 20 - String(i).length - 1) + ' ' + i;
+      const r = this.q1(`SELECT id FROM usuarios WHERE apodo_min = ?`, cand.toLowerCase());
+      if (!r || r.id === menos) return cand;
+    }
+    return base.slice(0, 12) + ' ' + Math.floor(Math.random() * 1e6);
+  }
+  async entrar(google, nombre) {
+    let u = this.q1(`SELECT * FROM usuarios WHERE google = ?`, google);
+    if (!u) {
+      const apodo = this.apodoLibre(nombre);
+      this.q(`INSERT INTO usuarios (google, apodo, apodo_min, creado, visto, mes) VALUES (?, ?, ?, ?, ?, ?)`, google, apodo, apodo.toLowerCase(), this.now(), this.now(), mesDe(this.now()));
+      u = this.q1(`SELECT * FROM usuarios WHERE google = ?`, google);
+    }
+    return { token: await this.nuevaSesion(u.id), yo: this.perfil(u, true) };
+  }
+
+  // ---------- lo que se muestra de cada uno ----------
+  posicion(u) {
+    if (!u.partidos) return null;
+    return this.q1(`SELECT COUNT(*) AS n FROM usuarios WHERE partidos > 0 AND (elo > ? OR (elo = ? AND id < ?))`, u.elo, u.elo, u.id).n + 1;
+  }
+  perfil(u, propio) {
+    const mesActual = mesDe(this.now()), mes = u.mes === mesActual;
+    return {
+      id: u.id, apodo: u.apodo, desde: u.creado,
+      puntos: Math.round(u.elo), posicion: this.posicion(u),
+      partidos: u.partidos, ganados: u.ganados, abandonos: u.abandonos, racha: u.racha, mejorRacha: u.mejor_racha,
+      manos: u.manos, manosGanadas: u.manos_ganadas, envidos: u.envidos, flores: u.flores, trucos: u.trucos,
+      mes: { mes: mesActual, puntos: Math.round(mes ? u.elo_mes : ELO0), partidos: mes ? u.partidos_mes : 0, ganados: mes ? u.ganados_mes : 0 },
+      enLinea: !propio && this.enLinea().has(u.id) || undefined,
+    };
+  }
+  historial(uid, n) {
+    return this.q(`SELECT j.partido, j.equipo, j.gano, j.abandono, j.delta, p.fecha, p.n, p.ganador, p.tanteador, p.equipos
+      FROM jugadas j JOIN partidos p ON p.id = j.partido WHERE j.usuario = ? ORDER BY j.fecha DESC LIMIT ?`, uid, n)
+      .map(r => ({ fecha: r.fecha, n: r.n, equipo: r.equipo, gano: !!r.gano, abandono: !!r.abandono, delta: Math.round(r.delta), tanteador: r.tanteador, equipos: JSON.parse(r.equipos || '[[],[]]') }));
+  }
+  relacion(yo, otro) {
+    const r = this.q1(`SELECT de, estado FROM amigos WHERE (de = ? AND para = ?) OR (de = ? AND para = ?)`, yo, otro, otro, yo);
+    if (!r) return 'no';
+    if (r.estado === 'si') return 'amigos';
+    return r.de === yo ? 'enviada' : 'recibida';
+  }
+  amigosDe(uid) {
+    return this.q(`SELECT para AS id FROM amigos WHERE de = ? AND estado = 'si' UNION SELECT de AS id FROM amigos WHERE para = ? AND estado = 'si'`, uid, uid).map(r => r.id);
+  }
+
+  // ---------- pedidos de las páginas ----------
+  // req: Request. Devuelve { s: estado HTTP, j: respuesta en JSON }
+  async http(req) {
+    const url = new URL(req.url), ruta = url.pathname.replace(/^\/api\//, ''), metodo = req.method;
+    let cuerpo = {};
+    if (metodo === 'POST') { try { cuerpo = await req.json(); } catch (e) { cuerpo = {}; } if (!cuerpo || typeof cuerpo !== 'object') cuerpo = {}; }
+    const token = (req.headers.get('authorization') || '').replace(/^Bearer\s+/i, '');
+    const yo = token ? await this.sesionDe(token) : null;
+    const conSesion = () => yo ? null : mal(401, 'Tenés que entrar con tu cuenta.');
+    try {
+      switch (metodo + ' ' + ruta) {
+        case 'GET cuenta/config': return ok({ google: this.googleId || null, prueba: this.prueba });
+        case 'POST cuenta/google': {
+          if (!this.google || !this.googleId) return mal(503, 'El acceso con Google todavía no está configurado.');
+          let g; try { g = await this.google(String(cuerpo.credential || ''), this.googleId); } catch (e) { return mal(401, 'Google no confirmó tu cuenta: ' + e.message); }
+          return ok(await this.entrar('g:' + g.sub, g.dado || g.nombre));
+        }
+        case 'POST cuenta/prueba': {
+          if (!this.prueba) return mal(404, 'No existe.');
+          const nombre = limpiarApodo(cuerpo.nombre);
+          if (nombre.length < 2) return mal(400, 'Poné un nombre.');
+          return ok(await this.entrar('prueba:' + nombre.toLowerCase(), nombre));
+        }
+        case 'GET cuenta/yo': return conSesion() || ok({ yo: this.perfil(yo, true), historial: this.historial(yo.id, 20) });
+        case 'POST cuenta/apodo': {
+          if (!yo) return conSesion();
+          const a = limpiarApodo(cuerpo.apodo);
+          if (a.length < 2) return mal(400, 'El apodo tiene que tener entre 2 y 20 letras o números.');
+          const r = this.q1(`SELECT id FROM usuarios WHERE apodo_min = ?`, a.toLowerCase());
+          if (r && r.id !== yo.id) return mal(409, `"${a}" ya lo usa otra persona.`);
+          this.q(`UPDATE usuarios SET apodo = ?, apodo_min = ? WHERE id = ?`, a, a.toLowerCase(), yo.id);
+          return ok({ yo: this.perfil(this.q1(`SELECT * FROM usuarios WHERE id = ?`, yo.id), true) });
+        }
+        case 'POST cuenta/salir': if (token) this.q(`DELETE FROM sesiones WHERE token = ?`, await hash(token)); return ok({ ok: true });
+        case 'POST cuenta/borrar': {
+          if (!yo) return conSesion();
+          const amigos = this.amigosDe(yo.id);
+          this.q(`DELETE FROM sesiones WHERE usuario = ?`, yo.id);
+          this.q(`DELETE FROM amigos WHERE de = ? OR para = ?`, yo.id, yo.id);
+          this.q(`DELETE FROM jugadas WHERE usuario = ?`, yo.id);
+          this.q(`DELETE FROM usuarios WHERE id = ?`, yo.id);
+          amigos.forEach(a => this.avisar(a, { t: 'amigos' }));
+          return ok({ ok: true });
+        }
+        case 'GET cuenta/perfil': {
+          const id = int(url.searchParams.get('id')), u = id !== null && this.q1(`SELECT * FROM usuarios WHERE id = ?`, id);
+          if (!u) return mal(404, 'No encontré a esa persona.');
+          return ok({ perfil: this.perfil(u, yo && yo.id === u.id), historial: this.historial(u.id, 20), relacion: yo && yo.id !== u.id ? this.relacion(yo.id, u.id) : null });
+        }
+        case 'GET ranking': {
+          const mes = url.searchParams.get('tipo') === 'mes', m = mesDe(this.now());
+          const filas = mes
+            ? this.q(`SELECT id, apodo, elo_mes AS elo, partidos_mes AS partidos, ganados_mes AS ganados FROM usuarios WHERE mes = ? AND partidos_mes > 0 ORDER BY elo_mes DESC, id LIMIT 100`, m)
+            : this.q(`SELECT id, apodo, elo, partidos, ganados FROM usuarios WHERE partidos > 0 ORDER BY elo DESC, id LIMIT 100`);
+          const lista = filas.map((r, i) => ({ pos: i + 1, id: r.id, apodo: r.apodo, puntos: Math.round(r.elo), partidos: r.partidos, ganados: r.ganados }));
+          let mio = null;
+          if (yo && !lista.some(r => r.id === yo.id)) {
+            const elo = mes ? (yo.mes === m ? yo.elo_mes : ELO0) : yo.elo, jug = mes ? (yo.mes === m ? yo.partidos_mes : 0) : yo.partidos;
+            if (jug > 0) {
+              const pos = mes ? this.q1(`SELECT COUNT(*) AS n FROM usuarios WHERE mes = ? AND partidos_mes > 0 AND (elo_mes > ? OR (elo_mes = ? AND id < ?))`, m, elo, elo, yo.id).n + 1 : this.posicion(yo);
+              mio = { pos, id: yo.id, apodo: yo.apodo, puntos: Math.round(elo), partidos: jug, ganados: mes ? yo.ganados_mes : yo.ganados };
+            }
+          }
+          return ok({ tipo: mes ? 'mes' : 'general', mes: m, lista, mio });
+        }
+        case 'GET amigos': {
+          if (!yo) return conSesion();
+          const en = this.enLinea();
+          const fila = r => ({ id: r.id, apodo: r.apodo, puntos: Math.round(r.elo), enLinea: en.has(r.id) });
+          const amigos = this.q(`SELECT u.id, u.apodo, u.elo FROM usuarios u WHERE u.id IN (SELECT para FROM amigos WHERE de = ? AND estado = 'si' UNION SELECT de FROM amigos WHERE para = ? AND estado = 'si') ORDER BY u.apodo_min`, yo.id, yo.id).map(fila);
+          const recibidas = this.q(`SELECT u.id, u.apodo, u.elo FROM amigos a JOIN usuarios u ON u.id = a.de WHERE a.para = ? AND a.estado = 'pendiente' ORDER BY a.desde DESC`, yo.id).map(fila);
+          const enviadas = this.q(`SELECT u.id, u.apodo, u.elo FROM amigos a JOIN usuarios u ON u.id = a.para WHERE a.de = ? AND a.estado = 'pendiente' ORDER BY a.desde DESC`, yo.id).map(fila);
+          amigos.sort((a, b) => (b.enLinea - a.enLinea) || 0);
+          return ok({ amigos, recibidas, enviadas });
+        }
+        case 'GET amigos/buscar': {
+          if (!yo) return conSesion();
+          const t = limpiarApodo(url.searchParams.get('q')).toLowerCase();
+          if (t.length < 2) return ok({ lista: [] });
+          const like = t.replace(/[%_\\]/g, c => '\\' + c);
+          const lista = this.q(`SELECT id, apodo, elo FROM usuarios WHERE id != ? AND (apodo_min LIKE ? ESCAPE '\\' OR apodo_min LIKE ? ESCAPE '\\') ORDER BY (apodo_min = ?) DESC, (apodo_min LIKE ? ESCAPE '\\') DESC, apodo_min LIMIT 12`,
+            yo.id, like + '%', '% ' + like + '%', t, like + '%')
+            .map(r => ({ id: r.id, apodo: r.apodo, puntos: Math.round(r.elo), relacion: this.relacion(yo.id, r.id) }));
+          return ok({ lista });
+        }
+        case 'POST amigos/pedir': {
+          if (!yo) return conSesion();
+          const id = int(cuerpo.id), otro = id !== null && id !== yo.id && this.q1(`SELECT id FROM usuarios WHERE id = ?`, id);
+          if (!otro) return mal(404, 'No encontré a esa persona.');
+          const rel = this.relacion(yo.id, id);
+          if (rel === 'recibida') { this.q(`UPDATE amigos SET estado = 'si', desde = ? WHERE de = ? AND para = ?`, this.now(), id, yo.id); this.avisar(id, { t: 'amigos' }); return ok({ relacion: 'amigos' }); }
+          if (rel !== 'no') return ok({ relacion: rel });
+          if (this.amigosDe(yo.id).length >= MAX_AMIGOS) return mal(400, `Ya tenés ${MAX_AMIGOS} amigos.`);
+          const pend = this.q1(`SELECT COUNT(*) AS n FROM amigos WHERE de = ? AND estado = 'pendiente'`, yo.id).n;
+          if (pend >= 50) return mal(400, 'Tenés muchas solicitudes sin contestar. Esperá a que te acepten.');
+          this.q(`INSERT INTO amigos (de, para, estado, desde) VALUES (?, ?, 'pendiente', ?)`, yo.id, id, this.now());
+          this.avisar(id, { t: 'amigos', solicitud: yo.apodo });
+          return ok({ relacion: 'enviada' });
+        }
+        case 'POST amigos/aceptar': {
+          if (!yo) return conSesion();
+          const id = int(cuerpo.id);
+          if (this.relacion(yo.id, id) !== 'recibida') return mal(404, 'Esa solicitud ya no está.');
+          this.q(`UPDATE amigos SET estado = 'si', desde = ? WHERE de = ? AND para = ?`, this.now(), id, yo.id);
+          this.avisar(id, { t: 'amigos' });
+          return ok({ relacion: 'amigos' });
+        }
+        case 'POST amigos/borrar': {
+          if (!yo) return conSesion();
+          const id = int(cuerpo.id);
+          this.q(`DELETE FROM amigos WHERE (de = ? AND para = ?) OR (de = ? AND para = ?)`, yo.id, id, id, yo.id);
+          this.avisar(id, { t: 'amigos' });
+          return ok({ relacion: 'no' });
+        }
+        case 'POST amigos/invitar': {
+          if (!yo) return conSesion();
+          const id = int(cuerpo.id), codigo = String(cuerpo.codigo || '');
+          if (!/^[A-Z]{4}$/.test(codigo)) return mal(400, 'Código de mesa inválido.');
+          if (this.relacion(yo.id, id) !== 'amigos') return mal(403, 'Solo podés invitar a tus amigos.');
+          if (!this.enLinea().has(id)) return ok({ enviada: false, enLinea: false });
+          const k = yo.id + '>' + id, antes = this.invitado.get(k) || 0;
+          if (this.now() - antes < 8000) return ok({ enviada: true, enLinea: true });
+          this.invitado.set(k, this.now());
+          if (this.invitado.size > 5000) this.invitado.clear();
+          this.avisar(id, { t: 'invita', de: { id: yo.id, apodo: yo.apodo }, codigo });
+          return ok({ enviada: true, enLinea: true });
+        }
+      }
+      return mal(404, 'No existe.');
+    } catch (e) {
+      return mal(500, 'Algo falló en el servidor de cuentas.');
+    }
+  }
+
+  // ---------- presencia: avisa a los amigos cuando alguien se conecta o se va ----------
+  presencia(uid, en) { for (const a of this.amigosDe(uid)) this.avisar(a, { t: 'presencia', id: uid, enLinea: !!en }); }
+
+  // ---------- desde las mesas ----------
+  async quien(token) { const u = await this.sesionDe(token); return u ? { id: u.id, apodo: u.apodo } : null; }
+
+  // Anota un partido terminado. r = { id, fecha, n, ganador, tanteador, equipos: [[{nombre, cuenta, compu}], [...]],
+  //   cuentas: [{ uid, equipo, abandono, stats: { manos, manosGanadas, envidos, flores, trucos } }] }
+  // Cuenta para el ranking solo si hay alguien con cuenta en cada equipo.
+  registrar(r) {
+    if (!r || typeof r.id !== 'string' || ![0, 1].includes(r.ganador) || !Array.isArray(r.cuentas)) return { anotado: false, por: 'datos' };
+    if (this.q1(`SELECT id FROM partidos WHERE id = ?`, r.id)) return { anotado: false, por: 'repetido' };
+    const vistos = new Set(), jug = [];
+    for (const c of r.cuentas) {
+      const uid = int(c.uid);
+      if (uid === null || vistos.has(uid) || ![0, 1].includes(c.equipo)) continue;
+      const u = this.q1(`SELECT * FROM usuarios WHERE id = ?`, uid);
+      if (!u) continue;
+      vistos.add(uid); jug.push({ u, equipo: c.equipo, abandono: !!c.abandono, st: c.stats || {} });
+    }
+    if (![0, 1].every(t => jug.some(j => j.equipo === t))) return { anotado: false, por: 'faltan cuentas en un equipo' };
+    const fecha = this.now(), mes = mesDe(fecha);
+    const eloMes = u => u.mes === mes ? u.elo_mes : ELO0;
+    const prom = (t, f) => { const l = jug.filter(j => j.equipo === t); return l.reduce((s, j) => s + f(j.u), 0) / l.length; };
+    const gen = [prom(0, u => u.elo), prom(1, u => u.elo)], men = [prom(0, eloMes), prom(1, eloMes)];
+    const n0 = x => Math.max(0, Math.min(1000, int(x) || 0));
+    this.q(`INSERT INTO partidos (id, fecha, n, ganador, tanteador, equipos) VALUES (?, ?, ?, ?, ?, ?)`,
+      r.id, fecha, [2, 4, 6].includes(r.n) ? r.n : 2, r.ganador, String(r.tanteador || '').slice(0, 40), JSON.stringify(r.equipos || [[], []]).slice(0, 4000));
+    const res = [];
+    for (const j of jug) {
+      const t = j.equipo, gano = t === r.ganador && !j.abandono ? 1 : 0, u = j.u;
+      const d = K * (gano - esperado(gen[t], gen[1 - t])), dm = K * (gano - esperado(men[t], men[1 - t]));
+      const racha = gano ? u.racha + 1 : 0, st = j.st;
+      this.q(`UPDATE usuarios SET elo = ?, partidos = partidos + 1, ganados = ganados + ?, abandonos = abandonos + ?, racha = ?, mejor_racha = ?,
+          manos = manos + ?, manos_ganadas = manos_ganadas + ?, envidos = envidos + ?, flores = flores + ?, trucos = trucos + ?,
+          mes = ?, elo_mes = ?, partidos_mes = ?, ganados_mes = ? WHERE id = ?`,
+        u.elo + d, gano, j.abandono ? 1 : 0, racha, Math.max(u.mejor_racha, racha),
+        n0(st.manos), n0(st.manosGanadas), n0(st.envidos), n0(st.flores), n0(st.trucos),
+        mes, eloMes(u) + dm, (u.mes === mes ? u.partidos_mes : 0) + 1, (u.mes === mes ? u.ganados_mes : 0) + gano, u.id);
+      this.q(`INSERT INTO jugadas (partido, usuario, equipo, gano, abandono, delta, elo, fecha) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, r.id, u.id, t, gano, j.abandono ? 1 : 0, d, u.elo + d, fecha);
+      res.push({ uid: u.id, gano: !!gano, delta: Math.round(d), puntos: Math.round(u.elo + d) });
+    }
+    return { anotado: true, jugadores: res };
+  }
+}

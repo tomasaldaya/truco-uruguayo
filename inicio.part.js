@@ -73,6 +73,9 @@ function renderHome(){
   if (homeView === 'config') return renderConfig(box);
   if (homeView === 'lobby') return renderLobby(box);
   if (homeView === 'join') return renderJoin(box);
+  if (homeView === 'perfil') return renderPerfil(box);
+  if (homeView === 'ranking') return renderRanking(box);
+  if (homeView === 'amigos') return renderAmigos(box);
   const inGame = !!NET || (GM && GM.phase !== 'matchEnd');
   let h = netNote ? `<p class="hnote" role="alert">${esc(netNote)}</p>` : '';
   netNote = '';
@@ -92,6 +95,7 @@ function renderHome(){
   h += '</section>';
   if (!NET) h += `<section><h2>Jugar con otros</h2><div class="hlinks"><button class="tool" id="hHost">Crear una mesa</button><button class="tool" id="hJoin">Unirme a una mesa</button></div>
     <p class="hkey">${netMode() === 'internet' ? 'Por internet: creá una mesa y pasale el link a quien quieras, o unite con el código que te pasaron.' : 'Sin internet: entre pestañas de este navegador, para probar cómo se ve el partido desde cada lugar.'}</p></section>`;
+  h += cuentaHTML();
   h += `<nav class="hlinks" aria-label="Más opciones">
     <button class="tool" id="hCfg">Configuración</button><button class="tool" id="hDeck">Tu mazo</button>
     <button class="tool" id="hHow">Cómo se juega</button><button class="tool" id="hStats">Estadísticas</button></nav>
@@ -113,6 +117,7 @@ function renderHome(){
   $('hDeck').onclick = deckModal;
   $('hHow').onclick = howToModal;
   $('hStats').onclick = statsModal;
+  bindCuenta();
 }
 
 // ---------- Configuración ----------

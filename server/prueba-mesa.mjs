@@ -97,6 +97,7 @@ t('partido entre dos personas y la computadora: avanza, valida jugadas y sigue s
   // Juan no toca "Siguiente mano": a los 15 segundos se sigue igual
   for (let i = 0; i < 4000 && m.GM.phase === 'play'; i++) { juega(m, W, 'a', true); juega(m, W, 'b', true); W.run(500); }
   const r = m.GM.roundNo;
+  if (m.GM.phase === 'matchEnd') return;              // (rara vez el partido termina antes; no hay fin de mano que esperar)
   const sa2 = last(W.inbox, 'a', 'state'); m.onMessage('a', { t: 'ready', key: sa2.key });
   assert.equal(m.GM.roundNo, r);
   assert(typeof last(W.inbox, 'b', 'state').endLeft === 'number');
@@ -176,6 +177,96 @@ t('el dueño cierra la mesa: les avisa a todos', () => {
   m.onMessage('b', { t: 'close' }); assert(!last(W.inbox, 'a', 'closed'));
   m.onMessage('a', { t: 'close' });
   assert(last(W.inbox, 'b', 'closed')); assert(W.saved.ended);
+});
+
+// ---------- con cuentas ----------
+const pausa = () => new Promise(r => setTimeout(r, 0));
+async function ta(name, f) { try { await f(); console.log('ok  ', name); } catch (e) { fails++; console.log('FAIL', name, '\n   ', e.stack.split('\n').slice(0, 3).join('\n    ')); } }
+function conCuentas(W) {
+  const reg = [], quien = { tA: { id: 1, apodo: 'Ana' }, tB: { id: 2, apodo: 'Beto' }, tC: { id: 3, apodo: 'Ceci' } };
+  W.io.cuenta = tok => Promise.resolve(quien[tok] || null);
+  W.io.registrar = r => { reg.push(JSON.parse(JSON.stringify(r))); return Promise.resolve({ anotado: true, jugadores: r.cuentas.map(c => ({ uid: c.uid, gano: c.equipo === r.ganador && !c.abandono, delta: 16, puntos: 1016 })) }); };
+  return reg;
+}
+async function hastaElFinal(m, W, cids) {
+  for (let i = 0; i < 40000 && m.GM.phase !== 'matchEnd'; i++) { for (const c of cids) juega(m, W, c); W.run(500); if (i % 50 === 0) await pausa(); }
+  await pausa(); await pausa();
+}
+
+await ta('con cuentas: la mesa usa el apodo, lo marca y al final anota el partido con lo de cada uno', async () => {
+  const W = mundo(), reg = conCuentas(W), m = new Mesa(W.io, null);
+  m.onOpen('a'); m.onMessage('a', { t: 'hello', name: 'Anita', pid: 'pa', crear: { n: 2, key: 'k' }, token: 'tA' });
+  m.onOpen('b'); m.onMessage('b', { t: 'hello', name: 'B', pid: 'pb', token: 'tB' });
+  await pausa();
+  const L = last(W.inbox, 'b', 'lobby');
+  assert.deepEqual(L.seats.map(s => [s.name, !!s.cuenta]), [['Ana', true], ['Beto', true]]);
+  m.onMessage('a', { t: 'start', rules: { target: 30, chicosToWin: 1 }, speed: 'rápida' });
+  await hastaElFinal(m, W, ['a', 'b']);
+  assert.equal(m.GM.phase, 'matchEnd');
+  assert.equal(reg.length, 1);
+  const r = reg[0];
+  assert.equal(r.n, 2); assert.equal(r.ganador, m.GM.matchWinner); assert.match(r.tanteador, /^\d+ a \d+$/);
+  assert.deepEqual(r.cuentas.map(c => [c.uid, c.equipo, c.abandono]), [[1, 0, false], [2, 1, false]]);
+  const [sa, sb] = r.cuentas.map(c => c.stats);
+  assert(sa.manos > 0 && sa.manos === sb.manos, 'manos ' + sa.manos + ' ' + sb.manos);
+  const g = sa.manosGanadas + sb.manosGanadas;      // cada mano la gana uno (salvo la última, si el chico se cerró antes con el envido)
+  assert(g <= sa.manos && g >= sa.manos - 1, 'manos ganadas ' + g + ' de ' + sa.manos);
+  assert.deepEqual(r.equipos.map(e => e.map(x => x.nombre)), [['Ana'], ['Beto']]);
+  assert(last(W.inbox, 'a', 'ranking') && last(W.inbox, 'b', 'ranking'));
+  // un solo aviso aunque se siga publicando
+  W.run(5000); await pausa(); assert.equal(reg.length, 1);
+});
+
+await ta('con cuentas: si en un equipo no hay nadie con cuenta, no se anota', async () => {
+  const W = mundo(), reg = conCuentas(W), m = new Mesa(W.io, null);
+  m.onOpen('a'); m.onMessage('a', { t: 'hello', name: 'Ana', pid: 'pa', crear: { n: 2, key: 'k' }, token: 'tA' });
+  m.onOpen('b'); m.onMessage('b', { t: 'hello', name: 'Invitado', pid: 'pb' });
+  await pausa();
+  m.onMessage('a', { t: 'start', rules: { target: 30, chicosToWin: 1 }, speed: 'rápida' });
+  await hastaElFinal(m, W, ['a', 'b']);
+  assert.equal(m.GM.phase, 'matchEnd'); assert.equal(reg.length, 0);
+});
+
+await ta('con cuentas: el que se va y no vuelve queda con abandono; el que vuelve, no', async () => {
+  const W = mundo(), reg = conCuentas(W), m = new Mesa(W.io, null);
+  m.onOpen('a'); m.onMessage('a', { t: 'hello', name: 'Ana', pid: 'pa', crear: { n: 4, key: 'k' }, token: 'tA' });
+  m.onOpen('b'); m.onMessage('b', { t: 'hello', name: 'Beto', pid: 'pb', token: 'tB' });
+  await pausa();
+  m.onOpen('c'); m.onMessage('c', { t: 'hello', name: 'Ceci', pid: 'pc', token: 'tC' });
+  await pausa();
+  m.onMessage('c', { t: 'sit', seat: 1 });                     // Ceci de rival
+  assert.deepEqual(m.seats.map(s => s.uid || null), [1, 3, 2, null]);
+  m.onMessage('a', { t: 'start', rules: { target: 30, chicosToWin: 1 }, speed: 'rápida' });
+  for (let i = 0; i < 12; i++) { juega(m, W, 'a'); juega(m, W, 'b'); juega(m, W, 'c'); W.run(500); }
+  assert.notEqual(m.GM.phase, 'matchEnd');
+  m.onClose('b');                                               // Beto se va y no vuelve
+  m.onClose('c'); m.onOpen('c2'); m.onMessage('c2', { t: 'hello', name: 'Ceci', pid: 'pc', token: 'tC' });   // Ceci recarga
+  await pausa();
+  assert.equal(m.seats[1].uid, 3);
+  await hastaElFinal(m, W, ['a', 'c2']);
+  assert.equal(reg.length, 1);
+  const by = Object.fromEntries(reg[0].cuentas.map(c => [c.uid, c]));
+  assert.equal(by[2].abandono, true); assert.equal(by[3].abandono, false); assert.equal(by[1].abandono, false);
+  assert.equal(by[2].equipo, 0); assert.equal(by[3].equipo, 1);
+});
+
+await ta('con cuentas: se guarda y se recupera tras un reinicio', async () => {
+  const W = mundo(); conCuentas(W); const m = new Mesa(W.io, null);
+  m.onOpen('a'); m.onMessage('a', { t: 'hello', name: 'Ana', pid: 'pa', crear: { n: 2, key: 'k' }, token: 'tA' });
+  m.onOpen('b'); m.onMessage('b', { t: 'hello', name: 'Beto', pid: 'pb', token: 'tB' });
+  await pausa();
+  m.onMessage('a', { t: 'start', rules: { target: 30, chicosToWin: 1 } });
+  for (let i = 0; i < 60; i++) { juega(m, W, 'a'); juega(m, W, 'b'); W.run(500); }
+  m.saveNow();
+  const W2 = mundo(), reg2 = conCuentas(W2), m2 = new Mesa(W2.io, W.saved.data);
+  assert.deepEqual([...m2.cuentas.keys()], [1, 2]);
+  m2.onOpen('a'); m2.onMessage('a', { t: 'hello', name: 'Ana', pid: 'pa', key: 'k', token: 'tA' });
+  m2.onOpen('b'); m2.onMessage('b', { t: 'hello', name: 'Beto', pid: 'pb', token: 'tB' });
+  await pausa();
+  await hastaElFinal(m2, W2, ['a', 'b']);
+  assert.equal(reg2.length, 1);
+  assert(reg2[0].cuentas.every(c => !c.abandono));
+  assert(reg2[0].cuentas[0].stats.manos > 1);
 });
 
 console.log(fails ? `\n${fails} FALLAS` : '\nTodo OK');
