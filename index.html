@@ -43,7 +43,6 @@ h1 small{font-family:'Alegreya Sans',sans-serif;font-size:15px;font-weight:500;c
 .s-tl{grid-area:tl}.s-tr{grid-area:tr}
 .s-tl,.s-tr{flex-direction:column;justify-content:center;gap:6px}
 .table.six .s-top{flex-direction:column;justify-content:center;gap:6px}
-.s-tl .bubble,.s-tr .bubble{top:-8px;left:8px}
 .seat.inactive{opacity:.4}
 .tag.out{background:#6b6258;color:#fff}
 .duel{background:rgba(243,210,122,.16);border:1px solid rgba(243,210,122,.5);color:#f3d27a;border-radius:999px;padding:3px 12px;font-size:14px;font-weight:700}
@@ -73,22 +72,21 @@ h1 small{font-family:'Alegreya Sans',sans-serif;font-size:15px;font-weight:500;c
 .hand.mini{gap:0}
 .hand.mini .back{width:44px;height:66px;border-width:3px;margin-left:-18px}
 .hand.mini .back:first-child{margin-left:0}
-.bubble{position:absolute;background:var(--paper);color:#2b1d10;font-family:'Alegreya',serif;font-weight:800;
-  font-size:21px;padding:7px 14px;border-radius:16px;box-shadow:0 6px 18px rgba(0,0,0,.35);white-space:nowrap;z-index:5;
-  animation:pop .35s ease-out, fade .6s ease-in 2.8s forwards;pointer-events:none}
-@keyframes pop{from{transform:scale(.6);opacity:0}to{transform:scale(1);opacity:1}}
-@keyframes fade{to{opacity:0}}
-.s-top .bubble{left:58%;top:18px}
-.table.four .s-top .bubble{left:auto;right:4%;top:6px}
-.s-left .bubble{left:8px;top:-18px}
-.s-right .bubble{right:8px;top:-18px}
-.s-bottom .bubble{right:12px;top:-62px}
+/* lo que dice cada uno: la misma etiqueta chica de la mesa 3D, pegada al nombre; aparece, queda un momento y se va */
+.who,.hand.me{position:relative}
+.dicho{--dx:-50%;--dy:0px;position:absolute;bottom:100%;left:50%;margin-bottom:4px;z-index:6;background:rgba(251,246,234,.92);color:#2b1d10;
+  font-family:'Alegreya Sans',sans-serif;font-weight:700;font-size:14px;line-height:1.45;padding:0 10px;border-radius:999px;
+  white-space:nowrap;pointer-events:none;box-shadow:0 3px 10px rgba(0,0,0,.3);opacity:0;animation:dicho 2.55s linear forwards}
+@keyframes dicho{0%{opacity:0;transform:translate(var(--dx),calc(var(--dy) + 4px))}14%,86%{opacity:1;transform:translate(var(--dx),var(--dy))}100%{opacity:0;transform:translate(var(--dx),var(--dy))}}
+@media (prefers-reduced-motion:reduce){@keyframes dicho{0%,86%{opacity:1;transform:translate(var(--dx),var(--dy))}100%{opacity:0;transform:translate(var(--dx),var(--dy))}}}
+.s-left .dicho{--dx:0px;left:0}.s-right .dicho{--dx:0px;left:auto;right:0}
+.hand.me .dicho{--dx:0px;--dy:-50%;left:auto;right:100%;bottom:auto;top:50%;margin:0 14px 0 0}
 .senas{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;font-size:13px}
 .sena{background:rgba(0,0,0,.28);border-radius:999px;padding:3px 9px;color:var(--ink)}
 .sena b{font-weight:700;color:var(--gold)}
 .sena.caught{background:rgba(243,210,122,.18);border:1px dashed #f3d27a}
 
-.center{display:grid;grid-template-columns:1fr auto;gap:18px;align-items:center}
+.center{display:flex;justify-content:center;align-items:center;position:relative;min-height:calc(var(--ch)*1.5 + 34px)}
 .tricks{display:flex;gap:18px;justify-content:center}
 .slot{display:flex;flex-direction:column;gap:8px;align-items:center;padding:8px;border-radius:14px;border:1px dashed rgba(255,255,255,.14);min-width:104px}
 .slot .lbl,.chips .lbl{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:1px}
@@ -106,6 +104,16 @@ h1 small{font-family:'Alegreya Sans',sans-serif;font-size:15px;font-weight:500;c
 .deckpile .card:hover,.deckpile .card.zoom{transform:scale(2.1) rotate(0);z-index:5;box-shadow:0 18px 40px rgba(0,0,0,.55)}
 @media (prefers-reduced-motion:reduce){.deckpile .card{transition:none}}
 .deckpile .back.mue{z-index:0;box-shadow:0 6px 14px rgba(0,0,0,.35)}
+/* el mazo en el rincón del que dio; la muestra asoma hacia el medio de la mesa */
+.mazo2d{position:absolute;z-index:2}
+.dk-br{right:0;bottom:0}.dk-bl{left:0;bottom:0}.dk-tr{right:0;top:0}.dk-tl{left:0;top:0}
+.mazo2d.arriba{flex-direction:column-reverse}
+.mazo2d.arriba .deckpile .card,.mazo2d.arriba .deckpile .back.mue{top:calc(var(--ch)*.5)}
+.mazo2d.arriba .deckpile .back{top:3px}
+.mazo2d.arriba .deckpile .card{transform-origin:50% 70%}
+.mazo2d.izq .deckpile .card,.mazo2d.izq .deckpile .back.mue{left:calc(var(--cw)*.13);transform:rotate(2deg)}
+.mazo2d.izq .deckpile .back{left:2px;transform:rotate(-3deg)}
+.mazo2d.izq .deckpile .card:hover,.mazo2d.izq .deckpile .card.zoom{transform:scale(2.1) rotate(0)}
 /* cruz de 4 */
 .cross-wrap{display:flex;flex-direction:column;align-items:center;gap:10px}
 .chips{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:center}
@@ -241,7 +249,7 @@ aside{display:flex;flex-direction:column;gap:14px;margin-top:13px}
 .l3d.side .say{left:0;transform:translateY(4px)}
 .l3d.side .say.on{transform:none}
 .l3d.side.sideL .say{left:auto;right:0}
-.mybub{position:absolute;left:12px;top:auto}
+.mybub{position:absolute;left:50%;top:auto;transform:translateX(-50%)}
 .mybub.on{opacity:1}
 .mue3d.on{font-size:15px;letter-spacing:.5px;text-transform:none}
 .mue3d{position:absolute;left:0;top:0;font-size:11px;color:var(--gold);text-transform:uppercase;letter-spacing:1.5px;font-weight:700;text-shadow:0 1px 4px #000}
@@ -258,6 +266,20 @@ aside{display:flex;flex-direction:column;gap:14px;margin-top:13px}
 .pip3d .cap .ges{color:#f3d27a;font-weight:700;margin-top:2px}
 .hud{padding:10px 14px 14px;background:linear-gradient(#1e160f,#150f0a);border-top:1px solid rgba(255,255,255,.08);display:flex;flex-direction:column;gap:6px}
 .hud .tags{display:flex;justify-content:center}
+/* 3D en pantallas anchas: las señas a la izquierda de la mesa y las frases a la derecha, en los costados que quedan libres */
+.lado3d{position:absolute;display:flex;flex-direction:column;gap:5px;pointer-events:none;max-height:calc(100% - 150px);overflow:auto;scrollbar-width:none}
+.lado3d::-webkit-scrollbar{display:none}
+.lado3d:empty{display:none}
+.lado3d.izq{left:12px;top:118px}
+.lado3d.der{right:12px;bottom:14px;align-items:flex-end}
+.lado3d .mysenas,.lado3d .pedidos{flex-direction:column;align-items:flex-start;flex-wrap:nowrap;gap:5px;margin:0}
+.lado3d.der .pedidos{align-items:flex-end}
+.lado3d .mysenas>span,.lado3d .pedidos>span{font-size:12px;color:var(--ink);text-shadow:0 1px 4px #000;margin-bottom:1px}
+.lado3d button{pointer-events:auto;background:rgba(0,0,0,.6);border-color:rgba(255,255,255,.2);font-size:12.5px;padding:3px 10px;text-align:left}
+.lado3d .mysenas button[aria-pressed="true"]{background:var(--gold);color:#2b1d10}
+.lado3d .pedidos button:hover{background:rgba(40,30,20,.85)}
+/* celular: estas cosas solo existen ahí */
+.scoremini,.barra,.hoja,.velo,.cerrarhoja{display:none}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
 
 /* ---------- Pantalla de inicio ---------- */
@@ -491,63 +513,126 @@ img.avt{object-fit:cover;background:#2a1d13}
 }
 
 @media (max-width:980px){ .app{grid-template-columns:1fr} }
+/* ---------- Celular: todo lo de la mano en una sola pantalla, sin deslizar ----------
+   arriba el tanteo; en el medio la mesa; abajo tus cartas y los botones; frases, señas y tanteador en una barra
+   que abre hojas por encima (no empujan nada) */
 @media (max-width:640px){
-  :root{--cw:58px;--ch:88px}
-  .app{padding:8px}
-  .table{padding:10px;margin:8px;min-height:0;border-radius:18px}
-  .table.four,.table.six{grid-template-columns:64px 1fr 64px;gap:6px}
-  .s-left .sena .g,.s-right .sena .g,.s-tl .sena .g,.s-tr .sena .g{display:none}
-  .s-left .sena,.s-right .sena,.s-tl .sena,.s-tr .sena{font-size:11px;padding:2px 6px}
-  .s-left .who .name,.s-right .who .name,.s-tl .who .name,.s-tr .who .name{font-size:15px}
-  .s-tl .who .sub,.s-tr .who .sub{display:none}
-  .cross{grid-template-columns:repeat(3,48px);grid-template-rows:repeat(3,46px)}
-  .cross .card,.cross .ph{width:48px;height:73px}
-  .s-left .who .sub,.s-right .who .sub{display:none}
-  .s-left .bubble{left:0}.s-right .bubble{right:0}
-  .center{grid-template-columns:1fr}
-  .muestra-box{flex-direction:row;justify-content:center}
-  .tricks{gap:6px}.slot{min-width:0;padding:4px}
-  .hand.me .card{width:78px;height:118px}
-  .hand.me{min-height:118px}
-  /* las bazas de arriba de la cruz en una sola línea, para que la cruz no crezca cuando se llenan */
+  :root{--cw:54px;--ch:82px;--mh:clamp(62px,10.4vh,92px);--xc:clamp(42px,6.4vh,60px);--dk:clamp(28px,3.9vh,38px);--alto:100vh}
+  @supports (height:1dvh){:root{--mh:clamp(62px,10.4dvh,92px);--xc:clamp(42px,6.4dvh,60px);--dk:clamp(28px,3.9dvh,38px);--alto:100dvh}}
+  .app{display:flex;flex-direction:column;padding:0;gap:0;min-height:100vh;min-height:100dvh}
+  .app.v3d{height:100vh;height:100dvh}
+  header.top{flex:none;flex-wrap:nowrap;gap:6px;min-width:0;padding:6px 8px 2px}
+  header.top h1{display:none}
+  .scoremini{display:flex;flex:none;align-items:center;gap:6px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.16);color:var(--ink);
+    border-radius:999px;padding:4px 11px;font:500 13px/1.2 'Alegreya Sans',sans-serif;cursor:pointer;white-space:nowrap}
+  .scoremini b{font-family:'Alegreya Sans',sans-serif;font-weight:800;font-size:17px;color:var(--gold);font-variant-numeric:tabular-nums}
+  .scoremini i{font-style:normal;color:var(--muted)}
+  .scoremini small{font-size:11px;color:var(--muted);margin-left:2px}
+  .tools{flex:1 1 0;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;min-width:0;gap:6px}
+  .tools::-webkit-scrollbar{display:none}
+  .tools .tool{flex:none;font-size:13px;padding:5px 10px}
+  .modes{grid-template-columns:1fr}
+
+  /* la mesa 2D: el paño llena la pantalla y lo de adentro va de arriba para abajo, sin estirarse */
+  /* el paño llena la pantalla: lo que sobra de alto se lo lleva el medio de la mesa (la fila 1fr), y abajo
+     queda lugar fijo para tus cartas y dos filas de botones, así nada cambia de lugar durante la mano */
+  .table{flex:1 0 auto;padding:8px 8px 10px;margin:8px 8px 6px;min-height:calc(var(--alto) - 56px);border-radius:16px;gap:6px;
+    box-shadow:0 0 0 5px var(--wood),0 0 0 7px var(--wood2),0 10px 30px rgba(0,0,0,.5),inset 0 0 60px rgba(0,0,0,.3)}
+  .app.conbarra .table{min-height:calc(var(--alto) - 110px - env(safe-area-inset-bottom))}
+  .table.four,.table.six{grid-template-columns:56px minmax(0,1fr) 56px;gap:6px 4px}
+  .seat{gap:8px}
+  .who{min-width:0}
+  .who .name{font-size:16px;line-height:1.15}
+  .who .sub{font-size:11px}
+  .tag{font-size:11px;padding:1px 7px}
+  .hand.mini .back{width:26px;height:40px;border-width:2px;margin-left:-12px}
+  .s-left .who .name,.s-right .who .name,.s-tl .who .name,.s-tr .who .name{font-size:14px;max-width:56px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .s-left .who .sub,.s-right .who .sub,.s-tl .who .sub,.s-tr .who .sub{display:none}
+  .s-left,.s-right{gap:5px}
+  /* las marcas (mano, da, juega...) tienen lugar guardado: cuando aparecen o se van, el nombre y las cartas no se mueven */
+  .s-left .who .tags,.s-right .who .tags,.s-tl .who .tags,.s-tr .who .tags{min-height:54px;flex-direction:column;align-items:center;justify-content:flex-start;gap:3px}
+  .s-top .who .tags{flex-wrap:nowrap}
+  .s-left .sena .g,.s-right .sena .g,.s-tl .sena .g,.s-tr .sena .g,.s-top .sena .g{display:none}
+  .sena{font-size:11.5px;padding:2px 7px}
+  /* el compañero de arriba en una sola fila: nombre, cartas y señas (se deslizan si no entran) */
+  .s-top{min-height:0}
+  .table.four .s-top,.table:not(.four):not(.six) .s-top{flex-wrap:nowrap;justify-content:center;gap:10px;min-height:50px}
+  .table.four .s-top .senas{flex:0 1 auto;flex-basis:auto;min-width:0;flex-wrap:nowrap;overflow-x:auto;justify-content:flex-start;scrollbar-width:none}
+  .table.four .s-top .senas::-webkit-scrollbar{display:none}
+  .table.four .s-top .senas .sena{flex:none}
+  .table.four .s-top .who .tags{min-height:16px}
+  .table.six .s-top{gap:4px}
+  .table:not(.four):not(.six) .s-top .hand .back{--cw:40px;--ch:61px}
+
+  /* el medio: las bazas en una línea, la cruz chica y el mazo en el rincón del que dio */
+  .center{min-height:0;padding:0 2px}
+  .cross-wrap{gap:6px}
+  .cross{grid-template-columns:repeat(3,var(--xc));grid-template-rows:repeat(3,calc(var(--xc)*.9));gap:4px 6px}
+  .cross .card,.cross .ph{width:var(--xc);height:calc(var(--xc)*1.52);border-radius:6px}
   .cross-wrap>.chips{flex-wrap:nowrap;gap:5px}
   .cross-wrap .chips .chips{gap:3px}
   .cross-wrap .chips .lbl{font-size:10px;letter-spacing:0}
-  .cross-wrap .res{font-size:11px;padding:2px 6px;white-space:nowrap}
+  .cross-wrap .res{font-size:11px;padding:1px 6px;white-space:nowrap}
+  .tricks{gap:6px}.slot{min-width:0;padding:4px;gap:4px}
+  .slot .card,.slot .ph{--cw:46px;--ch:70px}
+  .mazo2d{--cw:var(--dk);--ch:calc(var(--dk)*1.52)}
+  .mazo2d .lbl{font-size:9px;letter-spacing:.8px}
+  .mazo2d.dk-tl,.mazo2d.dk-tr{top:22px}   /* debajo de la fila de las bazas */
+  .deckpile .card:hover,.deckpile .card.zoom{transform:scale(2.6) rotate(0)}
+  .mazo2d.izq .deckpile .card:hover,.mazo2d.izq .deckpile .card.zoom{transform:scale(2.6) rotate(0)}
 
-  .s-top{min-height:90px}
-  /* el compañero de arriba no cambia de alto: las señas en una sola línea (se desliza si no entran) y el lugar de las marcas guardado */
-  .table.four .s-top .senas{flex-wrap:nowrap;overflow-x:auto;justify-content:flex-start;scrollbar-width:none}
-  .table.four .s-top .senas::-webkit-scrollbar{display:none}
-  .table.four .s-top .senas .sena{flex:none}
-  .table.four .s-top .senas .sena:first-child{margin-left:auto}
-  .table.four .s-top .senas .sena:last-child{margin-right:auto}
-  .table.four .s-top .who .tags{min-height:18px}
-  .cross{gap:4px 8px}
-  .hand.mini .back{width:30px;height:46px;margin-left:-14px}
-  .who .name{font-size:17px}
-  .bubble{font-size:17px}
-  .act{font-size:15px;padding:9px 12px}
-  .t3d{margin:8px;border-radius:16px}
-  .stage{height:62vh;min-height:360px}
+  /* abajo: estado, tus cartas y los botones */
+  .statusbox{min-height:66px}
+  .status{font-size:14px;min-height:20px;gap:6px;line-height:1.25}
+  .helper{font-size:12.5px;min-height:16px;line-height:1.3}
+  .clock{height:12px;line-height:12px;font-size:11px}
+  .s-bottom{gap:6px;justify-content:flex-start;min-height:calc(var(--mh)*1.52 + 122px)}
+  .s-bottom .hand.me{order:-2}
+  .s-bottom .err{order:-1}
+  .s-bottom .err:empty{min-height:0}
+  .hand.me{gap:8px;min-height:calc(var(--mh)*1.52)}
+  .hand.me .card{width:var(--mh);height:calc(var(--mh)*1.52)}
+  .actions{min-height:42px;gap:6px}
+  .actions .fila{gap:6px}
+  .act{font-size:15px;padding:8px 12px;border-radius:11px}
+  .actions .fila.resp .act{min-width:108px}
+  .s-bottom .tags{min-height:0}
+  .dicho{font-size:12.5px;padding:0 8px}
+  .hand.me .dicho{--dy:0px;left:0;right:auto;top:auto;bottom:100%;margin:0 0 4px}
+
+  /* la 3D: el escenario ocupa lo que queda; los botones tienen lugar fijo así la mesa no cambia de tamaño */
+  .t3d{flex:1 1 auto;min-height:0;margin:8px 8px 6px;border-radius:16px;box-shadow:0 0 0 5px var(--wood),0 0 0 7px var(--wood2),0 10px 30px rgba(0,0,0,.5)}
+  .stage{flex:1 1 auto;height:auto;min-height:250px}
+  .hud{flex:none;min-height:208px;padding:8px 10px 10px;gap:4px;justify-content:flex-start}
   .l3d .nm{font-size:15px}.l3d .sena{font-size:11px}.l3d .sena .g{display:none}
   .pip3d .cap{font-size:12px}
   .l3d .say,.mybub{font-size:12px}
   .baz3d{max-width:calc(100% - 140px)}
-  .modes{grid-template-columns:1fr}
-  /* que en la 2D entren la mesa y tus cartas en la pantalla del celular, sin tener que bajar */
-  .app{grid-template-columns:minmax(0,1fr)}
-  header.top{flex-wrap:nowrap;gap:8px;min-width:0}
-  h1{font-size:20px;white-space:nowrap}
-  h1 small{display:none}
-  .tools{flex:1 1 0;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;min-width:0}
-  .tools::-webkit-scrollbar{display:none}
-  .tools .tool{flex:none;font-size:13px;padding:6px 10px}
-  .muestra-box .deckpile{--cw:46px;--ch:70px}
-  .s-bottom .hand.me{order:-2}
-  .s-bottom .err{order:-1}
-  .s-bottom .err:empty{min-height:0}
-  .actions .fila.resp .act{min-width:110px}
+  .hint3d{display:none}
+
+  /* la barra de abajo y sus hojas */
+  .barra{display:flex;flex:none;position:sticky;bottom:0;z-index:42;gap:6px;padding:6px 8px calc(6px + env(safe-area-inset-bottom));
+    background:rgba(18,13,9,.97);border-top:1px solid rgba(255,255,255,.1)}
+  .barra .tool{flex:1;font-size:14px;padding:8px 6px;font-weight:600}
+  .barra .tool:disabled{opacity:.38;cursor:default}
+  .velo{display:block;position:fixed;inset:0;z-index:40;background:rgba(0,0,0,.4)}
+  .hoja{display:block;position:fixed;left:8px;right:8px;bottom:calc(56px + env(safe-area-inset-bottom));z-index:41;max-height:62vh;overflow:auto;
+    background:#1f170f;border:1px solid rgba(255,255,255,.16);border-radius:16px;padding:12px 12px 10px;box-shadow:0 -10px 30px rgba(0,0,0,.55)}
+  .hoja .pedidos,.hoja .mysenas{margin:0;gap:8px}
+  .hoja .pedidos>span,.hoja .mysenas>span{flex-basis:100%;text-align:center;color:var(--ink);font-size:14px}
+  .hoja button{font-size:15px;padding:8px 13px}
+  .hoja .listo{display:block;margin:10px auto 0;padding:7px 22px}
+  .hoja.arriba{top:48px;bottom:auto;max-height:52vh}
+  .velo.claro{background:transparent}
+  /* arriba no hay lugar sobre el nombre (está el borde): lo que dicen los de arriba aparece debajo */
+  .s-top .dicho,.s-tl .dicho,.s-tr .dicho{bottom:auto;top:100%;margin:3px 0 0}
+  .s-tl .dicho{--dx:0px;left:0}.s-tr .dicho{--dx:0px;left:auto;right:0}
+  /* el tanteador (con el chat y lo que se dijo) sube como hoja desde abajo */
+  .app>aside{display:none}
+  .app.ver-tanteador>aside{display:flex;position:fixed;left:0;right:0;bottom:0;max-height:84vh;max-height:84dvh;overflow:auto;z-index:43;margin:0;
+    background:#17110b;border-radius:18px 18px 0 0;padding:10px 10px calc(14px + env(safe-area-inset-bottom));box-shadow:0 -12px 40px rgba(0,0,0,.6)}
+  .app.ver-tanteador>aside .cerrarhoja{display:block;position:sticky;top:0;align-self:flex-end;z-index:2;background:#2a2018}
+  .pttfab{bottom:calc(64px + env(safe-area-inset-bottom))}
 }
 </style>
 </head>
@@ -565,6 +650,7 @@ img.avt{object-fit:cover;background:#2a1d13}
 <div class="app">
   <header class="top">
     <h1>Truco <span>Uruguayo</span><small id="modeLbl"></small></h1>
+    <button type="button" class="scoremini" id="scoreMini" title="Ver el tanteador y lo que se dijo"></button>
     <div class="tools">
       <button class="tool" id="btnMenu" title="Volver a la pantalla de inicio (el partido queda en pausa)">Menú</button>
       <button class="tool" id="btnView" title="Cambiar entre la mesa 3D y la mesa 2D">Mesa: 3D</button>
@@ -583,12 +669,22 @@ img.avt{object-fit:cover;background:#2a1d13}
         <div class="hint3d" id="hint3d">Arrastrá para girar la mesa · rueda o pellizco para acercar</div>
         <div class="mue3d" id="mue3d">Muestra</div>
         <div class="mybub" id="mybub3d"></div>
+        <div class="lado3d izq" id="senas3d"></div>
+        <div class="lado3d der" id="frases3d"></div>
         <div class="pip3d" id="pip3d" hidden><div class="frame"></div><div class="cap"></div></div>
       </div>
     </div>
     <section class="hud" id="hud" aria-live="polite"></section>
   </main>
+  <nav class="barra" id="barra" hidden aria-label="Más cosas de la mano">
+    <button type="button" class="tool" data-h="frases">Frases</button>
+    <button type="button" class="tool" data-h="senas">Señas</button>
+    <button type="button" class="tool" data-h="tanteador">Tanteador</button>
+  </nav>
+  <div class="velo" id="velo" hidden></div>
+  <div class="hoja" id="hoja" hidden></div>
   <aside>
+    <button type="button" class="tool cerrarhoja" id="cerrarHoja">Cerrar</button>
     <div class="panel"><h2>Tanteador</h2><div class="score" id="score"></div></div>
     <div class="panel chatp" id="chatPanel" hidden><h2>Chat de la mesa</h2><div id="chatBox"></div></div>
     <div class="panel" id="ranksPanel" hidden><h2>Jerarquía con esta muestra</h2><div class="rank-list" id="ranks"></div></div>
@@ -6569,7 +6665,7 @@ function render(){
   if (use3D()) {
     $('table').hidden = true; $('t3d').hidden = false;
     V3.update(act, hud3d(act));
-    renderRanks();
+    renderRanks(); pintarHoja();
     return;
   }
   $('t3d').hidden = true; $('table').hidden = false; V3.pause();
@@ -6578,7 +6674,24 @@ function render(){
   tb.appendChild(G.n>=4 ? center4() : center2());
   tb.appendChild(statusBox(act));
   tb.appendChild(mySeat(act));
-  renderRanks();
+  moverMazo();
+  renderRanks(); pintarHoja();
+}
+// Cuando cambia el que da, el mazo se desliza de un rincón al otro (como en la 3D). La mesa se redibuja
+// seguido, así que el deslizamiento se retoma en cada dibujo desde donde iba.
+let mazoAnt = null, mazoVa = null;
+function moverMazo(){
+  const m = document.querySelector('#table .mazo2d'); if (!m) return;
+  const r = m.getBoundingClientRect(), k = G.id + ':' + G.roundNo + ':' + G.dealer, now = Date.now(), DUR = 700;
+  if (mazoAnt && mazoAnt.k !== k && mazoAnt.id === G.id && mazoAnt.n === G.n && !matchMedia('(prefers-reduced-motion: reduce)').matches)
+    mazoVa = { k, x: mazoAnt.x, y: mazoAnt.y, t0: now };
+  if (mazoVa && (mazoVa.k !== k || now - mazoVa.t0 >= DUR)) mazoVa = null;
+  if (mazoVa && m.animate) {
+    const an = m.animate([{ transform: `translate(${mazoVa.x - r.left - scrollX}px, ${mazoVa.y - r.top - scrollY}px)` }, { transform: 'none' }],
+      { duration: DUR, easing: 'cubic-bezier(.3,.7,.2,1)' });
+    an.currentTime = now - mazoVa.t0;
+  }
+  mazoAnt = { k, id: G.id, n: G.n, x: r.left + scrollX, y: r.top + scrollY };
 }
 
 function otherSeat(p, act){
@@ -6606,7 +6719,7 @@ function otherSeat(p, act){
     senaGroups(vistas.map(v => v.s)).forEach(([k, n]) => box.appendChild(el('span','sena caught', `<span class="g">le viste: </span>👀 ${senaTxt(k, n)}`)));
     s.appendChild(box);
   }
-  bubble(s, R.said[p]);
+  bubble(who, R.said[p], p);
   return s;
 }
 
@@ -6650,8 +6763,15 @@ function center4(){
   return c;
 }
 let mz2d = null;
+// El mazo va sobre la mesa a la derecha del que dio, con la muestra asomando hacia el medio, como en la 3D.
+// La derecha del que dio es el rincón entre él y el que sigue (el de su derecha), así cambia de lugar cada mano.
+const RINCON = { 2: { bottom: 'br', top: 'tl' }, 4: { bottom: 'br', right: 'tr', top: 'tl', left: 'bl' },
+  6: { bottom: 'br', right: 'tr', tr: 'tr', top: 'tl', tl: 'tl', left: 'bl' } };   // de a seis, los de arriba comparten rincón
 function muestraBox(){
-  const mu = el('div','muestra-box','<div class="lbl">Muestra</div>');
+  const rc = (RINCON[G.n] || RINCON[4])[seatOf(G.dealer)] || 'br';
+  const mu = el('div','muestra-box mazo2d dk-' + rc + (rc[0] === 't' ? ' arriba' : ' abajo') + (rc[1] === 'l' ? ' izq' : ' der'),
+    '<div class="lbl">Muestra</div>');
+  mu.title = (G.dealer === ME ? 'Diste vos' : 'Dio ' + G.names[G.dealer]) + ': el mazo queda a su derecha';
   const pile = el('div','deckpile'); pile.appendChild(backEl());
   if (G.round.leyPhase) { const b = backEl(); b.classList.add('mue'); pile.appendChild(b); }
   else {
@@ -6715,9 +6835,11 @@ function mySeat(act){
   });
   sm.appendChild(mh);
   sm.appendChild(myTagsEl());
-  const pd = pedidosEl(); if (pd) sm.appendChild(pd);
-  if (senasCond()) sm.appendChild(mySenas());
-  bubble(sm, R.said[ME]);
+  if (!CEL.matches) {
+    const pd = pedidosEl(); if (pd) sm.appendChild(pd);
+    if (senasCond()) sm.appendChild(mySenas());
+  }
+  bubble(mh, R.said[ME], ME);
   return sm;
 }
 // Barra de abajo de la mesa 3D: estado, botones, tus datos y tus señas (las cartas están en la escena)
@@ -6734,8 +6856,12 @@ function hud3d(act){
     hud.appendChild(sr);
   }
   hud.appendChild(myTagsEl());
-  const pd = pedidosEl(); if (pd) hud.appendChild(pd);
-  if (senasCond()) hud.appendChild(mySenas());
+  const lados = !CEL.matches && $('stage').clientWidth >= 760, sl = $('senas3d'), fl = $('frases3d');
+  sl.innerHTML = ''; fl.innerHTML = '';
+  if (!CEL.matches) {
+    const pd = pedidosEl(); if (pd) (lados ? fl : hud).appendChild(pd);
+    if (senasCond()) (lados ? sl : hud).appendChild(mySenas());
+  }
   return myLegal;
 }
 // Atajos para hablarle al compañero en voz alta (los oye toda la mesa; la computadora compañera hace caso)
@@ -6747,7 +6873,7 @@ function pedidosEl(){
   box.appendChild(el('span','', 'A tu compañero:'));
   Object.entries(T.PEDIDOS).forEach(([k, v]) => {
     const b = el('button','', esc(v.texto)); b.type = 'button'; b.title = 'Pedirle ' + v.ayuda;
-    b.onclick = () => pedirAlCompa(k); box.appendChild(b);
+    b.onclick = () => { pedirAlCompa(k); if (hoja === 'frases') { hoja = null; pintarHoja(); } }; box.appendChild(b);
   });
   return box;
 }
@@ -6825,9 +6951,22 @@ function senaTxt(k, n){
   return `${EMOJI[k]}<span class="g"> ${T.SENAS[k].gesto}</span>${veces}` + (showHelp ? `<span class="g"> →</span> <b>${n > 1 ? senaPlural(k, n) : T.SENAS[k].cartas}</b>` : '');
 }
 function senaPlural(k, n){ const d = n === 2 ? 'dos' : 'tres'; return { perico: 'perico y perica', mata: d + ' matas', '3': d + ' tres', dos: d + ' doses', as: 'los dos ases (copa y oro)' }[k] || T.SENAS[k].cartas; }
-function bubble(parent, said){
-  if (!said || G.log.length - said.t > 3 + G.n) return;
-  parent.appendChild(el('div','bubble', esc(said.text)));
+// Lo que dice cada uno: una etiqueta chica pegada al nombre que aparece y se va sola, igual que en la mesa 3D.
+// La mesa 2D se redibuja seguido: cada etiqueta recuerda cuándo apareció y sigue su animación desde ahí.
+const DICHO_MS = 2550, dichos2d = {};
+function bubble(parent, said, p){
+  if (!said) return;
+  const key = G.id + ':' + G.roundNo + ':' + said.t;
+  let d = dichos2d[p];
+  if (!d || d.key !== key) {
+    const viejo = G.log.length - said.t > 3 + G.n;   // al cargar un partido no se repite lo que ya se dijo
+    d = dichos2d[p] = { key, t0: viejo ? 0 : Date.now() };
+  }
+  const pasó = Date.now() - d.t0;
+  if (pasó >= DICHO_MS) return;
+  const b = el('div', 'dicho', esc(said.text));
+  b.style.animationDelay = -pasó + 'ms';
+  parent.appendChild(b);
 }
 function actClass(a){
   if (a.type==='leyresp') return (a.env||a.truco) ? 'yes' : 'nq';
@@ -6857,7 +6996,43 @@ function hintFor(acts){
   return '';
 }
 
+// ---------- Celular: el tanteo arriba, y frases, señas y tanteador en una barra abajo que abre hojas ----------
+const CEL = matchMedia('(max-width: 640px)');
+let hoja = null;   // 'frases' | 'senas' | 'tanteador'
+function abrirHoja(k){ hoja = hoja === k ? null : k; pintarHoja(); }
+function pintarHoja(){
+  const app = document.querySelector('.app'), R = G && G.round;
+  const cel = CEL.matches && !!R && $('home').hidden;
+  const hay = { frases: cel && !!pedidosEl(), senas: cel && senasCond(), tanteador: cel };
+  if (hoja && !hay[hoja]) hoja = null;
+  app.classList.toggle('ver-tanteador', hoja === 'tanteador');
+  app.classList.toggle('v3d', !!R && use3D());
+  const h = $('hoja'); h.innerHTML = '';
+  if (hoja === 'frases' || hoja === 'senas') {
+    h.appendChild(hoja === 'frases' ? pedidosEl() : mySenas());
+    if (hoja === 'senas') { const ok = el('button','tool listo','Listo'); ok.type = 'button'; ok.onclick = () => abrirHoja('senas'); h.appendChild(ok); }
+  }
+  h.hidden = !(hoja === 'frases' || hoja === 'senas');
+  // las señas se eligen mirando tus cartas: esa hoja va arriba, sobre la mesa, y no oscurece nada
+  h.classList.toggle('arriba', hoja === 'senas');
+  $('velo').hidden = !hoja; $('velo').classList.toggle('claro', hoja === 'senas');
+  const b = $('barra');
+  b.hidden = !(cel && G.n >= 4);
+  app.classList.toggle('conbarra', !b.hidden);
+  b.querySelectorAll('button').forEach(x => { const k = x.dataset.h; x.setAttribute('aria-pressed', String(hoja === k)); x.disabled = !hay[k]; });
+}
+document.querySelectorAll('#barra button').forEach(b => b.onclick = () => abrirHoja(b.dataset.h));
+$('velo').onclick = () => { hoja = null; pintarHoja(); };
+$('cerrarHoja').onclick = () => { hoja = null; pintarHoja(); };
+$('scoreMini').onclick = () => abrirHoja('tanteador');
+CEL.addEventListener('change', () => { hoja = null; if (G && G.round && $('home').hidden) render(); });
+function renderScoreMini(){
+  const t0 = MT(), t1 = 1 - t0, ch = G.chicos[0] || G.chicos[1];
+  $('scoreMini').innerHTML = `<span>${esc(tName(t0))} <b>${G.scores[t0]}</b></span><i>·</i><span><b>${G.scores[t1]}</b> ${esc(tName(t1))}</span>`
+    + (ch ? `<small>chicos ${G.chicos[t0]}–${G.chicos[t1]}</small>` : '');
+}
 function renderScore(){
+  renderScoreMini();
   const sc = $('score'); sc.innerHTML='';
   [MT(), 1 - MT()].forEach(t => {
     const s = G.scores[t], half = G.target/2;
@@ -8413,7 +8588,7 @@ function setHelp(v){ showHelp = v; $('btnHelp').setAttribute('aria-pressed', Str
 function setSpeed(v){ speed = v; store.set('truco.speed', speed); $('btnSpeed').textContent = 'Velocidad: ' + speed; }
 function setView3d(v){ view3d = v; store.set('truco.view', view3d ? '3d' : '2d'); viewBtn(); }
 $('btnHelp').onclick = () => { setHelp(!showHelp); if (G) render(); };
-$('btnRanks').onclick = () => { showRanks=!showRanks; $('btnRanks').setAttribute('aria-pressed', String(showRanks)); render(); };
+$('btnRanks').onclick = () => { showRanks=!showRanks; $('btnRanks').setAttribute('aria-pressed', String(showRanks)); if (CEL.matches && showRanks) hoja = 'tanteador'; render(); };
 $('btnMenu').onclick = () => showHome();
 function howToModal(){
   toolModal(`<h3>Cómo se juega</h3>

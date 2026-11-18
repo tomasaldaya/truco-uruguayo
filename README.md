@@ -325,3 +325,22 @@ y la mano no se cierra por detrás). Escape los cierra.
 - **En el celular, mesa 2D**: encabezado en una línea, la muestra más chica y tus cartas antes que los
   botones, para que la mesa y tu mano entren sin bajar (antes la mano quedaba debajo del borde de la
   pantalla y parecía que no estaba). Al empezar un partido la pantalla vuelve arriba.
+
+## Mazo, carteles y pantalla del celular (18/11, segunda tanda)
+
+- **Mazo en la 2D como en la 3D**: va sobre la mesa a la derecha del que dio (el rincón entre él y el que
+  sigue: `RINCON` en `ui.html`), con la muestra asomando hacia el medio; cada mano se desliza al rincón del
+  nuevo repartidor (`moverMazo`, que retoma la animación aunque la mesa se redibuje). De a seis, los de
+  arriba comparten rincón.
+- **Carteles en la 2D como en la 3D**: lo que dice cada uno es una etiqueta chica pegada al nombre que aparece
+  y se va sola en 2,5 s (`bubble` / `.dicho`; guarda cuándo apareció para seguir la animación en cada
+  redibujo). La tuya va al costado de tus cartas (arriba de ellas en el celular).
+- **3D en pantallas anchas**: tus señas en una columna a la izquierda de la mesa y las frases al compañero a
+  la derecha (`#senas3d`, `#frases3d`); la barra de abajo queda con el estado y los botones, y la mesa entera
+  entra en la pantalla. Si el escenario mide menos de 760 px, siguen abajo como antes.
+- **Celular**: todo lo de la mano entra en una pantalla, sin deslizar. Arriba, el tanteo resumido
+  (`#scoreMini`, se toca para ver el tanteador completo, el chat y lo que se dijo); en el medio la mesa; abajo
+  tus cartas y los botones con lugar fijo (no se mueve nada cuando aparecen dos filas de respuestas); y en
+  parejas y tercetos una barra con Frases, Señas y Tanteador que abre hojas por encima (`pintarHoja`). La hoja
+  de señas va arriba para que veas tus cartas mientras elegís. Los tamaños de las cartas se ajustan al alto de
+  la pantalla (`--mh`, `--xc`, `--dk`).
