@@ -1,6 +1,7 @@
 // Cuánto se usó el juego, según las estadísticas de Cloudflare. Solo muestra totales (nada de nombres,
 // códigos de mesa ni direcciones), porque el resultado queda a la vista en GitHub Actions.
-// Uso: CLOUDFLARE_API_TOKEN=… CLOUDFLARE_ACCOUNT_ID=… node server/actividad.mjs [sondeo] [días]
+// Uso: CLOUDFLARE_API_TOKEN=… CLOUDFLARE_ACCOUNT_ID=… node server/actividad.mjs [resumen|sondeo] [días]
+// En GitHub: pestaña Actions → "Actividad del juego" → Run workflow.
 const TOKEN = (process.env.CLOUDFLARE_API_TOKEN || '').trim();
 const CUENTA = (process.env.CLOUDFLARE_ACCOUNT_ID || '').trim();
 const modo = process.argv[2] || 'resumen';
@@ -168,18 +169,6 @@ async function resumen() {
 
 try {
   if (modo === 'sondeo') await sondeo();
-  else if (modo === 'detalle') {
-    const ev = await eventosDeMesas();
-    const forma = o => o && typeof o === 'object' ? Object.fromEntries(Object.entries(o).map(([k, v]) => [k, forma(v)])) : typeof o;
-    console.log('eventos:', ev.length, 'forma:', JSON.stringify(forma(ev[0])).slice(0, 1500));
-    const mesa = [DE_GENTE[0]];
-    console.log('redes:', (await valores('$workers.event.request.cf.asOrganization', mesa)).join(' | '));
-    console.log('redes con el filtro:', (await valores('$workers.event.request.cf.asOrganization', DE_GENTE)).join(' | '));
-    const uas = await valores('$workers.event.request.headers.user-agent', DE_GENTE);
-    console.log('navegadores raros:', uas.filter(u => !/iPhone|iPad|Android|Windows|Macintosh|Linux|CrOS/.test(u)).map(u => u.slice(0, 50)).join(' | '));
-    for (const c of await valores('$workers.event.request.cf.country', DE_GENTE))
-      console.log('país', c, 'redes:', (await valores('$workers.event.request.cf.asOrganization', [...DE_GENTE, { kind: 'filter', key: '$workers.event.request.cf.country', operation: 'eq', type: 'string', value: c }])).join(' | '));
-  }
   else await resumen();
   if (process.env.GITHUB_STEP_SUMMARY && salida.length) (await import('fs')).appendFileSync(process.env.GITHUB_STEP_SUMMARY, salida.join('\n') + '\n');
 } catch (e) { console.error('Error:', e.message); process.exit(1); }

@@ -24,6 +24,7 @@ Juego de truco uruguayo para el navegador, según el *Reglamento del Truco Urugu
 - `server/worker.mjs` — el servidor en Cloudflare: sirve la página y una sala (Durable Object) por mesa.
 - `server/prueba-mesa.mjs` — pruebas de la mesa del servidor sin Cloudflare: `node server/prueba-mesa.mjs`.
 - `server/prueba-vivo.mjs` — prueba del servidor ya publicado (dos jugadores por WebSocket).
+- `server/actividad.mjs` — cuánto se usó el juego (mesas, gente, aparatos, errores), solo totales. En GitHub: Actions → "Actividad del juego" → Run workflow.
 - `wrangler.jsonc`, `.github/workflows/servidor.yml` — configuración y publicación automática en Cloudflare.
 - `build.py` — arma `index.html` (un solo archivo; solo, anda sin internet; las tipografías se bajan de Google Fonts) a partir de lo anterior: `python3 build.py`.
 - `test.js` — pruebas de reglas y partidos simulados: `node test.js`.
