@@ -20,7 +20,7 @@ export default {
       if ((req.headers.get('Upgrade') || '').toLowerCase() !== 'websocket') return new Response('Acá se entra por WebSocket.', { status: 426 });
       return env.MESAS.get(env.MESAS.idFromName(m[1])).fetch(req);
     }
-    if (/^\/api\/(cuenta|ranking|amigos|admin)(\/|$)/.test(url.pathname)) {
+    if (/^\/api\/(cuenta|ranking|amigos|admin|publicas)(\/|$)/.test(url.pathname)) {
       if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
       const r = await cuentas(env).fetch(req);
       if (r.status === 101) return r;
@@ -46,6 +46,7 @@ export class CuentasDO extends DurableObject {
       admins: String(env.ADMINS || '').split(/[\s,]+/).filter(Boolean),
       avisar: (uid, msg) => this.avisar(uid, msg), enLinea: () => this.enLinea(),
       transaccion: f => ctx.storage.transactionSync(f),
+      avisarTodos: msg => this.avisarTodos(msg),
     });
     this.c.init();
     // pedido del dueño del juego (18/11/2026): que su cuenta (la 2) pase a ser la 1 y la 1 pase a ser la 2
@@ -92,9 +93,14 @@ export class CuentasDO extends DurableObject {
       try { const a = w.deserializeAttachment(); if (a && a.uid === uid) w.send(txt); } catch (e) {}
     }
   }
+  avisarTodos(msg) {
+    const txt = JSON.stringify(msg);
+    for (const w of this.ctx.getWebSockets()) { try { const a = w.deserializeAttachment(); if (a && a.uid) w.send(txt); } catch (e) {} }
+  }
   // lo que piden las mesas (por RPC)
   async quien(token) { return this.c.quien(token); }
   async registrar(r) { return this.c.registrar(r); }
+  async salon(info) { return this.c.salon(info); }
 }
 
 // ---------- mesas ----------
@@ -115,6 +121,7 @@ export class MesaDO {
       idle: () => { this.ctx.storage.setAlarm(Date.now() + IDLE_MS).catch(() => {}); },
       cuenta: env.CUENTAS ? token => cuentas(env).quien(token) : null,
       registrar: env.CUENTAS ? r => cuentas(env).registrar(r) : null,
+      salon: env.CUENTAS ? info => cuentas(env).salon(info) : null,
     };
     ctx.blockConcurrencyWhile(async () => {
       const saved = await ctx.storage.get('mesa');

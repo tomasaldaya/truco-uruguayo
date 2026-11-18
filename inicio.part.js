@@ -77,6 +77,7 @@ function renderHome(){
   if (homeView === 'ranking') return renderRanking(box);
   if (homeView === 'amigos') return renderAmigos(box);
   if (homeView === 'admin') return renderAdmin(box);
+  if (homeView === 'publicas') return renderPublicas(box);
   const inGame = !!NET || (GM && GM.phase !== 'matchEnd');
   let h = netNote ? `<p class="hnote" role="alert">${esc(netNote)}</p>` : '';
   netNote = '';
@@ -94,8 +95,10 @@ function renderHome(){
   if (confirmNew) h += `<div class="hconfirm" role="alert"><p>${NET ? `Vas a salir de la mesa ${esc(NET.code)} para jugar solo, de ${modeName(confirmNew).toLowerCase()}.` : `Tenés un partido sin terminar. Si empezás uno nuevo de ${modeName(confirmNew).toLowerCase()}, ese se pierde.`}</p>
     <div class="row"><button class="act flor" id="hYes">Empezar partido nuevo</button><button class="act mazo" id="hNo">Cancelar</button></div></div>`;
   h += '</section>';
-  if (!NET) h += `<section><h2>Jugar con otros</h2><div class="hlinks"><button class="tool" id="hHost">Crear una mesa</button><button class="tool" id="hJoin">Unirme a una mesa</button></div>
-    <p class="hkey">${netMode() === 'internet' ? 'Por internet: creá una mesa y pasale el link a quien quieras, o unite con el código que te pasaron.' : 'Sin internet: entre pestañas de este navegador, para probar cómo se ve el partido desde cada lugar.'}</p></section>`;
+  const pubN = (CUENTA.publicas || []).reduce((a, m) => a + m.personas, 0);
+  const pubBtn = cuentaOK() && CUENTA.cfg ? `<button class="tool" id="hPub">Mesas públicas${pubN ? ` · <b class="cbadge">${pubN} ${pubN === 1 ? 'esperando' : 'esperando'}</b>` : ''}</button>` : '';
+  if (!NET) h += `<section><h2>Jugar con otros</h2><div class="hlinks">${pubBtn}<button class="tool" id="hHost">Crear una mesa</button><button class="tool" id="hJoin">Unirme a una mesa</button></div>
+    <p class="hkey">${netMode() === 'internet' ? (pubBtn ? 'En las mesas públicas jugás con cualquiera que tenga cuenta. Para jugar con conocidos, creá una mesa y pasales el link, o unite con el código que te pasaron.' : 'Por internet: creá una mesa y pasale el link a quien quieras, o unite con el código que te pasaron.') : 'Sin internet: entre pestañas de este navegador, para probar cómo se ve el partido desde cada lugar.'}</p></section>`;
   h += cuentaHTML();
   h += `<nav class="hlinks" aria-label="Más opciones">
     <button class="tool" id="hCfg">Configuración</button><button class="tool" id="hDeck">Tu mazo</button>
@@ -109,6 +112,7 @@ function renderHome(){
   if ($('hLeave')) $('hLeave').onclick = () => { leaveNet(); renderHome(); };
   if ($('hHost')) $('hHost').onclick = () => hostTable(GM && !NET ? GM.n : players);
   if ($('hJoin')) $('hJoin').onclick = () => { homeView = 'join'; renderHome(); };
+  if ($('hPub')) $('hPub').onclick = () => cuentaIr('publicas');
   box.querySelectorAll('.hmode').forEach(b => b.onclick = () => {
     const n = +b.dataset.n;
     if (inGame) { confirmNew = n; renderHome(); $('hYes').focus(); } else startGame(n);

@@ -29,11 +29,12 @@ function cuentaOlvidar(){
   try { if (window.google && google.accounts) google.accounts.id.disableAutoSelect(); } catch (e) {}
   cuentaRepintar();
 }
-function cuentaRepintar(){ if (!$('home').hidden && ['main', 'perfil', 'ranking', 'amigos', 'admin', 'lobby', 'join'].includes(homeView)) renderHome(); }
+function cuentaRepintar(){ if (!$('home').hidden && ['main', 'perfil', 'ranking', 'amigos', 'admin', 'publicas', 'lobby', 'join'].includes(homeView)) renderHome(); }
 
 async function cuentaInit(){
   if (!cuentaOK()) return;
   try { CUENTA.cfg = await api('cuenta/config'); } catch (e) { CUENTA.cfg = null; return; }
+  cuentaPublicas();
   if (CUENTA.token) {
     try { const r = await api('cuenta/yo'); cuentaGuardar(undefined, r.yo); cuentaConectar(); cuentaAmigos(); }
     catch (e) { /* sin red: queda lo guardado; sin sesión: api() ya la olvidó */ }
@@ -94,6 +95,7 @@ function cuentaConectar(){
     let m; try { m = JSON.parse(e.data); } catch (x) { return; }
     if (m.t === 'nosesion') { cuentaOlvidar(); return; }
     if (m.t === 'invita') invitacion(m);
+    if (m.t === 'publicas') cuentaPublicas();
     if (m.t === 'amigos') { if (m.solicitud) avisoCuenta(`${m.solicitud} quiere ser tu amigo.`, 'amigos'); cuentaAmigos(); }
     if (m.t === 'presencia') {
       const a = CUENTA.amigos && CUENTA.amigos.amigos.find(x => x.id === m.id);
@@ -384,6 +386,47 @@ function renderAdmin(box){
   $('hBack').onclick = volverDeCuenta;
   $('aAct').onclick = () => { cuentaVista.datos = null; renderHome(); };
   box.querySelectorAll('tr[data-id]').forEach(tr => { const ir = () => cuentaIr('perfil', { id: +tr.dataset.id, volver: 'main' }); tr.onclick = ir; tr.onkeydown = e => { if (e.key === 'Enter') ir(); }; });
+}
+
+// ---------- mesas públicas: cualquiera con cuenta elige el modo y se sienta donde esperan gente ----------
+async function cuentaPublicas(){
+  if (!cuentaOK()) return;
+  try { CUENTA.publicas = (await api('publicas')).lista; } catch (e) { return; }
+  if (!$('home').hidden && (homeView === 'publicas' || homeView === 'main')) renderHome();
+}
+const esperandoEn = n => (CUENTA.publicas || []).filter(m => m.n === n && m.personas < m.n);
+async function buscarPublica(n){
+  if (!conCuenta()) return;
+  try { CUENTA.publicas = (await api('publicas')).lista; } catch (e) {}
+  const m = esperandoEn(n).filter(x => !(NET && NET.code === x.codigo))[0];   // la que tiene más gente (la lista viene ordenada así)
+  if (m) joinTable(m.codigo, myName(), false, { publica: true });
+  else hostTable(n, false, true);
+}
+function renderPublicas(box){
+  const lista = CUENTA.publicas;
+  let h = barra('Mesas públicas');
+  if (netNote) { h += `<p class="hnote" role="alert">${esc(netNote)}</p>`; netNote = ''; }
+  h += avisoHTML();
+  h += '<p class="lob">Jugá con cualquiera que tenga cuenta. Elegí el modo: si hay una mesa esperando gente te sentás ahí, y si no, se arma una nueva y esperás a que llegue alguien.</p>';
+  if (!conCuenta()) {
+    h += '<p class="hnote">Para las mesas públicas tenés que entrar con tu cuenta.</p>';
+    if (CUENTA.cfg && CUENTA.cfg.google) h += '<div id="hGsi" class="gsi"></div>';
+  }
+  h += '<div class="hmodes">' + MODES.map(([n, nm]) => {
+    const e = esperandoEn(n), gente = e.reduce((a, m) => a + m.personas, 0);
+    return `<button class="hmode" data-pn="${n}" ${conCuenta() ? '' : 'disabled'}>${tableSVG(n)}<div><b>${nm}</b><span>${gente ? `${gente} ${gente === 1 ? 'persona esperando' : 'personas esperando'}` : 'Nadie esperando: armás la mesa'}</span></div></button>`;
+  }).join('') + '</div>';
+  h += '<section><h2 class="h3">Mesas esperando gente</h2>';
+  if (!lista) h += '<p class="lob">Cargando…</p>';
+  else if (!lista.length) h += '<p class="hkey">Ahora no hay ninguna. Elegí un modo y sé el primero: la mesa aparece acá para los demás.</p>';
+  else h += '<ul class="amg">' + lista.map(m => `<li><b>${esc(modeName(m.n))}</b><small>${esc(m.nombres.join(', '))} · ${m.personas} de ${m.n}</small>${conCuenta() ? `<button class="tool" data-pc="${m.codigo}">Sentarme</button>` : ''}</li>`).join('') + '</ul>';
+  h += '</section><p class="hkey">Se juegan a 30 puntos y un solo chico, con flor y 30 segundos por jugada. Empiezan solas cuando se llenan; si ya son dos o más y todos quieren, pueden empezar antes y la computadora completa los lugares libres. Cuentan para el ranking cuando hay gente en los dos equipos.</p>';
+  box.innerHTML = h;
+  $('hBack').onclick = () => { homeView = 'main'; renderHome(); };
+  if ($('hGsi')) gsiBoton($('hGsi'));
+  box.querySelectorAll('[data-pn]').forEach(b => b.onclick = () => buscarPublica(+b.dataset.pn));
+  box.querySelectorAll('[data-pc]').forEach(b => b.onclick = () => joinTable(b.dataset.pc, myName(), false, { publica: true }));
+  if (!lista) cuentaPublicas();
 }
 
 window.__trucoCuentaIr = (v, o) => { if ($('home').hidden) showHome(); cuentaIr(v, o); };

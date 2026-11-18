@@ -1,8 +1,8 @@
 // Una mesa compartida en el servidor (una por código). Hace lo que hacía el navegador del anfitrión
 // en las mesas por internet (red.part.js), pero acá: nadie tiene que dejar una pestaña abierta y nadie
 // tiene en su navegador las cartas ajenas. Habla el mismo idioma de mensajes que el juego:
-//   del jugador: hello, sit, bye, act, senas, ready, pref, chat, talk, pong; y el dueño: mode, name, start, close
-//   al jugador:  hola, lobby, state, err, full, closed, nomesa, ocupada, chat, chatlog, talk, ping
+//   del jugador: hello, sit, bye, act, senas, ready, pref, chat, talk, pong, empezar (mesa pública); y el dueño: mode, name, start, close
+//   al jugador:  hola, lobby, state, err, full, closed, nomesa, ocupada, nocuenta, chat, chatlog, talk, ping, ranking
 // No toca la red ni el reloj directamente: todo pasa por "io" (así se prueba en Node sin Cloudflare).
 // Con cuentas: quien manda su token en "hello" queda anotado con su cuenta, y al terminar el partido
 // se manda el resumen (para el ranking, las estadísticas y el historial) por io.registrar.
@@ -15,6 +15,10 @@ const AI_NAMES = { 2: ['Vos', 'Computadora'], 4: ['Vos', 'Tito', 'Pocho', 'Nacho
 const SPEEDS = { lenta: 1.6, normal: 1, 'rápida': 0.55 };
 const LEVELS = ['facil', 'normal', 'dificil'];
 const END_WAIT = 17000, CLOCK_GRACE = 2000, PING_MS = 4000;
+// mesas públicas: cualquiera con cuenta entra; sin dueño; empieza sola al llenarse (o cuando todos los
+// que están quieren empezar, con la computadora completando); partido corto para gente que no se conoce
+export const REGLAS_PUBLICAS = { target: 30, chicosToWin: 1 };
+const CUENTA_ATRAS = 3000;
 const team = p => p % 2;
 const joinY = l => l.length <= 1 ? l.join('') : l.slice(0, -1).join(', ') + ' y ' + l[l.length - 1];
 const cleanName = v => String(v || '').replace(/\s+/g, ' ').trim().slice(0, 20) || 'Invitado';
@@ -34,7 +38,7 @@ const roundKey = S => S.roundNo + ':' + (S.round && S.round.duel ? S.round.duel.
 
 export class Mesa {
   // io: { send(cid, msg), close(cid), now(), setTimeout, clearTimeout, setInterval, clearInterval, save(data), end(), idle(),
-  //       cuenta(token) -> Promise<{id, apodo}|null>, registrar(resumen) -> Promise }   (los dos últimos pueden faltar)
+  //       cuenta(token) -> Promise<{id, apodo}|null>, registrar(resumen) -> Promise, salon(info) }   (los tres últimos pueden faltar)
   constructor(io, saved) {
     this.io = io;
     this.conns = new Map();            // cid -> { pid, alive, chatAt, msgs }
@@ -45,10 +49,14 @@ export class Mesa {
     const s = saved || {};
     this.code = s.code || null; this.key = s.key || null;
     this.n = s.n || 4; this.started = !!s.started; this.prefs = s.prefs || {};
+    this.publica = !!s.publica; this.votos = new Set(); this.empiezaEn = null; this.cuentaT = null; this.salonT = null;
     this.speed = s.speed || 'normal'; this.level = s.level || 'normal';
     this.chat = s.chat || []; this.GM = s.GM || null;
     // al despertar, nadie está conectado: los lugares de personas pasan a la computadora hasta que vuelvan
-    this.seats = (s.seats || []).map((x, p) => x.kind === 'ai' ? x : p === 0 && !this.started ? { ...x, cid: null } : { kind: 'ai', name: x.name, left: true, pid: x.pid, host: p === 0, uid: x.uid || null });
+    this.seats = (s.seats || []).map((x, p) => x.kind === 'ai' ? x
+      : this.publica && !this.started ? { kind: 'ai', name: AI_NAMES[this.n][p] }
+      : p === 0 && !this.started ? { ...x, cid: null }
+      : { kind: 'ai', name: x.name, left: true, pid: x.pid, host: p === 0 && !this.publica, uid: x.uid || null });
     if (this.GM) this.GM.humans = [];
     // cuentas que juegan este partido: uid -> { equipo, abandono, stats }; hasta que vuelvan, figuran como que se fueron
     this.cuentas = new Map((s.cuentas || []).map(([uid, c]) => [uid, { ...c, abandono: true }]));
@@ -66,12 +74,12 @@ export class Mesa {
     this.conns.delete(cid);
     const s = this.seatOf(cid);
     if (s >= 0) {
-      if (s === 0 && !this.started) this.seats[0].cid = null;   // el dueño se fue antes de empezar: el lugar lo espera
+      if (s === 0 && !this.started && !this.publica) this.seats[0].cid = null;   // el dueño se fue antes de empezar: el lugar lo espera
       else this.freeSeat(s);
       this.lobbyChanged();
       if (this.started) this.publish();
     }
-    if (!this.conns.size) { this.io.clearInterval(this.beat); this.beat = null; this.stopTimers(); this.saveNow(); this.io.idle(); }
+    if (!this.conns.size) { this.io.clearInterval(this.beat); this.beat = null; this.stopTimers(); this.saveNow(); this.avisarSalon(true); this.io.idle(); }
   }
   onMessage(cid, m) {
     const c = this.conns.get(cid);
@@ -84,7 +92,8 @@ export class Mesa {
       case 'hello': return this.hello(cid, m);
       case 'pong': if (typeof m.s === 'number') c.alive = Math.max(c.alive, m.s); if (s < 0 && m.seated && this.key) this.send(cid, this.lobbyMsg()); return;
       case 'sit': return this.sit(cid, m);
-      case 'bye': if (s >= 0) { if (s === 0 && !this.started) this.seats[0].cid = null; else this.freeSeat(s); this.lobbyChanged(); if (this.started) this.publish(); } return;
+      case 'bye': if (s >= 0) { if (s === 0 && !this.started && !this.publica) this.seats[0].cid = null; else this.freeSeat(s); this.lobbyChanged(); if (this.started) this.publish(); } return;
+      case 'empezar': return this.votar(s, m);
       case 'act': return this.act(cid, s, m.a);
       case 'senas':
         if (s >= 0 && this.started && this.GM && this.GM.phase === 'play' && Array.isArray(m.list)) { T.setSenas(this.GM, s, m.list.filter(k => T.SENAS[k]).slice(0, 4)); this.publish(); }
@@ -103,7 +112,22 @@ export class Mesa {
 
   // ---------- llegar, sentarse, irse ----------
   hello(cid, m) {
-    const c = this.conns.get(cid), name = cleanName(m.name), pid = String(m.pid || '').slice(0, 40) || null;
+    const c = this.conns.get(cid);
+    // mesa pública (o crearla): primero hay que saber de quién es la cuenta
+    if ((this.key ? this.publica : m.crear && m.crear.publica) && !c.uid) {
+      if (!this.io.cuenta || typeof m.token !== 'string' || !m.token) { this.send(cid, { t: 'nocuenta' }); return; }
+      if (c.esperando) return;
+      c.esperando = true;
+      Promise.resolve(this.io.cuenta(m.token.slice(0, 200))).then(u => {
+        c.esperando = false;
+        if (!this.conns.has(cid)) return;
+        if (!u || typeof u.id !== 'number') { this.send(cid, { t: 'nocuenta' }); return; }
+        c.uid = u.id; c.apodo = cleanName(u.apodo);
+        this.hello(cid, { ...m, name: c.apodo });
+      }).catch(() => { c.esperando = false; this.send(cid, { t: 'nocuenta' }); });
+      return;
+    }
+    const name = cleanName(m.name), pid = String(m.pid || '').slice(0, 40) || null;
     c.pid = pid;
     if (typeof m.token === 'string' && m.token && this.io.cuenta && !c.uid) {
       Promise.resolve(this.io.cuenta(m.token.slice(0, 200))).then(u => this.conCuenta(cid, u)).catch(() => {});
@@ -114,15 +138,26 @@ export class Mesa {
       // mesa nueva
       this.key = key; this.code = String(m.code || '').slice(0, 8);
       this.n = [2, 4, 6].includes(m.crear.n) ? m.crear.n : 4;
+      this.publica = !!m.crear.publica; this.votos = new Set();
       this.started = false; this.GM = null; this.chat = []; this.prefs = {};
-      this.seats = this.seatsFor(this.n, { kind: 'host', name, cid, pid });
+      this.seats = this.seatsFor(this.n, { kind: this.publica ? 'guest' : 'host', name, cid, pid, uid: c.uid || null });
       this.prefs[0] = !!m.realista;
       this.lobbyChanged(); this.saveNow();
       return;
     }
     if (m.crear && key !== this.key) { this.send(cid, { t: 'ocupada' }); return; }
+    // en una mesa pública, una misma cuenta tiene un solo lugar (si entra desde otro lado, se pasa ahí)
+    if (this.publica) {
+      const mio = this.seats.findIndex(x => x.kind !== 'ai' && x.uid === c.uid);
+      if (mio >= 0) {
+        const old = this.seats[mio].cid;
+        if (old !== cid && this.conns.has(old)) { this.seats[mio].cid = null; this.io.close(old); this.conns.delete(old); }
+        this.takeSeat(mio, { kind: 'guest', name: this.seats[mio].name, cid, pid }, m.realista);
+        return;
+      }
+    }
     // el dueño vuelve (recargó la página, se le cortó)
-    if (key && key === this.key) {
+    if (!this.publica && key && key === this.key) {
       const prev = this.seats[0];
       if (prev.cid && prev.cid !== cid && this.conns.has(prev.cid)) this.io.close(prev.cid);
       this.takeSeat(0, { kind: 'host', name: this.started ? prev.name : name, cid, pid }, m.realista);
@@ -140,6 +175,7 @@ export class Mesa {
     if (this.started) {
       // si vuelve alguien que se había ido, recupera su lugar (por su identificador o por su nombre)
       let back = pid ? this.seats.findIndex(x => x.kind === 'ai' && x.left && !x.host && x.pid === pid) : -1;
+      if (back < 0 && c.uid) back = this.seats.findIndex(x => x.kind === 'ai' && x.left && !x.host && x.uid === c.uid);
       if (back < 0) back = this.seats.findIndex(x => x.kind === 'ai' && x.left && !x.host && x.name === name);
       if (back >= 0) this.takeSeat(back, { ...who, name: this.seats[back].name }, m.realista);
       else { this.send(cid, this.lobbyMsg()); this.sendChatlog(cid); }
@@ -193,7 +229,8 @@ export class Mesa {
   }
   freeSeat(p) {
     const prev = this.seats[p];
-    this.seats[p] = this.started ? { kind: 'ai', name: prev.name, left: true, pid: prev.pid, host: p === 0, uid: prev.uid || null } : { kind: 'ai', name: AI_NAMES[this.n][p] };
+    this.seats[p] = this.started ? { kind: 'ai', name: prev.name, left: true, pid: prev.pid, host: p === 0 && !this.publica, uid: prev.uid || null } : { kind: 'ai', name: AI_NAMES[this.n][p] };
+    this.votos.delete(p);
     if (this.started && prev.uid && this.cuentas.has(prev.uid)) this.cuentas.get(prev.uid).abandono = true;
     this.ready.delete(p);
     if (this.started && this.GM) {
@@ -204,6 +241,12 @@ export class Mesa {
   seatsFor(n, owner) { return Array.from({ length: n }, (_, p) => p === 0 ? owner : { kind: 'ai', name: AI_NAMES[n][p] }); }
   freeSeatFor() {
     const free = this.seats.map((s, p) => s.kind === 'ai' && !s.host ? p : -1).filter(p => p >= 0);
+    // en las públicas, al equipo con menos gente (así el que llega juega en contra y el partido cuenta)
+    if (this.publica) {
+      const gente = t => this.seats.filter((s, q) => team(q) === t && s.kind !== 'ai').length;
+      free.sort((a, b) => gente(team(a)) - gente(team(b)) || a - b);
+      return free.length ? free[0] : -1;
+    }
     const f = free.find(p => team(p) === 0);
     return f !== undefined ? f : free.length ? free[0] : -1;
   }
@@ -214,9 +257,49 @@ export class Mesa {
     this.lobbyChanged();
   }
   seatOf(cid) { return this.seats ? this.seats.findIndex(s => s.kind !== 'ai' && s.cid === cid) : -1; }
-  isOwner(cid) { return this.seats && this.seats[0] && this.seats[0].kind === 'host' && this.seats[0].cid === cid; }
-  lobbyMsg() { return { t: 'lobby', n: this.n, started: this.started, owner: 0, seats: this.seats.map((s, p) => ({ kind: s.kind, name: s.name, cid: s.cid || null, host: p === 0 || undefined, cuenta: s.kind !== 'ai' && !!s.uid || undefined })) }; }
-  lobbyChanged() { if (this.seats) this.broadcast(this.lobbyMsg()); this.save(); }
+  isOwner(cid) { return !this.publica && this.seats && this.seats[0] && this.seats[0].kind === 'host' && this.seats[0].cid === cid; }
+  lobbyMsg() {
+    const L = { t: 'lobby', n: this.n, started: this.started, owner: 0, seats: this.seats.map((s, p) => ({ kind: s.kind, name: s.name, cid: s.cid || null, host: p === 0 && !this.publica || undefined, cuenta: s.kind !== 'ai' && !!s.uid || undefined })) };
+    if (this.publica) Object.assign(L, { publica: true, votos: [...this.votos], empiezaEn: this.empiezaEn ? Math.max(0, this.empiezaEn - this.io.now()) : null, fin: !!(this.GM && this.GM.phase === 'matchEnd') });
+    return L;
+  }
+  lobbyChanged() { if (!this.seats) return; this.revisarInicio(); this.broadcast(this.lobbyMsg()); this.save(); this.avisarSalon(); }
+
+  // ---------- mesas públicas ----------
+  gente() { return this.seats ? this.seats.map((s, p) => s.kind !== 'ai' && s.cid && this.conns.has(s.cid) ? p : -1).filter(p => p >= 0) : []; }
+  votar(s, m) {
+    if (!this.publica || s < 0 || (this.started && this.GM && this.GM.phase !== 'matchEnd')) return;
+    if (m.si === false) this.votos.delete(s); else this.votos.add(s);
+    this.lobbyChanged();
+  }
+  // empieza sola cuando se llena, o cuando todos los que están (dos o más) quieren empezar
+  revisarInicio() {
+    if (!this.publica) return;
+    const libre = !this.started || (this.GM && this.GM.phase === 'matchEnd');
+    const g = this.gente(), lleno = g.length === this.n, todos = g.length >= 2 && g.every(p => this.votos.has(p));
+    if (libre && (lleno || todos)) {
+      if (this.cuentaT) return;
+      this.empiezaEn = this.io.now() + CUENTA_ATRAS;
+      this.cuentaT = this.io.setTimeout(() => {
+        this.cuentaT = null; this.empiezaEn = null;
+        const g2 = this.gente(), sigue = (!this.started || (this.GM && this.GM.phase === 'matchEnd')) && (g2.length === this.n || (g2.length >= 2 && g2.every(p => this.votos.has(p))));
+        if (sigue) { this.votos = new Set(); this.startMatch({ rules: REGLAS_PUBLICAS, speed: 'normal', level: 'normal' }); }
+        else this.lobbyChanged();
+      }, CUENTA_ATRAS);
+    } else if (this.cuentaT) { this.io.clearTimeout(this.cuentaT); this.cuentaT = null; this.empiezaEn = null; }
+  }
+  // le cuenta al salón de mesas públicas cómo está esta mesa (para la lista de "esperando gente")
+  avisarSalon(ya) {
+    if (!this.publica || !this.io.salon || !this.code) return;
+    const mandar = () => {
+      this.salonT = null;
+      const g = this.gente();
+      const info = { codigo: this.code, n: this.n, personas: g.length, nombres: g.map(p => this.seats[p].name), empezada: this.started };
+      try { Promise.resolve(this.io.salon(info)).catch(() => {}); } catch (e) {}
+    };
+    if (ya) { this.io.clearTimeout(this.salonT); mandar(); return; }
+    if (!this.salonT) this.salonT = this.io.setTimeout(mandar, 400);
+  }
 
   // ---------- el partido ----------
   startMatch(m) {
@@ -300,6 +383,7 @@ export class Mesa {
     }
     if (G.phase === 'matchEnd' && !this.registrado) {
       this.registrado = true;
+      if (this.publica) this.lobbyChanged();       // que todos vean que terminó (y puedan pedir otro partido)
       if (!this.io.registrar || ![0, 1].every(t => [...this.cuentas.values()].some(c => c.equipo === t))) return;
       const equipos = [0, 1].map(t => this.seats.map((s, p) => team(p) === t ? { nombre: s.name, cuenta: s.kind !== 'ai' && s.uid || null, compu: s.kind === 'ai' } : null).filter(Boolean));
       const tanteador = G.chicosToWin > 1 ? `${G.chicos[0]} a ${G.chicos[1]} en chicos` : `${G.scores[0]} a ${G.scores[1]}`;
@@ -394,6 +478,7 @@ export class Mesa {
   // ---------- latidos: quien no contesta tres seguidas se fue ----------
   heartbeat() {
     const seq = ++this.pingSeq;
+    if (this.publica && !this.started && seq % 15 === 0) this.avisarSalon();   // sigue esperando gente: que no la den por perdida
     for (const [cid, c] of this.conns) {
       if (seq - c.alive > 3) { this.io.close(cid); this.onClose(cid); continue; }
       this.send(cid, { t: 'ping', s: seq });
@@ -403,6 +488,7 @@ export class Mesa {
   // ---------- cerrar ----------
   closeTable() {
     this.broadcast({ t: 'closed' });
+    if (this.publica && this.io.salon) try { Promise.resolve(this.io.salon({ codigo: this.code, personas: 0 })).catch(() => {}); } catch (e) {}
     this.stopTimers();
     this.key = null; this.GM = null; this.started = false; this.seats = null; this.chat = [];
     for (const cid of [...this.conns.keys()]) this.io.close(cid);
@@ -410,12 +496,12 @@ export class Mesa {
     this.io.clearInterval(this.beat); this.beat = null;
     this.io.end();
   }
-  stopTimers() { this.io.clearTimeout(this.timer); this.io.clearTimeout(this.clockT); this.io.clearTimeout(this.endT); this.io.clearTimeout(this.saveT); this.timer = this.clockT = this.endT = this.saveT = null; this.clock = null; }
+  stopTimers() { this.io.clearTimeout(this.timer); this.io.clearTimeout(this.clockT); this.io.clearTimeout(this.endT); this.io.clearTimeout(this.saveT); this.io.clearTimeout(this.cuentaT); this.timer = this.clockT = this.endT = this.saveT = this.cuentaT = null; this.clock = null; this.empiezaEn = null; }
 
   // ---------- guardar (por si Cloudflare reinicia la mesa) ----------
   data() {
     if (!this.key) return null;
-    return { code: this.code, key: this.key, n: this.n, started: this.started, prefs: this.prefs, speed: this.speed, level: this.level, chat: this.chat, GM: this.GM,
+    return { code: this.code, key: this.key, n: this.n, started: this.started, publica: this.publica, prefs: this.prefs, speed: this.speed, level: this.level, chat: this.chat, GM: this.GM,
       seats: (this.seats || []).map(s => ({ kind: s.kind, name: s.name, pid: s.pid || null, left: !!s.left, host: !!s.host, uid: s.uid || null })),
       cuentas: [...this.cuentas], anotada: this.anotada, registrado: this.registrado };
   }

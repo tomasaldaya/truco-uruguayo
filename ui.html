@@ -354,6 +354,10 @@ aside{display:flex;flex-direction:column;gap:14px;margin-top:13px}
 .ctatoast.inv{bottom:auto;top:18px;width:min(560px,calc(100vw - 24px))}
 .hmain .hkey a{color:var(--gold)}
 .ctatoast span{flex:1 1 200px}
+.hmode:disabled{opacity:.45;cursor:not-allowed}
+.cuenta-atras{color:var(--gold);font-size:18px;animation:latido 1s ease-in-out infinite}
+@keyframes latido{50%{opacity:.55}}
+@media (prefers-reduced-motion: reduce){.cuenta-atras{animation:none}}
 .lob{margin:0 0 14px;line-height:1.45}
 .lob .code{font-family:'Alegreya',serif;font-size:26px;letter-spacing:3px;color:var(--gold);padding:0 4px}
 .clock{display:flex;align-items:center;justify-content:center;gap:8px;margin:2px auto 0;font-size:13px;color:var(--muted, #cbbd9f)}

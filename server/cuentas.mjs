@@ -27,6 +27,7 @@ export class Cuentas {
     this.admins = new Set((o.admins || []).map(Number).filter(Number.isInteger));   // cuentas que ven la lista de cuentas creadas
     this.avisar = o.avisar || (() => {}); this.enLinea = o.enLinea || (() => new Set());
     this.transaccion = o.transaccion || (f => f());
+    this.avisarTodos = o.avisarTodos || (() => {});
     this.invitado = new Map();             // "de>para" -> cuándo invitó (para no llenar de invitaciones)
   }
   q(s, ...a) { return this.sql(s, ...a); }
@@ -47,6 +48,7 @@ export class Cuentas {
     this.q(`CREATE INDEX IF NOT EXISTS usuarios_elo ON usuarios (elo)`);
     this.q(`CREATE INDEX IF NOT EXISTS amigos_para ON amigos (para)`);
     this.q(`CREATE TABLE IF NOT EXISTS cambios (nombre TEXT PRIMARY KEY, fecha INTEGER, hecho INTEGER)`);
+    this.q(`CREATE TABLE IF NOT EXISTS publicas (codigo TEXT PRIMARY KEY, n INTEGER, personas INTEGER, nombres TEXT, creada INTEGER, actualizada INTEGER)`);
   }
   // un arreglo que se hace una sola vez en la base (queda anotado aunque no haya habido nada que cambiar)
   unaVez(nombre, f) {
@@ -222,6 +224,7 @@ export class Cuentas {
           return ok({ total: this.q1(`SELECT COUNT(*) AS n FROM usuarios`).n, hoy: cuenta(hoy0), semana: cuenta(ahora - 7 * 864e5),
             conPartidos: this.q1(`SELECT COUNT(*) AS n FROM usuarios WHERE partidos > 0`).n, enLinea: en.size, lista });
         }
+        case 'GET publicas': return ok({ lista: this.publicas() });
         case 'GET amigos': {
           if (!yo) return conSesion();
           const en = this.enLinea();
@@ -289,6 +292,29 @@ export class Cuentas {
     } catch (e) {
       return mal(500, 'Algo falló en el servidor de cuentas.');
     }
+  }
+
+  // ---------- salón de mesas públicas: las que esperan gente ----------
+  // lo manda cada mesa pública cuando cambia (y cada minuto mientras espera); sin gente o empezada, se va
+  salon(info) {
+    if (!info || !/^[A-Z]{4}$/.test(String(info.codigo || ''))) return false;
+    const n = [2, 4, 6].includes(info.n) ? info.n : null, personas = int(info.personas) || 0;
+    const antes = this.q1(`SELECT personas, nombres FROM publicas WHERE codigo = ?`, info.codigo);
+    if (!n || personas <= 0 || personas >= n || info.empezada) {
+      this.q(`DELETE FROM publicas WHERE codigo = ?`, info.codigo);
+      if (antes) this.avisarTodos({ t: 'publicas' });
+      return true;
+    }
+    const nombres = JSON.stringify((Array.isArray(info.nombres) ? info.nombres : []).slice(0, 6).map(x => String(x).slice(0, 20)));
+    if (antes) this.q(`UPDATE publicas SET n = ?, personas = ?, nombres = ?, actualizada = ? WHERE codigo = ?`, n, personas, nombres, this.now(), info.codigo);
+    else this.q(`INSERT INTO publicas (codigo, n, personas, nombres, creada, actualizada) VALUES (?, ?, ?, ?, ?, ?)`, info.codigo, n, personas, nombres, this.now(), this.now());
+    if (!antes || antes.personas !== personas || antes.nombres !== nombres) this.avisarTodos({ t: 'publicas' });
+    return true;
+  }
+  publicas() {
+    this.q(`DELETE FROM publicas WHERE actualizada < ?`, this.now() - 3 * 60e3);   // una mesa que no avisa hace tres minutos ya no está
+    return this.q(`SELECT codigo, n, personas, nombres, creada FROM publicas ORDER BY personas DESC, creada ASC LIMIT 50`)
+      .map(r => ({ codigo: r.codigo, n: r.n, personas: r.personas, nombres: JSON.parse(r.nombres || '[]'), creada: r.creada }));
   }
 
   // ---------- presencia: avisa a los amigos cuando alguien se conecta o se va ----------

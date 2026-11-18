@@ -207,6 +207,16 @@ tiene un apodo, que es su nombre en las mesas, y además:
   desde el ranking, el historial o los amigos.
 - **Amigos**: se buscan por apodo; la solicitud se acepta o se rechaza. Se ve quién está en línea y, desde
   una mesa del servidor, se lo invita: le aparece el aviso y entra con un toque.
+- **Mesas públicas** (en "Jugar con otros"): cualquiera con cuenta elige el modo y se sienta en la mesa
+  pública de ese modo que tenga más gente esperando; si no hay, se arma una nueva y aparece en la lista
+  para los demás. También se puede elegir de la lista "Mesas esperando gente". No tienen dueño: empiezan
+  solas cuando se llenan (cuenta atrás de 3 segundos), o antes si ya son dos o más y todos tocan "Empezar
+  ya" (la computadora completa los lugares libres). Al terminar, si todos quieren, juegan otro. Se juegan
+  a 30 puntos y un solo chico (`REGLAS_PUBLICAS` en `server/mesa.mjs`); el que llega se sienta en el equipo
+  con menos gente, así el partido cuenta para el ranking. Cada mesa pública le avisa al objeto de las
+  cuentas cómo está (quiénes esperan) y este la lista en `/api/publicas` y avisa a los conectados cuando
+  cambia; una mesa que no avisa en tres minutos se saca de la lista. Una misma cuenta tiene un solo lugar
+  por mesa. Las mesas privadas (con código) siguen igual.
 - **Cuentas creadas** (solo para quien administra el juego): cuántas cuentas hay, cuántas se crearon hoy
   y en la semana, y la lista con apodo, cuándo se creó, la última vez que entró y sus partidos. Se habilita
   poniendo el número de cuenta (se ve en "Mi perfil") en `ADMINS`, en `vars` de `wrangler.jsonc`.

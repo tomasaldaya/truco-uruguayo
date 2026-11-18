@@ -219,5 +219,25 @@ await t('intercambiar dos números de cuenta: cada uno se queda con todo lo suyo
   assert.equal((await W2.pedir('GET', 'cuenta/perfil?id=1', null)).perfil.apodo, 'Equis');
 });
 
+await t('salón de mesas públicas: lista las que esperan gente y se olvida de las viejas', async () => {
+  const W = mundo(), todos = []; W.c.avisarTodos = m => todos.push(m);
+  W.c.salon({ codigo: 'AAAA', n: 4, personas: 1, nombres: ['Ana'] });
+  W.avanzar(1000);
+  W.c.salon({ codigo: 'BBBB', n: 2, personas: 1, nombres: ['Beto'] });
+  W.c.salon({ codigo: 'CCCC', n: 4, personas: 2, nombres: ['Ceci', 'Dani'] });
+  assert.equal(todos.length, 3);
+  W.c.salon({ codigo: 'CCCC', n: 4, personas: 2, nombres: ['Ceci', 'Dani'] });   // nada cambió: no avisa
+  assert.equal(todos.length, 3);
+  let l = (await W.pedir('GET', 'publicas', null)).lista;
+  assert.deepEqual(l.map(x => [x.codigo, x.personas]), [['CCCC', 2], ['AAAA', 1], ['BBBB', 1]]);
+  W.c.salon({ codigo: 'BBBB', n: 2, personas: 2, nombres: ['Beto', 'Eva'] });     // llena: se va de la lista
+  W.c.salon({ codigo: 'AAAA', n: 4, personas: 1, empezada: true });
+  W.c.salon({ codigo: 'zzz', n: 4, personas: 1 });
+  l = (await W.pedir('GET', 'publicas', null)).lista;
+  assert.deepEqual(l.map(x => x.codigo), ['CCCC']); assert.deepEqual(l[0].nombres, ['Ceci', 'Dani']);
+  W.avanzar(4 * 60e3);
+  assert.equal((await W.pedir('GET', 'publicas', null)).lista.length, 0);
+});
+
 console.log(fails ? `\n${fails} pruebas fallaron` : '\nTodo OK');
 process.exit(fails ? 1 : 0);

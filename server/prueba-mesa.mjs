@@ -269,5 +269,72 @@ await ta('con cuentas: se guarda y se recupera tras un reinicio', async () => {
   assert(reg2[0].cuentas[0].stats.manos > 1);
 });
 
+// ---------- mesas públicas ----------
+function conSalon(W) { const avisos = []; W.io.salon = info => { avisos.push(info); return Promise.resolve(true); }; return avisos; }
+const quienes = { tA: { id: 1, apodo: 'Ana' }, tB: { id: 2, apodo: 'Beto' }, tC: { id: 3, apodo: 'Ceci' } };
+
+await ta('pública: hace falta cuenta; sin dueño; el que llega juega en contra; el salón se entera', async () => {
+  const W = mundo(); conCuentas(W); const sal = conSalon(W), m = new Mesa(W.io, null);
+  m.onOpen('x'); m.onMessage('x', { t: 'hello', name: 'Sin', pid: 'px', code: 'PUBL', crear: { n: 4, key: 'k', publica: true } });
+  assert(last(W.inbox, 'x', 'nocuenta')); assert(!m.key);
+  m.onOpen('a'); m.onMessage('a', { t: 'hello', name: 'A', pid: 'pa', code: 'PUBL', crear: { n: 4, key: 'k', publica: true }, token: 'tA' });
+  await pausa();
+  assert(m.publica); assert.equal(m.seats[0].kind, 'guest'); assert.equal(m.seats[0].uid, 1); assert.equal(m.seats[0].name, 'Ana');
+  m.onOpen('y'); m.onMessage('y', { t: 'hello', name: 'Otro', pid: 'py' }); await pausa();
+  assert(last(W.inbox, 'y', 'nocuenta')); assert.equal(m.seatOf('y'), -1);
+  m.onOpen('b'); m.onMessage('b', { t: 'hello', name: 'B', pid: 'pb', token: 'tB' }); await pausa();
+  assert.equal(m.seatOf('b'), 1, 'Beto va al otro equipo');
+  const L = last(W.inbox, 'b', 'lobby');
+  assert.equal(L.publica, true); assert(L.seats.every(x => !x.host));
+  // nadie manda: no se cambia el modo, no se empieza a mano, no se cierra
+  m.onMessage('a', { t: 'mode', n: 2 }); m.onMessage('a', { t: 'start' }); m.onMessage('a', { t: 'close' });
+  assert.equal(m.n, 4); assert(!m.started); assert(!W.saved.ended);
+  W.run(1000);
+  const ult = sal[sal.length - 1];
+  assert.deepEqual([ult.codigo, ult.n, ult.personas, ult.nombres, ult.empezada], ['PUBL', 4, 2, ['Ana', 'Beto'], false]);
+  // la misma cuenta desde otro lado se pasa a su lugar (no ocupa dos)
+  m.onOpen('b2'); m.onMessage('b2', { t: 'hello', name: 'B', pid: 'otro', token: 'tB' }); await pausa();
+  assert.equal(m.seatOf('b2'), 1); assert.equal(m.gente().length, 2);
+  // el que creó se va antes de empezar: el lugar queda libre para otro
+  m.onClose('a');
+  assert.equal(m.seats[0].kind, 'ai'); assert(!m.seats[0].host);
+  m.onOpen('c'); m.onMessage('c', { t: 'hello', name: 'C', pid: 'pc', token: 'tC' }); await pausa();
+  assert.equal(m.seatOf('c'), 0);
+  m.onClose('b2'); m.onClose('c'); W.run(1000);
+  assert.equal(sal[sal.length - 1].personas, 0);
+});
+
+await ta('pública: empieza sola al llenarse (a 30, un chico); si alguien se va en la cuenta atrás, no', async () => {
+  const W = mundo(); conCuentas(W); conSalon(W); const m = new Mesa(W.io, null);
+  m.onOpen('a'); m.onMessage('a', { t: 'hello', name: 'A', pid: 'pa', code: 'MANO', crear: { n: 2, key: 'k', publica: true }, token: 'tA' }); await pausa();
+  m.onOpen('b'); m.onMessage('b', { t: 'hello', name: 'B', pid: 'pb', token: 'tB' }); await pausa();
+  assert(typeof last(W.inbox, 'a', 'lobby').empiezaEn === 'number');
+  m.onClose('b'); W.run(4000);
+  assert(!m.started, 'no tenía que empezar');
+  m.onOpen('b'); m.onMessage('b', { t: 'hello', name: 'B', pid: 'pb', token: 'tB' }); await pausa();
+  W.run(3500); vivo(m, W, 'a'); vivo(m, W, 'b');
+  assert(m.started); assert.equal(m.GM.rules.target, 30); assert.equal(m.GM.rules.chicosToWin, 1);
+  assert(last(W.inbox, 'b', 'state'));
+});
+
+await ta('pública: con dos o más, si todos quieren empezar ya, la computadora completa; y al final, otro partido', async () => {
+  const W = mundo(), reg = conCuentas(W); conSalon(W); const m = new Mesa(W.io, null);
+  m.onOpen('a'); m.onMessage('a', { t: 'hello', name: 'A', pid: 'pa', code: 'PARE', crear: { n: 4, key: 'k', publica: true }, token: 'tA' }); await pausa();
+  m.onMessage('a', { t: 'empezar' }); W.run(4000);
+  assert(!m.started, 'solo no empieza');
+  m.onOpen('b'); m.onMessage('b', { t: 'hello', name: 'B', pid: 'pb', token: 'tB' }); await pausa();
+  W.run(4000); assert(!m.started, 'Beto todavía no quiso');
+  m.onMessage('b', { t: 'empezar' });
+  assert.deepEqual(last(W.inbox, 'a', 'lobby').votos.sort(), [0, 1]);
+  W.run(3500); vivo(m, W, 'a'); vivo(m, W, 'b');
+  assert(m.started); assert.deepEqual(m.GM.humans.sort(), [0, 1]);
+  await hastaElFinal(m, W, ['a', 'b']);
+  assert.equal(reg.length, 1, 'cuenta para el ranking');
+  assert.equal(last(W.inbox, 'a', 'lobby').fin, true);
+  const id1 = m.GM.id;
+  m.onMessage('a', { t: 'empezar' }); m.onMessage('b', { t: 'empezar' }); W.run(3500);
+  assert.notEqual(m.GM.id, id1); assert.equal(m.GM.phase, 'play');
+});
+
 console.log(fails ? `\n${fails} FALLAS` : '\nTodo OK');
 process.exitCode = fails ? 1 : 0;

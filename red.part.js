@@ -212,7 +212,7 @@ function netRemember(){
   try {
     const d = NET.role === 'host'
       ? { role: 'host', code: NET.code, n: NET.n, started: NET.started, seats: NET.seats.map(s => s.kind === 'guest' ? { kind: 'ai', name: s.name, left: true } : s), prefs: NET.prefs, G: NET.started ? GM : null, at: Date.now() }
-      : { role: 'guest', code: NET.code, name: NET.name, key: NET.ownerKey || null, server: NET.tr.kind === 'server', at: Date.now() };
+      : { role: 'guest', code: NET.code, name: NET.name, key: NET.ownerKey || null, server: NET.tr.kind === 'server', publica: !!NET.publica, at: Date.now() };
     sessionStorage.setItem('truco.mesa', JSON.stringify(d));
   } catch (e) {}
 }
@@ -221,7 +221,7 @@ function netRestore(){
   let d = null;
   try { d = JSON.parse(sessionStorage.getItem('truco.mesa') || 'null'); } catch (e) {}
   if (!d || Date.now() - d.at > 6 * 3600e3) { netForget(); return false; }
-  if (d.role === 'guest') { joinTable(d.code, d.name, true, d.server ? (d.key ? { key: d.key } : {}) : { p2p: true }); return true; }
+  if (d.role === 'guest') { joinTable(d.code, d.name, true, d.publica ? { publica: true } : d.server ? (d.key ? { key: d.key } : {}) : { p2p: true }); return true; }
   openNet('host', d.code);
   NET.n = d.n; NET.seats = d.seats; NET.prefs = d.prefs || {}; NET.started = !!(d.started && d.G);
   if (NET.started) {
@@ -236,8 +236,13 @@ const inviteURL = code => /^https?:$/.test(location.protocol) ? location.origin 
 function invitedCode(){ const m = /mesa=([A-Za-z]{4})/.exec(location.hash || ''); return m ? m[1].toUpperCase() : ''; }
 
 // ---------- Anfitrión ----------
-function hostTable(n, p2p){
+function hostTable(n, p2p, publica){
   leaveNet();
+  if (publica) {            // mesa pública: solo en el servidor y con cuenta
+    const key = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
+    joinTable(newCode(), myName(), false, { key, crear: { n, key, publica: true }, publica: true });
+    return;
+  }
   if (serverOK() && !p2p) {
     const key = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
     joinTable(newCode(), myName() || 'Anfitrión', false, { key, crear: { n, key } });
@@ -403,12 +408,19 @@ function joinTable(code, name, back, opts){
   openNet('guest', code, viaServer ? 'server' : undefined);
   NET.name = myName() || 'Invitado';
   NET.lobby = null; NET.actor = null; NET.legal = []; NET.shownEnd = null; NET.hadSeat = false;
-  NET.ownerKey = opts.key || null; NET.owner = !!opts.key; NET.crear = opts.crear || null; NET.back = !!back;
+  NET.ownerKey = opts.publica ? null : opts.key || null; NET.owner = !!opts.key && !opts.publica; NET.crear = opts.crear || null; NET.back = !!back;
+  NET.publica = !!opts.publica;
   GM = null; G = null;
   const net = online();
   if (!net) sayHello();   // por internet se saluda al conectarse con cada uno (onPeerEvent); con el servidor, al recibir "hola"
   NET.helloT = setTimeout(() => {
     if (!NET || NET.role !== 'guest' || NET.lobby) return;
+    if (viaServer && opts.publica) {   // las públicas existen solo en el servidor
+      leaveNet();
+      netNote = 'No pude conectarme con el servidor de mesas. Probá de nuevo en un rato.';
+      homeView = 'publicas'; renderHome();
+      return;
+    }
     if (viaServer) {      // el servidor no contestó: como antes, de navegador a navegador
       leaveNet();
       if (opts.crear) hostTable(opts.crear.n, true); else joinTable(code, name, back, { p2p: true });
@@ -431,17 +443,19 @@ function onGuestMsg(m){
   switch (m.t) {
     case 'ping': netPost({ t: 'pong', s: m.s, seated: NET.seat >= 0 }); return;
     case 'hola': NET.cid = m.cid; serverHello(); return;
+    case 'nocuenta': clearTimeout(NET.helloT); leaveNet(); netNote = 'Para las mesas públicas tenés que entrar con tu cuenta.'; homeView = 'publicas'; renderHome(); return;
     case 'nomesa': {         // el servidor no tiene esa mesa: puede ser una mesa de navegador a navegador
       const c = NET.code, nm = NET.name, back = NET.back, owner = NET.owner;
+      if (NET.publica) { clearTimeout(NET.helloT); leaveNet(); netNote = `La mesa pública ${c} ya no está.`; homeView = 'publicas'; renderHome(); return; }
       clearTimeout(NET.helloT); leaveNet();
       if (netMode() === 'internet' && !owner) joinTable(c, nm, back, { p2p: true });
       else { netNote = back || owner ? `La mesa ${c} ya no existe.` : `No encontré la mesa ${c}. Revisá el código.`; joinCode = owner ? '' : c; homeView = owner ? 'main' : 'join'; renderHome(); }
       return;
     }
-    case 'ocupada': { const cr = NET.crear; leaveNet(); joinTable(newCode(), myName() || 'Anfitrión', false, { key: cr.key, crear: cr }); return; }
+    case 'ocupada': { const cr = NET.crear; leaveNet(); joinTable(newCode(), myName() || 'Anfitrión', false, { key: cr.key, crear: cr, publica: !!cr.publica }); return; }
     case 'lobby': {
       clearTimeout(NET.helloT);
-      NET.lobby = m;
+      NET.lobby = m; NET.lobbyAt = Date.now();
       NET.seat = m.seats.findIndex(s => s.cid === NET.cid);
       // si quedé sin lugar con el partido empezado (se cortó un rato), vuelvo a saludar y lo recupero
       if (NET.seat >= 0) NET.hadSeat = true;
@@ -461,7 +475,7 @@ function onGuestMsg(m){
   }
 }
 function onState(m){
-  const first = !G;
+  const first = !G || !!(m.view && G.id !== m.view.id);     // el primer estado de este partido (o de otro nuevo en la misma mesa)
   ME = m.seat; G = m.view; NET.actor = m.actor; NET.legal = m.legal || []; NET.key = m.key;
   NET.paused = !!m.paused; NET.host = m.host;
   NET.clock = m.clock ? { ...m.clock, at: Date.now() } : null;
@@ -495,8 +509,43 @@ function rankNote(L){
   if (eq[0] || eq[1]) return '<p class="hkey">★ Para que cuente en el ranking tiene que haber alguien con cuenta en cada equipo.</p>';
   return '';
 }
+function renderPublicLobby(box, L){
+  const inv = CUENTA.token && CUENTA.yo ? '<button class="tool" id="hInvAm">Invitar amigos</button>' : '';
+  let h = `<div class="hbar"><button class="tool" id="hBack">Volver</button><h2>Mesa pública</h2></div>`;
+  if (NET.hostLost) h += '<p class="hnote" role="status">Se cortó la conexión con el servidor. Reconectando…</p>';
+  if (!L) {
+    h += '<p class="lob">Buscando lugar…</p>';
+  } else {
+    const g = L.seats.filter(s => s.kind !== 'ai' && s.cid).length, enJuego = L.started && !L.fin;
+    const votos = L.votos || [], yoVote = votos.includes(NET.seat);
+    const falta = typeof L.empiezaEn === 'number' ? Math.max(1, Math.ceil((L.empiezaEn - (Date.now() - NET.lobbyAt)) / 1000)) : null;
+    const estado = enJuego ? 'El partido ya empezó.' : falta ? `<b class="cuenta-atras">¡Arranca en ${falta}…!</b>`
+      : L.fin ? 'Terminó el partido. Si todos quieren, juegan otro.' : g < L.n ? `Esperando gente: <b>${g} de ${L.n}</b>. Empieza sola cuando se llena.` : '';
+    h += `<p class="lob"><b>${esc(modeName(L.n))}</b>, a 30 puntos y un solo chico. ${estado}</p>
+      ${seatsHTML(L.seats, { canSit: !enJuego })}${rankNote(L)}`;
+    const btns = [];
+    if (!enJuego && g >= 2) btns.push(`<button class="act ${yoVote ? 'sec' : 'flor'}" id="hVote">${yoVote ? 'Ya no' : L.fin ? 'Jugar otro partido' : 'Empezar ya'}</button>`);
+    if (enJuego && G) btns.push('<button class="act flor" id="hGo">Volver a la mesa</button>');
+    btns.push('<button class="act mazo" id="hClose">Salir de la mesa</button>');
+    h += `<div class="row">${btns.join('')}</div>`;
+    if (!enJuego && g >= 2) h += `<p class="hkey">${L.fin ? 'Otro partido' : 'Empezar ya, con la computadora en los lugares libres'}: ${votos.length} de ${g} ${g === 1 ? 'quiere' : 'quieren'}. Empieza cuando quieran todos los que están.</p>`;
+    else if (!enJuego) h += '<p class="hkey">Cuando llegue alguien más, si todos quieren pueden empezar antes de que se llene: la computadora completa los lugares libres.</p>';
+    h += `<div class="hlinks">${inv}</div><p class="hkey">Código de la mesa: <b>${esc(NET.code)}</b>, por si querés pasárselo a alguien.</p>`;
+    if (falta && !enJuego) { clearTimeout(renderPublicLobby.t); renderPublicLobby.t = setTimeout(() => { if (NET && homeView === 'lobby' && !$('home').hidden) renderHome(); }, 400); }
+  }
+  h += `<section class="lchat"><h3>Chat de la mesa</h3>${chatUI('lc')}</section>`;
+  box.innerHTML = h;
+  bindChat('lc'); renderChat();
+  $('hBack').onclick = () => { homeView = 'main'; renderHome(); };
+  if ($('hInvAm')) $('hInvAm').onclick = () => cuentaIr('amigos', { volver: 'lobby' });
+  if ($('hVote')) $('hVote').onclick = () => netPost({ t: 'empezar', si: !(L.votos || []).includes(NET.seat) });
+  if ($('hGo')) $('hGo').onclick = () => continueGame();
+  if ($('hClose')) $('hClose').onclick = () => { leaveNet(); homeView = 'publicas'; renderHome(); };
+  box.querySelectorAll('[data-sit]').forEach(b => b.onclick = () => netPost({ t: 'sit', seat: +b.dataset.sit, name: NET.name, realista }));
+}
 function renderLobby(box){
   if (!NET) { homeView = 'main'; return renderHome(); }
+  if (NET.publica) return renderPublicLobby(box, NET.lobby);
   const viaServer = NET.tr && NET.tr.kind === 'server';
   // el dueño de la mesa: el anfitrión de siempre o, con el servidor, el que la creó
   const owner = NET.role === 'host' || NET.owner;
