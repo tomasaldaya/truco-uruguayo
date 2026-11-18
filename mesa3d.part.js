@@ -177,7 +177,9 @@ const V3 = (function(){
     } catch (e) { return ok = false; }
     stage.prepend(canvas);
     lbls = $('lbls3d'); pipEl = $('pip3d'); bazEl = $('baz3d'); myBub = $('mybub3d'); hintEl = $('hint3d'); muLbl = $('mue3d');
-    renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+    // en celulares y tablets, 1,5 alcanza para que se vea nítida y le pide mucho menos a la placa
+    const tactil = window.matchMedia && matchMedia('(pointer: coarse)').matches;
+    renderer.setPixelRatio(Math.min(tactil ? 1.5 : 2, window.devicePixelRatio || 1));
     renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFShadowMap; renderer.shadowMap.autoUpdate = false;
     renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.1;
     scene = new THREE.Scene();
@@ -918,13 +920,13 @@ const V3 = (function(){
   }
   function canReplay(p){ const c = Lay && Lay.chars[p]; return c && c.lblHTML.includes('class="sena'); }
   function events(){
-    canvas.addEventListener('pointerdown', ev => {
+    canvas.addEventListener('pointerdown', ev => { ultimoToque = clock();
       canvas.setPointerCapture(ev.pointerId);
       ptrs.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
       if (ptrs.size === 1) drag = { x: ev.clientX, y: ev.clientY, moved: false, pinch: null };
       else if (ptrs.size === 2 && drag) { const [a, b] = [...ptrs.values()]; drag.pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), rho: CAM.g ? CAM.g.rho : CAM.rho }; drag.moved = true; }
     });
-    canvas.addEventListener('pointermove', ev => {
+    canvas.addEventListener('pointermove', ev => { ultimoToque = clock();
       const pt = ptrs.get(ev.pointerId);
       if (!pt) {
         if (ev.pointerType === 'mouse') {
@@ -967,7 +969,7 @@ const V3 = (function(){
     canvas.addEventListener('pointerup', up);
     canvas.addEventListener('pointercancel', up);
     canvas.addEventListener('pointerleave', ev => { if (ev.pointerType === 'mouse' && !ptrs.size) { S.hover = null; clearTimeout(S.mzT); if (S.mz && !S.mz.sticky) muestraZoom(false); } });
-    canvas.addEventListener('wheel', ev => { ev.preventDefault(); startUserCam(); CAM.g.rho = clamp(CAM.g.rho * Math.exp(ev.deltaY * .0011), 7, 34); }, { passive: false });
+    canvas.addEventListener('wheel', ev => { ultimoToque = clock(); ev.preventDefault(); startUserCam(); CAM.g.rho = clamp(CAM.g.rho * Math.exp(ev.deltaY * .0011), 7, 34); }, { passive: false });
     canvas.addEventListener('dblclick', () => setView('mine'));
     document.addEventListener('keydown', ev => {
       if (!running || document.querySelector('.overlay') || /INPUT|SELECT|TEXTAREA/.test((document.activeElement || {}).tagName || '')) return;
@@ -1011,11 +1013,14 @@ const V3 = (function(){
       const top = c.pivot.localToWorld(tmpW.set(0, 2.35, 0));
       const s = toScreen(top, W, H), lh = c.lbl.offsetHeight || 40;
       c.lbl.style.display = s.vis ? '' : 'none';
-      if (s.y - lh < 6) {
-        // no entra arriba de la cabeza: al costado, del lado del centro de la pantalla
+      // no entra arriba de la cabeza: al costado, del lado del centro de la pantalla. Con un margen para
+      // pasar de un modo al otro, así una etiqueta que crece un poco (señas, "juega") no salta de lugar
+      c.lblSide = c.lblSide ? s.y - lh < 30 : s.y - lh < 6;
+      if (c.lblSide) {
         const mid = toScreen(c.pivot.localToWorld(tmpW.set(0, .98, 0)), W, H), r = Math.abs(toScreen(c.pivot.localToWorld(tmpW.set(1.25, .98, 0)), W, H).x - mid.x);
         const left = mid.x > W/2 - 40;
-        c.lbl.style.transform = `translate(${Math.round(mid.x + (left ? -r - 10 : r + 10))}px, ${Math.round(clamp(mid.y, lh/2 + 6, H - lh/2))}px) translate(${left ? '-100%' : '0'}, -50%)`;
+        // el nombre queda a la altura de la cabeza y lo que se agrega (señas, marcas) crece para abajo
+        c.lbl.style.transform = `translate(${Math.round(mid.x + (left ? -r - 10 : r + 10))}px, ${Math.round(clamp(mid.y - 12, 6, H - lh - 4))}px) translate(${left ? '-100%' : '0'}, 0)`;
         c.lbl.classList.toggle('side', true); c.lbl.classList.toggle('sideL', left);
       } else {
         c.lbl.style.transform = `translate(${Math.round(clamp(s.x, 60, W - 60))}px, ${Math.round(clamp(s.y, 4, H - 30))}px) translate(-50%, -100%)`;
@@ -1033,10 +1038,22 @@ const V3 = (function(){
   }
 
   // ---------- bucle ----------
+  // ¿se está moviendo algo que pida dibujar a 60 cuadros? (cartas en viaje, cámara, el dedo o el mouse)
+  let ultimoCuadro = 0, ultimoToque = 0;
+  function animando(t){
+    for (const id in CARDS) if (CARDS[id].tws.length) return true;
+    if (drag || ptrs.size || t - ultimoToque < 1.2 || S.jobs.length || S.job) return true;
+    if (CAM.g) for (const k of ['phi', 'beta', 'rho', 'tx', 'ty', 'tz']) if (Math.abs(CAM.g[k] - CAM[k]) > 1e-3) return true;
+    return false;
+  }
   function frame(){
     rafId = requestAnimationFrame(frame);
-    const t = clock(), dt = Math.min(.05, t - last || .016); last = t; now = t;
-    if (!Lay || !G || !G.round) return;
+    const t = clock();
+    if (!Lay || !G || !G.round) { last = t; return; }
+    // quieta (solo las caras que miran y parpadean), a 30 cuadros por segundo: la mitad de trabajo
+    if (t - ultimoCuadro < 1 / 31 && !animando(t)) return;
+    ultimoCuadro = t;
+    const dt = Math.min(.05, t - last || .016); last = t; now = t;
     updateCamera(dt);
     camera.updateMatrixWorld(true);
     runJobs();

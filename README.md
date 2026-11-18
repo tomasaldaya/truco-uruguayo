@@ -196,6 +196,17 @@ para quien no entró y las tres primeras mesas que esperan gente. Arriba, con cu
 perfil, ranking, amigos). Después **Con amigos** (mesa privada con código) y abajo, más chico, **Contra la
 computadora**. Sin el servidor (sin internet) el inicio es el de antes, con la computadora primero.
 
+Que la pantalla no salte (medido con la API de Layout Instability del navegador, en el inicio y en partidos
+2D y 3D, en compu y celular): el inicio va arriba (no centrado en la altura) y en la compu el cartel de las
+cartas queda fijo al bajar; la configuración del servidor queda guardada, así la primera pantalla ya sale bien
+armada; los avisos de fondo (quién espera, quién se conectó) cambian solo esos números, sin rehacer la
+pantalla ni recargar el botón de Google, que tiene su lugar reservado; en el partido, el reloj de la jugada
+ocupa siempre su renglón (se apaga, no se saca); en la mesa 3D las burbujas de lo que dice cada uno van por
+fuera de la etiqueta y el nombre queda pegado a la cabeza; la cuenta atrás de las mesas públicas cambia solo
+el número, y lo que estás escribiendo en el chat o la búsqueda no se borra si la pantalla se actualiza. La
+mesa 3D dibuja a 30 cuadros por segundo cuando no se mueve nada (las caras siguen vivas) y en celulares usa
+una resolución de 1,5 por punto en vez de 2.
+
 ## Cuentas y ranking
 
 Se puede jugar sin cuenta. Con cuenta (**Acceder con Google**, en "Tu cuenta" del inicio) cada uno

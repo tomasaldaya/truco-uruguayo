@@ -30,16 +30,30 @@ function cuentaOlvidar(){
   cuentaRepintar();
 }
 function cuentaRepintar(){ if (!$('home').hidden && ['main', 'perfil', 'ranking', 'amigos', 'admin', 'publicas', 'lobby', 'join'].includes(homeView)) renderHome(); }
+// avisos de fondo (quién espera, quién se conectó): en el inicio se cambia solo lo que cambió, sin rehacer
+// la pantalla (así no se mueve nada ni se recarga el botón de Google)
+function cuentaRefrescar(){
+  if ($('home').hidden) return;
+  if (homeView !== 'main') { if (homeView === 'amigos' || homeView === 'publicas') renderHome(); return; }
+  const box = $('hmain'), modos = box.querySelector('.hpub .hmodes'), clave = $('hpKey'), ficha = box.querySelector('.cficha.barra');
+  if (!modos && !ficha) return;
+  if (modos) modos.outerHTML = modosPublicosHTML();
+  if (clave) clave.innerHTML = clavePublicasHTML();
+  if (ficha && conCuenta()) ficha.outerHTML = fichaHTML();
+  bindCuentaBotones(); bindPublicasHome();
+}
 
 async function cuentaInit(){
   if (!cuentaOK()) return;
-  try { CUENTA.cfg = await api('cuenta/config'); } catch (e) { CUENTA.cfg = null; return; }
+  const antes = JSON.stringify(CUENTA.cfg);
+  try { CUENTA.cfg = await api('cuenta/config'); store.set('truco.cfg', JSON.stringify(CUENTA.cfg)); }
+  catch (e) { CUENTA.cfg = null; CUENTA.cfgFallo = true; cuentaRepintar(); return; }
   cuentaPublicas();
   if (CUENTA.token) {
-    try { const r = await api('cuenta/yo'); cuentaGuardar(undefined, r.yo); cuentaConectar(); cuentaAmigos(); }
+    try { const r = await api('cuenta/yo'); const viejo = JSON.stringify(CUENTA.yo); cuentaGuardar(undefined, r.yo); cuentaConectar(); cuentaAmigos(); if (viejo !== JSON.stringify(r.yo)) cuentaRefrescar(); }
     catch (e) { /* sin red: queda lo guardado; sin sesión: api() ya la olvidó */ }
   }
-  cuentaRepintar();
+  if (antes !== JSON.stringify(CUENTA.cfg)) cuentaRepintar();
 }
 async function cuentaEntro(r){
   cuentaGuardar(r.token, r.yo);
@@ -99,7 +113,7 @@ function cuentaConectar(){
     if (m.t === 'amigos') { if (m.solicitud) avisoCuenta(`${m.solicitud} quiere ser tu amigo.`, 'amigos'); cuentaAmigos(); }
     if (m.t === 'presencia') {
       const a = CUENTA.amigos && CUENTA.amigos.amigos.find(x => x.id === m.id);
-      if (a) { a.enLinea = !!m.enLinea; if (homeView === 'amigos' || homeView === 'main') cuentaRepintar(); }
+      if (a) { a.enLinea = !!m.enLinea; cuentaRefrescar(); }
     }
   };
   ws.onclose = () => {
@@ -111,7 +125,7 @@ function cuentaConectar(){
 async function cuentaAmigos(){
   if (!conCuenta()) return;
   try { CUENTA.amigos = await api('amigos'); } catch (e) { return; }
-  if (homeView === 'amigos' || homeView === 'main') cuentaRepintar();
+  cuentaRefrescar();
 }
 // al terminar un partido que contó para el ranking
 function cuentaRanking(m){
@@ -190,30 +204,35 @@ function volverDeCuenta(){ homeView = cuentaVista.volver === 'lobby' && NET ? 'l
 function avisoHTML(){ const a = cuentaVista.aviso; cuentaVista.aviso = ''; return a ? `<p class="hnote ok" role="status">${esc(a)}</p>` : ''; }
 
 // en el inicio, arriba: la ficha de la cuenta (con cuenta)
-function cuentaFichaHTML(){
-  if (!conCuenta()) return avisoHTML();
+function fichaHTML(){
   const y = CUENTA.yo, A = CUENTA.amigos;
   const en = A ? A.amigos.filter(a => a.enLinea).length : 0, sol = A ? A.recibidas.length : 0;
-  return avisoHTML() + `<section class="cficha barra">${avatar(y)}<div><b>${esc(y.apodo)}</b><span>${y.partidos ? `${y.puntos} puntos${y.posicion ? ` · puesto ${y.posicion}` : ''}` : 'Todavía sin partidos en el ranking'}</span></div>
+  return `<section class="cficha barra">${avatar(y)}<div><b>${esc(y.apodo)}</b><span>${y.partidos ? `${y.puntos} puntos${y.posicion ? ` · puesto ${y.posicion}` : ''}` : 'Todavía sin partidos en el ranking'}</span></div>
     <nav class="hlinks" aria-label="Tu cuenta"><button class="tool" id="cPerfil">Mi perfil</button><button class="tool" id="cRank">Ranking</button>
     <button class="tool" id="cAmigos">Amigos${en ? ` · ${en} en línea` : ''}${sol ? ` · <b class="cbadge">${sol} ${sol === 1 ? 'solicitud' : 'solicitudes'}</b>` : ''}</button>${y.admin ? '<button class="tool" id="cAdmin">Cuentas creadas</button>' : ''}</nav></section>`;
 }
-// la tarjeta principal: jugar con gente en las mesas públicas
+function cuentaFichaHTML(){ return avisoHTML() + (conCuenta() ? fichaHTML() : ''); }
+// la tarjeta principal: jugar con gente en las mesas públicas. Los modos dicen cuánta gente espera en cada
+// uno (la lista completa está en "Ver las mesas"): así la tarjeta no cambia de alto cuando llega o se va alguien
+function modosPublicosHTML(){
+  return '<div class="hmodes">' + MODES.map(([n, nm]) => {
+    const e = esperandoEn(n), p = e.reduce((a, m) => a + m.personas, 0);
+    return `<button class="hmode pub${p ? ' hay' : ''}" data-pn="${n}">${tableSVG(n)}<div><b>${nm}</b><span>${p ? `<i class="dot on"></i> ${p} esperando` : 'Armá la mesa'}</span></div></button>`;
+  }).join('') + '</div>';
+}
+function clavePublicasHTML(){
+  const lista = CUENTA.publicas || [], gente = CUENTA.conectados || 0;
+  return `<span class="hpg"><i class="dot${gente ? ' on' : ''}"></i> ${gente ? `${gente} ${gente === 1 ? 'persona conectada' : 'personas conectadas'} ahora` : 'Todavía no hay nadie más conectado'}</span>
+    <span>A 30 puntos y un solo chico. Cuentan para el ranking. <button class="lnk" id="hPubVer">Ver las mesas${lista.length ? ` (${lista.length})` : ''}</button> · <button class="lnk" id="hRankVer">Ranking</button></span>`;
+}
 function publicasHomeHTML(){
-  const lista = CUENTA.publicas || [], con = conCuenta(), gente = CUENTA.conectados || 0;
   let h = `<section class="hpub"><h2>Jugar con gente</h2>
     <p class="hpsub">Elegí el modo y te sentás con quien esté esperando. Si no hay nadie, armás la mesa y aparece para los demás.</p>`;
-  if (!con) {
+  if (!conCuenta()) {
     h += `<div class="hpcta"><div id="hGsi" class="gsi"></div><span>Entrá con tu cuenta de Google para jugar con otras personas, aparecer en el ranking y sumar amigos.</span></div>`;
-    if (CUENTA.cfg.prueba) h += `<form id="cPrueba" class="hlinks"><input id="cPruebaN" placeholder="Nombre de prueba" maxlength="20" aria-label="Nombre de prueba"><button class="tool" type="submit">Entrar de prueba</button></form>`;
+    if (CUENTA.cfg && CUENTA.cfg.prueba) h += `<form id="cPrueba" class="hlinks"><input id="cPruebaN" placeholder="Nombre de prueba" maxlength="20" aria-label="Nombre de prueba"><button class="tool" type="submit">Entrar de prueba</button></form>`;
   }
-  h += '<div class="hmodes">' + MODES.map(([n, nm]) => {
-    const e = esperandoEn(n), p = e.reduce((a, m) => a + m.personas, 0);
-    return `<button class="hmode pub${p ? ' hay' : ''}" data-pn="${n}">${tableSVG(n)}<div><b>${nm}</b><span>${p ? `<i class="dot on"></i> ${p} ${p === 1 ? 'esperando' : 'esperando'}` : 'Armá la mesa'}</span></div></button>`;
-  }).join('') + '</div>';
-  if (lista.length) h += '<ul class="amg hpl">' + lista.slice(0, 3).map(m => `<li><b>${esc(modeName(m.n))}</b><small>${esc(m.nombres.join(', '))} · ${m.personas} de ${m.n}</small><button class="tool" data-pc="${m.codigo}">Sentarme</button></li>`).join('') + '</ul>';
-  h += `<p class="hkey">A 30 puntos y un solo chico. Cuentan para el ranking.${gente >= 2 ? ` Ahora hay ${gente} personas con el juego abierto.` : ''} <button class="lnk" id="hPubVer">${lista.length > 3 ? `Ver las ${lista.length} mesas` : 'Ver las mesas'}</button> · <button class="lnk" id="hRankVer">Ranking</button></p></section>`;
-  return h;
+  return h + modosPublicosHTML() + `<p class="hkey" id="hpKey">${clavePublicasHTML()}</p></section>`;
 }
 function bindPublicasHome(){
   const box = $('hmain');
@@ -221,15 +240,17 @@ function bindPublicasHome(){
     if (!conCuenta()) { cuentaVista.aviso = 'Primero entrá con tu cuenta: es con el botón de Google, acá arriba.'; renderHome(); const g = $('hGsi'); if (g) g.scrollIntoView({ block: 'center', behavior: 'smooth' }); return; }
     buscarPublica(+b.dataset.pn);
   });
-  box.querySelectorAll('[data-pc]').forEach(b => b.onclick = () => { if (conCuenta()) joinTable(b.dataset.pc, myName(), false, { publica: true }); });
   if ($('hPubVer')) $('hPubVer').onclick = () => cuentaIr('publicas');
   if ($('hRankVer')) $('hRankVer').onclick = () => cuentaIr('ranking');
 }
-function bindCuenta(){
+function bindCuentaBotones(){
   if ($('cPerfil')) $('cPerfil').onclick = () => cuentaIr('perfil');
   if ($('cRank')) $('cRank').onclick = () => cuentaIr('ranking');
   if ($('cAmigos')) $('cAmigos').onclick = () => cuentaIr('amigos');
   if ($('cAdmin')) $('cAdmin').onclick = () => cuentaIr('admin');
+}
+function bindCuenta(){
+  bindCuentaBotones();
   if ($('hGsi')) gsiBoton($('hGsi'));
   if ($('cPrueba')) $('cPrueba').onsubmit = async e => {
     e.preventDefault();
@@ -489,7 +510,7 @@ function renderEditar(box){
 async function cuentaPublicas(){
   if (!cuentaOK()) return;
   try { const r = await api('publicas'); CUENTA.publicas = r.lista; CUENTA.conectados = r.conectados || 0; } catch (e) { return; }
-  if (!$('home').hidden && (homeView === 'publicas' || homeView === 'main')) renderHome();
+  cuentaRefrescar();
 }
 const esperandoEn = n => (CUENTA.publicas || []).filter(m => m.n === n && m.personas < m.n);
 async function buscarPublica(n){

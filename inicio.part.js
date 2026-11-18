@@ -69,6 +69,15 @@ function tableSVG(n){
 }
 
 function renderHome(){
+  const guardar = ['lcIn', 'aBuscar'].map(id => { const e = $(id); return e ? { id, v: e.value, f: document.activeElement === e, s: e.selectionStart } : null; }).filter(Boolean);
+  pintarInicio();
+  for (const k of guardar) {
+    const e = $(k.id); if (!e) continue;
+    if (!e.value && k.v) e.value = k.v;
+    if (k.f) { e.focus({ preventScroll: true }); try { e.setSelectionRange(k.s, k.s); } catch (x) {} }
+  }
+}
+function pintarInicio(){
   const box = $('hmain');
   if (homeView === 'config') return renderConfig(box);
   if (homeView === 'lobby') return renderLobby(box);
@@ -91,7 +100,7 @@ function renderHome(){
     h += `<button class="cont" id="hCont"><b>Continuar partido</b><span>${modeName(G.n)}: ${esc(G.teamNames[0])} ${G.scores[0]}, ${esc(G.teamNames[1])} ${G.scores[1]}${ch ? `. Chicos: ${G.chicos[0]} a ${G.chicos[1]}` : ''}.</span></button>`;
   }
   // con el servidor de cuentas, lo primero es jugar con gente (mesas públicas); la computadora queda abajo
-  const conGente = cuentaOK() && !!CUENTA.cfg;
+  const conGente = cuentaOK() && (!!CUENTA.cfg || !CUENTA.cfgFallo);
   if (conGente) h += cuentaFichaHTML();
   if (conGente && !NET) h += publicasHomeHTML();
   if (!NET) h += `<section><h2>${conGente ? 'Con amigos' : 'Jugar con otros'}</h2><div class="hlinks"><button class="tool" id="hHost">${conGente ? 'Crear una mesa privada' : 'Crear una mesa'}</button><button class="tool" id="hJoin">${conGente ? 'Unirme con un código' : 'Unirme a una mesa'}</button></div>

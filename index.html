@@ -211,6 +211,8 @@ aside{display:flex;flex-direction:column;gap:14px;margin-top:13px}
 .l3d{position:absolute;left:0;top:0;display:flex;flex-direction:column;align-items:center;gap:3px;max-width:250px;text-align:center;pointer-events:none;transition:opacity .3s}
 .l3d.click{pointer-events:auto;cursor:pointer}
 .l3d.side{align-items:flex-start;text-align:left}.l3d.side.sideL{align-items:flex-end;text-align:right}
+/* arriba de la cabeza, el nombre va abajo (pegado a la cabeza) y lo que se agrega crece para arriba */
+.l3d:not(.side) .in{display:flex;flex-direction:column-reverse;align-items:center;gap:3px}
 .l3d.side .senas{flex-direction:column;align-items:inherit}
 .l3d.inactive{opacity:.45}
 .l3d .nm{font-family:'Alegreya',serif;font-weight:700;font-size:19px;line-height:1.05;text-shadow:0 2px 8px #000,0 0 2px #000}
@@ -224,9 +226,12 @@ aside{display:flex;flex-direction:column;gap:14px;margin-top:13px}
 /* lo que dice cada uno: una etiqueta chica pegada al nombre, que se va sola */
 .l3d .say,.mybub{background:rgba(251,246,234,.9);color:#2b1d10;font-family:'Alegreya Sans',sans-serif;font-weight:700;font-size:13px;line-height:1.35;
   padding:0 9px;border-radius:999px;white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .35s}
-.l3d .say{max-height:0;overflow:hidden;transition:opacity .35s,max-height .35s}
-.l3d .say.on{opacity:1;max-height:24px}
-.l3d.side .say{align-self:inherit}
+/* la burbuja va por fuera de la etiqueta: cuando aparece o se va, el nombre no se mueve */
+.l3d .say{position:absolute;bottom:100%;left:50%;margin-bottom:3px;transform:translate(-50%,4px);transition:opacity .35s,transform .35s}
+.l3d .say.on{opacity:1;transform:translate(-50%,0)}
+.l3d.side .say{left:0;transform:translateY(4px)}
+.l3d.side .say.on{transform:none}
+.l3d.side.sideL .say{left:auto;right:0}
 .mybub{position:absolute;left:12px;top:auto}
 .mybub.on{opacity:1}
 .mue3d.on{font-size:15px;letter-spacing:.5px;text-transform:none}
@@ -247,8 +252,9 @@ aside{display:flex;flex-direction:column;gap:14px;margin-top:13px}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
 
 /* ---------- Pantalla de inicio ---------- */
-.home{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:28px 20px}
-.home-in{width:100%;max-width:1120px;display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:40px;align-items:center}
+.home{min-height:100vh;display:flex;align-items:flex-start;justify-content:center;padding:clamp(20px,6vh,64px) 20px 28px}
+.home-in{width:100%;max-width:1120px;display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:40px;align-items:start}
+@media (min-width:861px){ .hero{position:sticky;top:clamp(20px,6vh,64px)} }
 .hero{position:relative;border-radius:34px;padding:38px 34px 34px;text-align:center;
   background:radial-gradient(ellipse at 50% 40%, rgba(255,255,255,.09), transparent 62%),
     repeating-linear-gradient(45deg, var(--felt-line) 0 1px, transparent 1px 6px),
@@ -313,7 +319,7 @@ aside{display:flex;flex-direction:column;gap:14px;margin-top:13px}
 .avt.g{width:58px;height:58px;font-size:21px}
 .avt.c{width:26px;height:26px;font-size:11px;vertical-align:middle}
 .cbadge{color:var(--gold)}
-.gsi{min-height:44px;margin:4px 0 10px}
+.gsi{min-height:44px;margin:4px 0 10px;display:flex;align-items:center}
 .hcuenta .hkey.cta{margin:0 0 12px;font-size:14px}
 .hcuenta input,.hmain form.hlinks input{font:inherit;font-size:15px;padding:8px 12px;border-radius:999px;border:1px solid rgba(255,255,255,.2);background:#2a1d13;color:var(--ink);min-width:0;flex:1 1 160px;max-width:280px}
 .ccta{color:var(--gold);font-size:13px}
@@ -360,13 +366,16 @@ aside{display:flex;flex-direction:column;gap:14px;margin-top:13px}
 .hpub h2{font-size:27px!important;margin:0 0 4px!important}
 .hpsub{margin:0 0 12px;font-size:15px;line-height:1.4}
 .hpcta{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:0 0 12px;padding:10px 12px;border-radius:14px;background:rgba(0,0,0,.22)}
-.hpcta .gsi{margin:0;min-height:40px}
+.hpcta .gsi{margin:0;min-height:44px;min-width:250px}
 .hpcta span{flex:1 1 220px;font-size:14px;color:var(--muted)}
 .hmode.pub{background:rgba(0,0,0,.18)}
 .hmode.pub.hay{border-color:rgba(95,208,122,.6)}
 .hmode.pub span .dot{vertical-align:middle;margin-right:2px}
 .hpl{margin-top:10px}
 .hpub .hkey .lnk{font-size:13px;color:var(--gold);font-weight:600}
+.hpub #hpKey{display:flex;flex-direction:column;gap:4px}
+.hpg{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hpg .dot{vertical-align:middle;width:8px;height:8px}
 .cficha.barra{flex-wrap:wrap;margin:0;padding:10px 12px;border-radius:16px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1)}
 .cficha.barra>div{flex:1 1 140px}
 .cficha.barra nav{flex:1 1 100%}
@@ -401,8 +410,8 @@ img.avt{object-fit:cover;background:#2a1d13}
 @media (prefers-reduced-motion: reduce){.cuenta-atras{animation:none}}
 .lob{margin:0 0 14px;line-height:1.45}
 .lob .code{font-family:'Alegreya',serif;font-size:26px;letter-spacing:3px;color:var(--gold);padding:0 4px}
-.clock{display:flex;align-items:center;justify-content:center;gap:8px;margin:2px auto 0;font-size:13px;color:var(--muted, #cbbd9f)}
-.clock[hidden]{display:none}
+.clock{display:flex;align-items:center;justify-content:center;gap:8px;margin:2px auto 0;font-size:13px;line-height:16px;height:16px;color:var(--muted, #cbbd9f)}
+.clock.off{visibility:hidden}
 .clock .bar{width:120px;height:5px;border-radius:3px;background:rgba(255,255,255,.14);overflow:hidden}
 .clock .bar i{display:block;height:100%;width:100%;background:var(--gold);border-radius:3px;transition:width .25s linear}
 .clock b{font-variant-numeric:tabular-nums;min-width:3.2em;text-align:left;font-weight:700}
@@ -6562,7 +6571,8 @@ function statusBox(act){
   if (isGuest() && NET.paused) st.innerHTML = `${esc(NET.host || 'El anfitrión')} está en el menú: el partido sigue cuando vuelva.`;
   if (isGuest() && NET.hostLost) st.innerHTML = NET.tr && NET.tr.kind === 'server' ? 'Se cortó la conexión con el servidor. Reconectando…' : `Se cortó la conexión con ${esc(NET.host || 'el anfitrión')}. Esperando que vuelva…`;
   box.appendChild(st);
-  if (G.phase==='play' && clockLimit(G)) box.appendChild(el('div','clock', '<span class="bar"><i></i></span><b></b>'));
+  // el reloj guarda su lugar toda la mano (se apaga, no se saca): así no corre la mesa cuando aparece
+  if (clockLimit(G)) box.appendChild(el('div','clock off', '<span class="bar"><i></i></span><b></b>'));
   const h = el('div','helper');
   let t = '';
   if (showHelp && !R.leyPhase && R.active[ME] && !myCardsHidden()) {
@@ -7017,9 +7027,9 @@ function paintClock(){
   if (ec) { ec.hidden = el2 === null; if (el2 !== null) ec.querySelector('b').textContent = Math.max(0, Math.ceil(el2 / 1000)) + ' s'; }
   const c = G && G.phase === 'play' ? clockInfo() : null, lim = G ? clockLimit(G) : 0;
   document.querySelectorAll('.clock').forEach(el => {
-    if (!c || !lim) { el.hidden = true; return; }
+    if (!c || !lim) { el.classList.add('off'); return; }
     const ms = Math.max(0, Math.min(lim, c.ms)), sec = Math.ceil(ms / 1000);
-    el.hidden = false;
+    el.classList.remove('off');
     el.classList.toggle('low', sec <= 10);
     el.querySelector('b').textContent = sec + ' s';
     el.querySelector('i').style.width = (100 * ms / lim).toFixed(1) + '%';
@@ -7334,7 +7344,9 @@ const V3 = (function(){
     } catch (e) { return ok = false; }
     stage.prepend(canvas);
     lbls = $('lbls3d'); pipEl = $('pip3d'); bazEl = $('baz3d'); myBub = $('mybub3d'); hintEl = $('hint3d'); muLbl = $('mue3d');
-    renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+    // en celulares y tablets, 1,5 alcanza para que se vea nítida y le pide mucho menos a la placa
+    const tactil = window.matchMedia && matchMedia('(pointer: coarse)').matches;
+    renderer.setPixelRatio(Math.min(tactil ? 1.5 : 2, window.devicePixelRatio || 1));
     renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFShadowMap; renderer.shadowMap.autoUpdate = false;
     renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.1;
     scene = new THREE.Scene();
@@ -8075,13 +8087,13 @@ const V3 = (function(){
   }
   function canReplay(p){ const c = Lay && Lay.chars[p]; return c && c.lblHTML.includes('class="sena'); }
   function events(){
-    canvas.addEventListener('pointerdown', ev => {
+    canvas.addEventListener('pointerdown', ev => { ultimoToque = clock();
       canvas.setPointerCapture(ev.pointerId);
       ptrs.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
       if (ptrs.size === 1) drag = { x: ev.clientX, y: ev.clientY, moved: false, pinch: null };
       else if (ptrs.size === 2 && drag) { const [a, b] = [...ptrs.values()]; drag.pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), rho: CAM.g ? CAM.g.rho : CAM.rho }; drag.moved = true; }
     });
-    canvas.addEventListener('pointermove', ev => {
+    canvas.addEventListener('pointermove', ev => { ultimoToque = clock();
       const pt = ptrs.get(ev.pointerId);
       if (!pt) {
         if (ev.pointerType === 'mouse') {
@@ -8124,7 +8136,7 @@ const V3 = (function(){
     canvas.addEventListener('pointerup', up);
     canvas.addEventListener('pointercancel', up);
     canvas.addEventListener('pointerleave', ev => { if (ev.pointerType === 'mouse' && !ptrs.size) { S.hover = null; clearTimeout(S.mzT); if (S.mz && !S.mz.sticky) muestraZoom(false); } });
-    canvas.addEventListener('wheel', ev => { ev.preventDefault(); startUserCam(); CAM.g.rho = clamp(CAM.g.rho * Math.exp(ev.deltaY * .0011), 7, 34); }, { passive: false });
+    canvas.addEventListener('wheel', ev => { ultimoToque = clock(); ev.preventDefault(); startUserCam(); CAM.g.rho = clamp(CAM.g.rho * Math.exp(ev.deltaY * .0011), 7, 34); }, { passive: false });
     canvas.addEventListener('dblclick', () => setView('mine'));
     document.addEventListener('keydown', ev => {
       if (!running || document.querySelector('.overlay') || /INPUT|SELECT|TEXTAREA/.test((document.activeElement || {}).tagName || '')) return;
@@ -8168,11 +8180,14 @@ const V3 = (function(){
       const top = c.pivot.localToWorld(tmpW.set(0, 2.35, 0));
       const s = toScreen(top, W, H), lh = c.lbl.offsetHeight || 40;
       c.lbl.style.display = s.vis ? '' : 'none';
-      if (s.y - lh < 6) {
-        // no entra arriba de la cabeza: al costado, del lado del centro de la pantalla
+      // no entra arriba de la cabeza: al costado, del lado del centro de la pantalla. Con un margen para
+      // pasar de un modo al otro, así una etiqueta que crece un poco (señas, "juega") no salta de lugar
+      c.lblSide = c.lblSide ? s.y - lh < 30 : s.y - lh < 6;
+      if (c.lblSide) {
         const mid = toScreen(c.pivot.localToWorld(tmpW.set(0, .98, 0)), W, H), r = Math.abs(toScreen(c.pivot.localToWorld(tmpW.set(1.25, .98, 0)), W, H).x - mid.x);
         const left = mid.x > W/2 - 40;
-        c.lbl.style.transform = `translate(${Math.round(mid.x + (left ? -r - 10 : r + 10))}px, ${Math.round(clamp(mid.y, lh/2 + 6, H - lh/2))}px) translate(${left ? '-100%' : '0'}, -50%)`;
+        // el nombre queda a la altura de la cabeza y lo que se agrega (señas, marcas) crece para abajo
+        c.lbl.style.transform = `translate(${Math.round(mid.x + (left ? -r - 10 : r + 10))}px, ${Math.round(clamp(mid.y - 12, 6, H - lh - 4))}px) translate(${left ? '-100%' : '0'}, 0)`;
         c.lbl.classList.toggle('side', true); c.lbl.classList.toggle('sideL', left);
       } else {
         c.lbl.style.transform = `translate(${Math.round(clamp(s.x, 60, W - 60))}px, ${Math.round(clamp(s.y, 4, H - 30))}px) translate(-50%, -100%)`;
@@ -8190,10 +8205,22 @@ const V3 = (function(){
   }
 
   // ---------- bucle ----------
+  // ¿se está moviendo algo que pida dibujar a 60 cuadros? (cartas en viaje, cámara, el dedo o el mouse)
+  let ultimoCuadro = 0, ultimoToque = 0;
+  function animando(t){
+    for (const id in CARDS) if (CARDS[id].tws.length) return true;
+    if (drag || ptrs.size || t - ultimoToque < 1.2 || S.jobs.length || S.job) return true;
+    if (CAM.g) for (const k of ['phi', 'beta', 'rho', 'tx', 'ty', 'tz']) if (Math.abs(CAM.g[k] - CAM[k]) > 1e-3) return true;
+    return false;
+  }
   function frame(){
     rafId = requestAnimationFrame(frame);
-    const t = clock(), dt = Math.min(.05, t - last || .016); last = t; now = t;
-    if (!Lay || !G || !G.round) return;
+    const t = clock();
+    if (!Lay || !G || !G.round) { last = t; return; }
+    // quieta (solo las caras que miran y parpadean), a 30 cuadros por segundo: la mitad de trabajo
+    if (t - ultimoCuadro < 1 / 31 && !animando(t)) return;
+    ultimoCuadro = t;
+    const dt = Math.min(.05, t - last || .016); last = t; now = t;
     updateCamera(dt);
     camera.updateMatrixWorld(true);
     runJobs();
@@ -8350,6 +8377,15 @@ function tableSVG(n){
 }
 
 function renderHome(){
+  const guardar = ['lcIn', 'aBuscar'].map(id => { const e = $(id); return e ? { id, v: e.value, f: document.activeElement === e, s: e.selectionStart } : null; }).filter(Boolean);
+  pintarInicio();
+  for (const k of guardar) {
+    const e = $(k.id); if (!e) continue;
+    if (!e.value && k.v) e.value = k.v;
+    if (k.f) { e.focus({ preventScroll: true }); try { e.setSelectionRange(k.s, k.s); } catch (x) {} }
+  }
+}
+function pintarInicio(){
   const box = $('hmain');
   if (homeView === 'config') return renderConfig(box);
   if (homeView === 'lobby') return renderLobby(box);
@@ -8372,7 +8408,7 @@ function renderHome(){
     h += `<button class="cont" id="hCont"><b>Continuar partido</b><span>${modeName(G.n)}: ${esc(G.teamNames[0])} ${G.scores[0]}, ${esc(G.teamNames[1])} ${G.scores[1]}${ch ? `. Chicos: ${G.chicos[0]} a ${G.chicos[1]}` : ''}.</span></button>`;
   }
   // con el servidor de cuentas, lo primero es jugar con gente (mesas públicas); la computadora queda abajo
-  const conGente = cuentaOK() && !!CUENTA.cfg;
+  const conGente = cuentaOK() && (!!CUENTA.cfg || !CUENTA.cfgFallo);
   if (conGente) h += cuentaFichaHTML();
   if (conGente && !NET) h += publicasHomeHTML();
   if (!NET) h += `<section><h2>${conGente ? 'Con amigos' : 'Jugar con otros'}</h2><div class="hlinks"><button class="tool" id="hHost">${conGente ? 'Crear una mesa privada' : 'Crear una mesa'}</button><button class="tool" id="hJoin">${conGente ? 'Unirme con un código' : 'Unirme a una mesa'}</button></div>
@@ -8537,7 +8573,8 @@ function voiceRoom(code){
 const vozRoom = () => NET && (NET.vr || (NET.tr && NET.tr.room)) || null;
 // el nombre se recuerda, y cada pestaña tiene el suyo (para probar con varias pestañas a la vez)
 // la cuenta de quien juega (cuentas.part.js): con cuenta, el nombre en las mesas es su apodo
-const CUENTA = { token: store.get('truco.sesion') || null, yo: (() => { try { return JSON.parse(store.get('truco.yo') || 'null'); } catch (e) { return null; } })(), cfg: null, ws: null, amigos: null };
+const guardado = k => { try { return JSON.parse(store.get(k) || 'null'); } catch (e) { return null; } };
+const CUENTA = { token: store.get('truco.sesion') || null, yo: guardado('truco.yo'), cfg: guardado('truco.cfg'), ws: null, amigos: null };
 function myName(){ if (CUENTA.token && CUENTA.yo) return CUENTA.yo.apodo; let s = null; try { s = sessionStorage.getItem('truco.nombre'); } catch (e) {} return (s !== null ? s : store.get('truco.nombre') || '').trim(); }
 function setMyName(v){ v = (v || '').trim().slice(0, 20); try { sessionStorage.setItem('truco.nombre', v); } catch (e) {} store.set('truco.nombre', v); }
 function newCode(){ const L = 'ABCDEFGHJKLMNPQRSTUVWXYZ'; let s = ''; for (let i = 0; i < 4; i++) s += L[Math.floor(Math.random() * L.length)]; return s; }
@@ -9002,7 +9039,12 @@ function renderPublicLobby(box, L){
     if (!enJuego && g >= 2) h += `<p class="hkey">${L.fin ? 'Otro partido' : 'Empezar ya, con la computadora en los lugares libres'}: ${votos.length} de ${g} ${g === 1 ? 'quiere' : 'quieren'}. Empieza cuando quieran todos los que están.</p>`;
     else if (!enJuego) h += '<p class="hkey">Cuando llegue alguien más, si todos quieren pueden empezar antes de que se llene: la computadora completa los lugares libres.</p>';
     h += `<div class="hlinks">${inv}</div><p class="hkey">Código de la mesa: <b>${esc(NET.code)}</b>, por si querés pasárselo a alguien.</p>`;
-    if (falta && !enJuego) { clearTimeout(renderPublicLobby.t); renderPublicLobby.t = setTimeout(() => { if (NET && homeView === 'lobby' && !$('home').hidden) renderHome(); }, 400); }
+    clearInterval(renderPublicLobby.t);
+    if (falta && !enJuego) renderPublicLobby.t = setInterval(() => {
+      const el = document.querySelector('.cuenta-atras'), Lb = NET && NET.lobby;
+      if (!el || !Lb || typeof Lb.empiezaEn !== 'number') { clearInterval(renderPublicLobby.t); return; }
+      el.textContent = `¡Arranca en ${Math.max(1, Math.ceil((Lb.empiezaEn - (Date.now() - NET.lobbyAt)) / 1000))}…!`;
+    }, 250);
   }
   h += `<section class="lchat"><h3>Chat de la mesa</h3>${chatUI('lc')}</section>`;
   box.innerHTML = h;
@@ -9262,16 +9304,30 @@ function cuentaOlvidar(){
   cuentaRepintar();
 }
 function cuentaRepintar(){ if (!$('home').hidden && ['main', 'perfil', 'ranking', 'amigos', 'admin', 'publicas', 'lobby', 'join'].includes(homeView)) renderHome(); }
+// avisos de fondo (quién espera, quién se conectó): en el inicio se cambia solo lo que cambió, sin rehacer
+// la pantalla (así no se mueve nada ni se recarga el botón de Google)
+function cuentaRefrescar(){
+  if ($('home').hidden) return;
+  if (homeView !== 'main') { if (homeView === 'amigos' || homeView === 'publicas') renderHome(); return; }
+  const box = $('hmain'), modos = box.querySelector('.hpub .hmodes'), clave = $('hpKey'), ficha = box.querySelector('.cficha.barra');
+  if (!modos && !ficha) return;
+  if (modos) modos.outerHTML = modosPublicosHTML();
+  if (clave) clave.innerHTML = clavePublicasHTML();
+  if (ficha && conCuenta()) ficha.outerHTML = fichaHTML();
+  bindCuentaBotones(); bindPublicasHome();
+}
 
 async function cuentaInit(){
   if (!cuentaOK()) return;
-  try { CUENTA.cfg = await api('cuenta/config'); } catch (e) { CUENTA.cfg = null; return; }
+  const antes = JSON.stringify(CUENTA.cfg);
+  try { CUENTA.cfg = await api('cuenta/config'); store.set('truco.cfg', JSON.stringify(CUENTA.cfg)); }
+  catch (e) { CUENTA.cfg = null; CUENTA.cfgFallo = true; cuentaRepintar(); return; }
   cuentaPublicas();
   if (CUENTA.token) {
-    try { const r = await api('cuenta/yo'); cuentaGuardar(undefined, r.yo); cuentaConectar(); cuentaAmigos(); }
+    try { const r = await api('cuenta/yo'); const viejo = JSON.stringify(CUENTA.yo); cuentaGuardar(undefined, r.yo); cuentaConectar(); cuentaAmigos(); if (viejo !== JSON.stringify(r.yo)) cuentaRefrescar(); }
     catch (e) { /* sin red: queda lo guardado; sin sesión: api() ya la olvidó */ }
   }
-  cuentaRepintar();
+  if (antes !== JSON.stringify(CUENTA.cfg)) cuentaRepintar();
 }
 async function cuentaEntro(r){
   cuentaGuardar(r.token, r.yo);
@@ -9331,7 +9387,7 @@ function cuentaConectar(){
     if (m.t === 'amigos') { if (m.solicitud) avisoCuenta(`${m.solicitud} quiere ser tu amigo.`, 'amigos'); cuentaAmigos(); }
     if (m.t === 'presencia') {
       const a = CUENTA.amigos && CUENTA.amigos.amigos.find(x => x.id === m.id);
-      if (a) { a.enLinea = !!m.enLinea; if (homeView === 'amigos' || homeView === 'main') cuentaRepintar(); }
+      if (a) { a.enLinea = !!m.enLinea; cuentaRefrescar(); }
     }
   };
   ws.onclose = () => {
@@ -9343,7 +9399,7 @@ function cuentaConectar(){
 async function cuentaAmigos(){
   if (!conCuenta()) return;
   try { CUENTA.amigos = await api('amigos'); } catch (e) { return; }
-  if (homeView === 'amigos' || homeView === 'main') cuentaRepintar();
+  cuentaRefrescar();
 }
 // al terminar un partido que contó para el ranking
 function cuentaRanking(m){
@@ -9422,30 +9478,35 @@ function volverDeCuenta(){ homeView = cuentaVista.volver === 'lobby' && NET ? 'l
 function avisoHTML(){ const a = cuentaVista.aviso; cuentaVista.aviso = ''; return a ? `<p class="hnote ok" role="status">${esc(a)}</p>` : ''; }
 
 // en el inicio, arriba: la ficha de la cuenta (con cuenta)
-function cuentaFichaHTML(){
-  if (!conCuenta()) return avisoHTML();
+function fichaHTML(){
   const y = CUENTA.yo, A = CUENTA.amigos;
   const en = A ? A.amigos.filter(a => a.enLinea).length : 0, sol = A ? A.recibidas.length : 0;
-  return avisoHTML() + `<section class="cficha barra">${avatar(y)}<div><b>${esc(y.apodo)}</b><span>${y.partidos ? `${y.puntos} puntos${y.posicion ? ` · puesto ${y.posicion}` : ''}` : 'Todavía sin partidos en el ranking'}</span></div>
+  return `<section class="cficha barra">${avatar(y)}<div><b>${esc(y.apodo)}</b><span>${y.partidos ? `${y.puntos} puntos${y.posicion ? ` · puesto ${y.posicion}` : ''}` : 'Todavía sin partidos en el ranking'}</span></div>
     <nav class="hlinks" aria-label="Tu cuenta"><button class="tool" id="cPerfil">Mi perfil</button><button class="tool" id="cRank">Ranking</button>
     <button class="tool" id="cAmigos">Amigos${en ? ` · ${en} en línea` : ''}${sol ? ` · <b class="cbadge">${sol} ${sol === 1 ? 'solicitud' : 'solicitudes'}</b>` : ''}</button>${y.admin ? '<button class="tool" id="cAdmin">Cuentas creadas</button>' : ''}</nav></section>`;
 }
-// la tarjeta principal: jugar con gente en las mesas públicas
+function cuentaFichaHTML(){ return avisoHTML() + (conCuenta() ? fichaHTML() : ''); }
+// la tarjeta principal: jugar con gente en las mesas públicas. Los modos dicen cuánta gente espera en cada
+// uno (la lista completa está en "Ver las mesas"): así la tarjeta no cambia de alto cuando llega o se va alguien
+function modosPublicosHTML(){
+  return '<div class="hmodes">' + MODES.map(([n, nm]) => {
+    const e = esperandoEn(n), p = e.reduce((a, m) => a + m.personas, 0);
+    return `<button class="hmode pub${p ? ' hay' : ''}" data-pn="${n}">${tableSVG(n)}<div><b>${nm}</b><span>${p ? `<i class="dot on"></i> ${p} esperando` : 'Armá la mesa'}</span></div></button>`;
+  }).join('') + '</div>';
+}
+function clavePublicasHTML(){
+  const lista = CUENTA.publicas || [], gente = CUENTA.conectados || 0;
+  return `<span class="hpg"><i class="dot${gente ? ' on' : ''}"></i> ${gente ? `${gente} ${gente === 1 ? 'persona conectada' : 'personas conectadas'} ahora` : 'Todavía no hay nadie más conectado'}</span>
+    <span>A 30 puntos y un solo chico. Cuentan para el ranking. <button class="lnk" id="hPubVer">Ver las mesas${lista.length ? ` (${lista.length})` : ''}</button> · <button class="lnk" id="hRankVer">Ranking</button></span>`;
+}
 function publicasHomeHTML(){
-  const lista = CUENTA.publicas || [], con = conCuenta(), gente = CUENTA.conectados || 0;
   let h = `<section class="hpub"><h2>Jugar con gente</h2>
     <p class="hpsub">Elegí el modo y te sentás con quien esté esperando. Si no hay nadie, armás la mesa y aparece para los demás.</p>`;
-  if (!con) {
+  if (!conCuenta()) {
     h += `<div class="hpcta"><div id="hGsi" class="gsi"></div><span>Entrá con tu cuenta de Google para jugar con otras personas, aparecer en el ranking y sumar amigos.</span></div>`;
-    if (CUENTA.cfg.prueba) h += `<form id="cPrueba" class="hlinks"><input id="cPruebaN" placeholder="Nombre de prueba" maxlength="20" aria-label="Nombre de prueba"><button class="tool" type="submit">Entrar de prueba</button></form>`;
+    if (CUENTA.cfg && CUENTA.cfg.prueba) h += `<form id="cPrueba" class="hlinks"><input id="cPruebaN" placeholder="Nombre de prueba" maxlength="20" aria-label="Nombre de prueba"><button class="tool" type="submit">Entrar de prueba</button></form>`;
   }
-  h += '<div class="hmodes">' + MODES.map(([n, nm]) => {
-    const e = esperandoEn(n), p = e.reduce((a, m) => a + m.personas, 0);
-    return `<button class="hmode pub${p ? ' hay' : ''}" data-pn="${n}">${tableSVG(n)}<div><b>${nm}</b><span>${p ? `<i class="dot on"></i> ${p} ${p === 1 ? 'esperando' : 'esperando'}` : 'Armá la mesa'}</span></div></button>`;
-  }).join('') + '</div>';
-  if (lista.length) h += '<ul class="amg hpl">' + lista.slice(0, 3).map(m => `<li><b>${esc(modeName(m.n))}</b><small>${esc(m.nombres.join(', '))} · ${m.personas} de ${m.n}</small><button class="tool" data-pc="${m.codigo}">Sentarme</button></li>`).join('') + '</ul>';
-  h += `<p class="hkey">A 30 puntos y un solo chico. Cuentan para el ranking.${gente >= 2 ? ` Ahora hay ${gente} personas con el juego abierto.` : ''} <button class="lnk" id="hPubVer">${lista.length > 3 ? `Ver las ${lista.length} mesas` : 'Ver las mesas'}</button> · <button class="lnk" id="hRankVer">Ranking</button></p></section>`;
-  return h;
+  return h + modosPublicosHTML() + `<p class="hkey" id="hpKey">${clavePublicasHTML()}</p></section>`;
 }
 function bindPublicasHome(){
   const box = $('hmain');
@@ -9453,15 +9514,17 @@ function bindPublicasHome(){
     if (!conCuenta()) { cuentaVista.aviso = 'Primero entrá con tu cuenta: es con el botón de Google, acá arriba.'; renderHome(); const g = $('hGsi'); if (g) g.scrollIntoView({ block: 'center', behavior: 'smooth' }); return; }
     buscarPublica(+b.dataset.pn);
   });
-  box.querySelectorAll('[data-pc]').forEach(b => b.onclick = () => { if (conCuenta()) joinTable(b.dataset.pc, myName(), false, { publica: true }); });
   if ($('hPubVer')) $('hPubVer').onclick = () => cuentaIr('publicas');
   if ($('hRankVer')) $('hRankVer').onclick = () => cuentaIr('ranking');
 }
-function bindCuenta(){
+function bindCuentaBotones(){
   if ($('cPerfil')) $('cPerfil').onclick = () => cuentaIr('perfil');
   if ($('cRank')) $('cRank').onclick = () => cuentaIr('ranking');
   if ($('cAmigos')) $('cAmigos').onclick = () => cuentaIr('amigos');
   if ($('cAdmin')) $('cAdmin').onclick = () => cuentaIr('admin');
+}
+function bindCuenta(){
+  bindCuentaBotones();
   if ($('hGsi')) gsiBoton($('hGsi'));
   if ($('cPrueba')) $('cPrueba').onsubmit = async e => {
     e.preventDefault();
@@ -9721,7 +9784,7 @@ function renderEditar(box){
 async function cuentaPublicas(){
   if (!cuentaOK()) return;
   try { const r = await api('publicas'); CUENTA.publicas = r.lista; CUENTA.conectados = r.conectados || 0; } catch (e) { return; }
-  if (!$('home').hidden && (homeView === 'publicas' || homeView === 'main')) renderHome();
+  cuentaRefrescar();
 }
 const esperandoEn = n => (CUENTA.publicas || []).filter(m => m.n === n && m.personas < m.n);
 async function buscarPublica(n){

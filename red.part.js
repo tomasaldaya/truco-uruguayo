@@ -66,7 +66,8 @@ function voiceRoom(code){
 const vozRoom = () => NET && (NET.vr || (NET.tr && NET.tr.room)) || null;
 // el nombre se recuerda, y cada pestaña tiene el suyo (para probar con varias pestañas a la vez)
 // la cuenta de quien juega (cuentas.part.js): con cuenta, el nombre en las mesas es su apodo
-const CUENTA = { token: store.get('truco.sesion') || null, yo: (() => { try { return JSON.parse(store.get('truco.yo') || 'null'); } catch (e) { return null; } })(), cfg: null, ws: null, amigos: null };
+const guardado = k => { try { return JSON.parse(store.get(k) || 'null'); } catch (e) { return null; } };
+const CUENTA = { token: store.get('truco.sesion') || null, yo: guardado('truco.yo'), cfg: guardado('truco.cfg'), ws: null, amigos: null };
 function myName(){ if (CUENTA.token && CUENTA.yo) return CUENTA.yo.apodo; let s = null; try { s = sessionStorage.getItem('truco.nombre'); } catch (e) {} return (s !== null ? s : store.get('truco.nombre') || '').trim(); }
 function setMyName(v){ v = (v || '').trim().slice(0, 20); try { sessionStorage.setItem('truco.nombre', v); } catch (e) {} store.set('truco.nombre', v); }
 function newCode(){ const L = 'ABCDEFGHJKLMNPQRSTUVWXYZ'; let s = ''; for (let i = 0; i < 4; i++) s += L[Math.floor(Math.random() * L.length)]; return s; }
@@ -531,7 +532,12 @@ function renderPublicLobby(box, L){
     if (!enJuego && g >= 2) h += `<p class="hkey">${L.fin ? 'Otro partido' : 'Empezar ya, con la computadora en los lugares libres'}: ${votos.length} de ${g} ${g === 1 ? 'quiere' : 'quieren'}. Empieza cuando quieran todos los que están.</p>`;
     else if (!enJuego) h += '<p class="hkey">Cuando llegue alguien más, si todos quieren pueden empezar antes de que se llene: la computadora completa los lugares libres.</p>';
     h += `<div class="hlinks">${inv}</div><p class="hkey">Código de la mesa: <b>${esc(NET.code)}</b>, por si querés pasárselo a alguien.</p>`;
-    if (falta && !enJuego) { clearTimeout(renderPublicLobby.t); renderPublicLobby.t = setTimeout(() => { if (NET && homeView === 'lobby' && !$('home').hidden) renderHome(); }, 400); }
+    clearInterval(renderPublicLobby.t);
+    if (falta && !enJuego) renderPublicLobby.t = setInterval(() => {
+      const el = document.querySelector('.cuenta-atras'), Lb = NET && NET.lobby;
+      if (!el || !Lb || typeof Lb.empiezaEn !== 'number') { clearInterval(renderPublicLobby.t); return; }
+      el.textContent = `¡Arranca en ${Math.max(1, Math.ceil((Lb.empiezaEn - (Date.now() - NET.lobbyAt)) / 1000))}…!`;
+    }, 250);
   }
   h += `<section class="lchat"><h3>Chat de la mesa</h3>${chatUI('lc')}</section>`;
   box.innerHTML = h;
