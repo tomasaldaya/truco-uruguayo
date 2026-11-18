@@ -74,6 +74,12 @@ h1 small{font-family:'Alegreya Sans',sans-serif;font-size:15px;font-weight:500;c
 .hand.mini .back:first-child{margin-left:0}
 /* lo que dice cada uno: la misma etiqueta chica de la mesa 3D, pegada al nombre; aparece, queda un momento y se va */
 .who,.hand.me{position:relative}
+/* las cartas del envite, dadas vuelta al final de la mano */
+.hand.mostradas{gap:4px}
+.hand.mostradas .card{animation:voltear .55s cubic-bezier(.2,.8,.3,1) both}
+.seat:not(.s-bottom) .hand.mostradas .card{--cw:46px;--ch:70px;border-radius:6px}
+@keyframes voltear{from{transform:perspective(500px) rotateY(90deg) translateY(-6px);opacity:.3}to{transform:none;opacity:1}}
+@media (prefers-reduced-motion:reduce){.hand.mostradas .card{animation:none}}
 .dicho{--dx:-50%;--dy:0px;position:absolute;bottom:100%;left:50%;margin-bottom:4px;z-index:6;background:rgba(251,246,234,.92);color:#2b1d10;
   font-family:'Alegreya Sans',sans-serif;font-weight:700;font-size:14px;line-height:1.45;padding:0 10px;border-radius:999px;
   white-space:nowrap;pointer-events:none;box-shadow:0 3px 10px rgba(0,0,0,.3);opacity:0;animation:dicho 2.55s linear forwards}
@@ -278,6 +284,18 @@ aside{display:flex;flex-direction:column;gap:14px;margin-top:13px}
 .lado3d button{pointer-events:auto;background:rgba(0,0,0,.6);border-color:rgba(255,255,255,.2);font-size:12.5px;padding:3px 10px;text-align:left}
 .lado3d .mysenas button[aria-pressed="true"]{background:var(--gold);color:#2b1d10}
 .lado3d .pedidos button:hover{background:rgba(40,30,20,.85)}
+/* elegir personaje */
+.pjgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:10px;margin:12px 0 4px}
+.pjop{display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 6px 9px;border-radius:14px;cursor:pointer;
+  background:#f6efe0;border:2px solid #e2d6bc;color:#2b1d10;font:inherit;transition:border-color .15s,background .15s}
+.pjop:hover{border-color:#c9b48a}
+.pjop[aria-pressed="true"]{border-color:#b8860b;background:#fbe9b8;box-shadow:0 0 0 2px rgba(184,134,11,.25)}
+.pjop img{width:100%;max-width:110px;height:auto;aspect-ratio:1;border-radius:10px;background:radial-gradient(circle at 50% 40%,#3b2a1d,#1a120c)}
+.pjop b{font-size:14px;line-height:1.2;text-align:center}
+.pjsin{width:100%;max-width:110px;aspect-ratio:1;border-radius:10px;background:radial-gradient(circle at 50% 58%,var(--piel) 0 30%,transparent 31%),
+  radial-gradient(ellipse 36% 26% at 50% 34%,var(--pelo) 0 99%,transparent),radial-gradient(circle at 50% 40%,#3b2a1d,#1a120c)}
+.pjsin.nada{display:flex;align-items:center;justify-content:center;font:800 40px/1 'Alegreya',serif;color:#f3d27a;background:radial-gradient(circle at 50% 40%,#3b2a1d,#1a120c)}
+@media (max-width:640px){.pjgrid{grid-template-columns:repeat(3,1fr);gap:7px}.pjop b{font-size:12.5px}}
 /* celular: estas cosas solo existen ahí */
 .scoremini,.barra,.hoja,.velo,.cerrarhoja{display:none}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
@@ -546,6 +564,9 @@ img.avt{object-fit:cover;background:#2a1d13}
   .who .sub{font-size:11px}
   .tag{font-size:11px;padding:1px 7px}
   .hand.mini .back{width:26px;height:40px;border-width:2px;margin-left:-12px}
+  .seat:not(.s-bottom) .hand.mostradas{gap:0}
+  .seat:not(.s-bottom) .hand.mostradas .card{--cw:30px;--ch:46px;border-radius:4px}
+  .seat:not(.s-bottom) .hand.mostradas .card+.card{margin-left:-12px}
   .s-left .who .name,.s-right .who .name,.s-tl .who .name,.s-tr .who .name{font-size:14px;max-width:56px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .s-left .who .sub,.s-right .who .sub,.s-tl .who .sub,.s-tr .who .sub{display:none}
   .s-left,.s-right{gap:5px}
@@ -810,6 +831,16 @@ function moverMazo(){
   mazoAnt = { k, id: G.id, n: G.n, x: r.left + scrollX, y: r.top + scrollY };
 }
 
+// Al terminar la mano, el que ganó el envite o cantó flor da vuelta sus cartas sobre la mesa (Art. 45).
+// Cada carta se da vuelta una atrás de otra; como la mesa se redibuja, la animación sigue desde donde iba.
+const mostr2d = {};
+function mostradasEl(p, cls){
+  const R = G.round, k = G.id + ':' + G.roundNo + ':' + p, t0 = mostr2d[k] || (mostr2d[k] = Date.now()), pasó = Date.now() - t0;
+  const h = el('div', (cls || 'hand') + ' mostradas');
+  h.title = (p === ME ? 'Mostrás' : G.names[p] + ' muestra') + ' las cartas del envite (Art. 45)';
+  R.initial[p].forEach((c, i) => { const e = cardEl(c); e.style.animationDelay = (i * 160 - pasó) + 'ms'; h.appendChild(e); });
+  return h;
+}
 function otherSeat(p, act){
   const R = G.round, pos = seatOf(p);
   const s = el('section','seat s-'+pos + (R.active[p] ? '' : ' inactive'));
@@ -821,8 +852,9 @@ function otherSeat(p, act){
   if (act===p && G.phase==='play') tags.push('<span class="tag turn">juega</span>');
   if (R.out[p]) tags.push('<span class="tag out">pasó</span>');
   const who = el('div','who', `<div class="name">${esc(G.names[p])}${NET && NET.talking && NET.talking[p] ? ' <span class="mic">🎙</span>' : ''}</div>${G.n>=4?`<div class="sub">${partner?'tu compañero':'rival'}</div>`:''}<div class="tags">${tags.join('')}</div>`);
-  const h = el('div','hand' + (pos==='top' && G.n===2 ? '' : ' mini'));
-  R.hands[p].forEach(() => h.appendChild(backEl()));
+  const muestra = G.phase !== 'play' && R.mustShow[p] && R.initial[p].every(c => !c.hidden);
+  const h = muestra ? mostradasEl(p) : el('div','hand' + (pos==='top' && G.n===2 ? '' : ' mini'));
+  if (!muestra) R.hands[p].forEach(() => h.appendChild(backEl()));
   s.appendChild(who); s.appendChild(h);
   if (partner && R.senasShown[p] && G.rules.senas && !R.leyPhase && !R.duel && !myCardsHidden()) {
     const box = el('div','senas');
@@ -925,6 +957,8 @@ function statusBox(act){
   if (R.leyPhase && act===ME) t = 'Todavía nadie ve sus cartas ni la muestra: se decide a ciegas (Art. 72).';
   else if (myCardsHidden() && R.ley) t = 'Ves tus cartas cuando el otro equipo conteste (Art. 79).';
   if (R.trucoLevel>1) t += (t?' · ':'') + `se juega por <b>${R.trucoLevel}</b>`;
+  if (G.phase==='play' && showHelp && R.mustShow[ME] && G.manual[ME] && R.active[ME] && !R.out[ME])
+    t += (t?'<br>':'') + 'Al final mostrás tus cartas: si no querés seguir, decí <b>paso</b> (al mazo sin mostrar perdés esos puntos).';
   if (G.n>=4 && !R.duel) {
     const vist = (R.seen[ME]||[]);
     if (vist.length) t += `<br><i>Se te escapó ver una seña de ${vist.map(v=>esc(G.names[v.p])).join(' y de ')}: la tenés anotada junto a su nombre.</i>`;
@@ -942,8 +976,9 @@ function mySeat(act){
   const playable = new Set(myLegal.filter(a=>a.type==='play').map(a=>a.card.id));
   sm.appendChild(actionsEl(myLegal));
   sm.appendChild(el('div','err', esc(errMsg)));
-  const mh = el('div','hand me');
-  R.hands[ME].forEach(c => {
+  const muestro = G.phase !== 'play' && R.mustShow[ME];
+  const mh = muestro ? mostradasEl(ME, 'hand me') : el('div','hand me');
+  if (!muestro) R.hands[ME].forEach(c => {
     const can = playable.has(c.id);
     const e = cardEl(c, {button: can, cls: can?'play':(act===ME?'dim':''), badge: showHelp && !R.leyPhase});
     if (can) e.onclick = () => human({type:'play', card:c});
@@ -1024,7 +1059,11 @@ function actionsEl(myLegal){
     acts.appendChild(box);
     setTimeout(()=>{ const i=$('singInput'); if(i) i.focus(); }, 0);
   } else {
-    const boton = a => { const b = el('button','act '+actClass(a)); b.textContent = T.label(G,a); b.onclick = () => human(a); return b; };
+    const boton = a => {
+      const b = el('button','act '+actClass(a)); b.textContent = T.label(G,a); b.onclick = () => human(a);
+      if (a.type === 'paso' && G.round.mustShow[ME]) b.title = 'Salís de la mano sin tirar tus cartas: al final las mostrás y no perdés los puntos del envite';
+      return b;
+    };
     const todas = myLegal.filter(a=>a.type!=='play');
     const resp = todas.filter(a => a.type==='quiero' || a.type==='noquiero').sort((a, b) => (a.type==='quiero' ? 0 : 1) - (b.type==='quiero' ? 0 : 1));
     if (resp.length) {
@@ -1491,7 +1530,7 @@ function step(){
         step();
       }), delay);
     }
-  } else timer = setTimeout(() => whenFree(showRoundEnd), (GM.n>=4 ? 2200 : 1600) * delayScale());
+  } else timer = setTimeout(() => whenFree(showRoundEnd), ((GM.n>=4 ? 2200 : 1600) + (GM.round && GM.round.mustShow.some(Boolean) ? 1300 : 0)) * delayScale());
 }
 // Pausas para ver lo que pasa: al empezar la mano y al cerrarse cada baza (devuelve cuánto esperar de más)
 function notePauses(S){
@@ -1515,7 +1554,7 @@ function showRoundEnd(){
   const them = NET && G.n === 2 ? G.names[otherOf2()] : 'La computadora';
   const lines = [];
   if (R.result && R.result.reason === 'abandono') lines.push(`<li><b>${esc(R.result.texto)}</b></li>`);
-  [0,1].forEach(t => R.gained[t].forEach(g => lines.push(`<li><b>${esc(G.teamNames[t])}</b> +${g.pts} — ${esc(g.why)}</li>`)));
+  [0,1].forEach(t => R.gained[t].forEach(g => lines.push(`<li><b>${esc(G.teamNames[t])}</b> ${g.pts < 0 ? '−' + (-g.pts) : '+' + g.pts} — ${esc(g.why)}</li>`)));
   let title = G.phase==='duelEnd' ? `Terminó el duelo ${R.duel.idx+1}` : 'Fin de la mano';
   recordStats(R);
   const res = R.result || {};
@@ -1588,6 +1627,7 @@ function newGame(n){
   clearTimeout(timer); busy = false; deferred = null; ME = 0;
   players = n; store.set('truco.players', String(n));
   GM = T.newMatch({players:n, manual:[realista], rules: tableRules});
+  GM.pjs = Array(n).fill(null); GM.pjs[0] = miPj();
   GM.id = newMatchId();
   T.startRound(GM); startRoundHook(); lastRoundNo = null;
   step();
@@ -1631,9 +1671,10 @@ function howToModal(){
   <p><b>La muestra de cerca:</b> pasá el cursor por encima de la muestra (o tocala) y la cámara se acerca a mirarla; con el teclado, la tecla M.</p>
   <p><b>Tiempo:</b> tenés 30 segundos para cada decisión (se cambia en Reglas de la mesa). Si se te acaba, decide la computadora por vos. Con el menú abierto la cuenta se frena.</p>
   <p><b>Señas pescadas:</b> de cada 50 señas que se hacen, una la ve algún rival. Te puede pasar a vos con las señas de Tito y Nacho, y a ellos con las tuyas o las de Pocho. Lo que se ve es siempre verdad, y la computadora también lo usa.</p>
-  <p><b>Modo realista:</b> la flor no se canta sola y los puntos los cantás vos. Si jugás o cantás otra cosa sin cantar tu flor, la negás. Las faltas se descubren cuando se ven tus cartas: si ganás un envite (tenés que mostrarlas) o si jugás las tres. Cantar errado o negar la flor, si se descubre, te hace perder todo lo de la mano (Art. 46). Cantar flor sin tenerla se descubre enseguida. Si se descubre que ganaste un envite negando la flor, es falta grave (Art. 100).</p>
+  <p><b>Modo realista:</b> la flor no se canta sola y los puntos los cantás vos. Si jugás o cantás otra cosa sin cantar tu flor, la negás. Las faltas se descubren cuando se ven tus cartas: si ganás un envite (tenés que mostrarlas) o si jugás las tres. Cantar errado o negar la flor, si se descubre, te hace perder todo lo de la mano (Art. 46). Cantar flor sin tenerla se descubre enseguida. Si se descubre que ganaste un envite negando la flor, es falta grave (Art. 100). Si ganaste el envido o cantaste flor y te vas al mazo, tirás tus cartas sin mostrarlas y perdés esos puntos: para salir de la mano sin perderlos, decí <i>paso</i> y las mostrás al final.</p>
+  <p><b>Mostrar las cartas:</b> al terminar la mano, el que ganó el envido o cantó flor da vuelta sus cartas sobre la mesa para que se vea que tenía lo que cantó (Art. 45).</p>
   <p><b>Paso y mazo:</b> en parejas y tercetos, si decís "paso" salís de la mano y no jugás más bazas, pero te quedás con tus cartas por si tenés que mostrarlas (Arts. 88 y 92). Si te vas al mazo sin ser el pie de tu equipo, te vas solo y tu equipo sigue; si se va el pie, pierde el equipo. En Reglas de la mesa podés elegir en cambio que irse al mazo saque a todo el equipo (Art. 90). Si un equipo se va en la primera baza sin que nadie haya tocado ni gritado, y al otro todavía le quedaba tocar, el otro cobra <b>dos</b> puntos.</p>
-  <p><b>Atajos al compañero:</b> en parejas y tercetos, abajo tenés <i>¡Vení!</i> (que gane la baza), <i>¡Jugá algo!</i> (que no tire la peor), <i>¡Gritá!</i> (que cante truco) y <i>Tengo algo para el tanto</i> (que toque o quiera el envido). Los oye toda la mesa, como si lo dijeras en voz alta; la computadora compañera te hace caso.</p>
+  <p><b>Atajos al compañero:</b> en parejas y tercetos, abajo tenés <i>¡Vení!</i> (que juegue su carta más baja, que la baza la hacés vos), <i>¡Jugá algo!</i> (que no tire la peor), <i>¡Gritá!</i> (que cante truco) y <i>Tengo algo para el tanto</i> (que toque o quiera el envido). Los oye toda la mesa, como si lo dijeras en voz alta; la computadora compañera te hace caso.</p>
   <p><b>Tercetos:</b> hasta que un equipo llega a la mitad del chico se alternan rondas generales y rondas mano a mano, en las que cada uno juega contra el rival de enfrente; ahí la falta tiene tope de 10 (Arts. 83 a 87). En esos duelos (el pico a pico) las piezas se juegan dadas vuelta: solo las ven los dos que juegan ese duelo.</p>
   <p><b>A ley de juego:</b> en parejas y tercetos, cuando algún equipo ya entró en buenas, el equipo que va perdiendo (o el del mano, si van iguales) puede imponerla en cada mano antes de ver las cartas y la muestra (nadie ve sus cartas mientras se decide), o jugar normal. Los rivales, ya con sus cartas a la vista, dicen cada uno en su turno "con ley" si tienen flor o "a punto" si no, y después el pie de su equipo contesta todo de una vez. Los que la impusieron ven sus cartas cuando llega la respuesta. Si hay flor y no se quiere el envite, se cobra la flor y el envite no querido no suma para nadie. Es una versión simplificada del Cap. 7: no incluye los reenvites del Art. 76 ni el Art. 79.</p>
   <p><b>Reglas de la mesa:</b> en Configuración, desde el menú: puntos por chico, cantidad de chicos, tiempo para decidir, con o sin flor, qué pasa con tu flor si tu compañero toca o grita, cartas iguales, señas y dificultad.</p>

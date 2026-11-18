@@ -115,7 +115,7 @@ function pintarInicio(){
     <div class="row"><button class="act flor" id="hYes">Empezar partido nuevo</button><button class="act mazo" id="hNo">Cancelar</button></div></div>`;
   h += '</section>';
   h += `<nav class="hlinks" aria-label="Más opciones">
-    <button class="tool" id="hCfg">Configuración</button><button class="tool" id="hDeck">Tu mazo</button>
+    <button class="tool" id="hCfg">Configuración</button><button class="tool" id="hPj">Tu personaje</button><button class="tool" id="hDeck">Tu mazo</button>
     <button class="tool" id="hHow">Cómo se juega</button><button class="tool" id="hStats">Estadísticas</button></nav>
     <p class="hcred">Cartas: baraja española libre de <a href="https://commons.wikimedia.org/wiki/Category:Spanish_playing_cards" target="_blank" rel="noopener">Basquetteur</a> (Wikimedia Commons), con licencia <a href="https://creativecommons.org/licenses/by-sa/3.0/deed.es" target="_blank" rel="noopener">CC BY-SA 3.0</a>.</p>`;
   box.innerHTML = h;
@@ -133,6 +133,7 @@ function pintarInicio(){
   if (confirmNew) { $('hYes').onclick = () => startGame(confirmNew); $('hNo').onclick = () => { confirmNew = null; renderHome(); }; }
   $('hCfg').onclick = () => { homeView = 'config'; renderHome(); $('hBack').focus(); };
   $('hDeck').onclick = deckModal;
+  $('hPj').onclick = pjModal;
   $('hHow').onclick = howToModal;
   $('hStats').onclick = statsModal;
   bindCuenta();

@@ -280,7 +280,7 @@
       R.cur.forEach((c, q) => { if (c && (!mejor || rk(c) > rk(mejor.c))) mejor = { c, q }; });
       if (mejor && team(mejor.q) === team(p)) return orden[0];                 // ya la va ganando el equipo
       const ganan = mejor ? orden.filter(a => rk(a.card) > rk(mejor.c)) : [];
-      if (veni) return mejor ? (ganan[0] || orden[orden.length - 1]) : orden[orden.length - 1];
+      if (veni) return orden[0];                                               // vení: la más baja, que la baza la hace el compañero
       return mejor ? (ganan[0] || orden[Math.floor(orden.length / 2)]) : orden[Math.floor(orden.length / 2)];
     }
     return null;

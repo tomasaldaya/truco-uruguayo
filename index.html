@@ -74,6 +74,12 @@ h1 small{font-family:'Alegreya Sans',sans-serif;font-size:15px;font-weight:500;c
 .hand.mini .back:first-child{margin-left:0}
 /* lo que dice cada uno: la misma etiqueta chica de la mesa 3D, pegada al nombre; aparece, queda un momento y se va */
 .who,.hand.me{position:relative}
+/* las cartas del envite, dadas vuelta al final de la mano */
+.hand.mostradas{gap:4px}
+.hand.mostradas .card{animation:voltear .55s cubic-bezier(.2,.8,.3,1) both}
+.seat:not(.s-bottom) .hand.mostradas .card{--cw:46px;--ch:70px;border-radius:6px}
+@keyframes voltear{from{transform:perspective(500px) rotateY(90deg) translateY(-6px);opacity:.3}to{transform:none;opacity:1}}
+@media (prefers-reduced-motion:reduce){.hand.mostradas .card{animation:none}}
 .dicho{--dx:-50%;--dy:0px;position:absolute;bottom:100%;left:50%;margin-bottom:4px;z-index:6;background:rgba(251,246,234,.92);color:#2b1d10;
   font-family:'Alegreya Sans',sans-serif;font-weight:700;font-size:14px;line-height:1.45;padding:0 10px;border-radius:999px;
   white-space:nowrap;pointer-events:none;box-shadow:0 3px 10px rgba(0,0,0,.3);opacity:0;animation:dicho 2.55s linear forwards}
@@ -278,6 +284,18 @@ aside{display:flex;flex-direction:column;gap:14px;margin-top:13px}
 .lado3d button{pointer-events:auto;background:rgba(0,0,0,.6);border-color:rgba(255,255,255,.2);font-size:12.5px;padding:3px 10px;text-align:left}
 .lado3d .mysenas button[aria-pressed="true"]{background:var(--gold);color:#2b1d10}
 .lado3d .pedidos button:hover{background:rgba(40,30,20,.85)}
+/* elegir personaje */
+.pjgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:10px;margin:12px 0 4px}
+.pjop{display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 6px 9px;border-radius:14px;cursor:pointer;
+  background:#f6efe0;border:2px solid #e2d6bc;color:#2b1d10;font:inherit;transition:border-color .15s,background .15s}
+.pjop:hover{border-color:#c9b48a}
+.pjop[aria-pressed="true"]{border-color:#b8860b;background:#fbe9b8;box-shadow:0 0 0 2px rgba(184,134,11,.25)}
+.pjop img{width:100%;max-width:110px;height:auto;aspect-ratio:1;border-radius:10px;background:radial-gradient(circle at 50% 40%,#3b2a1d,#1a120c)}
+.pjop b{font-size:14px;line-height:1.2;text-align:center}
+.pjsin{width:100%;max-width:110px;aspect-ratio:1;border-radius:10px;background:radial-gradient(circle at 50% 58%,var(--piel) 0 30%,transparent 31%),
+  radial-gradient(ellipse 36% 26% at 50% 34%,var(--pelo) 0 99%,transparent),radial-gradient(circle at 50% 40%,#3b2a1d,#1a120c)}
+.pjsin.nada{display:flex;align-items:center;justify-content:center;font:800 40px/1 'Alegreya',serif;color:#f3d27a;background:radial-gradient(circle at 50% 40%,#3b2a1d,#1a120c)}
+@media (max-width:640px){.pjgrid{grid-template-columns:repeat(3,1fr);gap:7px}.pjop b{font-size:12.5px}}
 /* celular: estas cosas solo existen ahí */
 .scoremini,.barra,.hoja,.velo,.cerrarhoja{display:none}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
@@ -546,6 +564,9 @@ img.avt{object-fit:cover;background:#2a1d13}
   .who .sub{font-size:11px}
   .tag{font-size:11px;padding:1px 7px}
   .hand.mini .back{width:26px;height:40px;border-width:2px;margin-left:-12px}
+  .seat:not(.s-bottom) .hand.mostradas{gap:0}
+  .seat:not(.s-bottom) .hand.mostradas .card{--cw:30px;--ch:46px;border-radius:4px}
+  .seat:not(.s-bottom) .hand.mostradas .card+.card{margin-left:-12px}
   .s-left .who .name,.s-right .who .name,.s-tl .who .name,.s-tr .who .name{font-size:14px;max-width:56px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .s-left .who .sub,.s-right .who .sub,.s-tl .who .sub,.s-tr .who .sub{display:none}
   .s-left,.s-right{gap:5px}
@@ -5257,7 +5278,7 @@ void main() {
   }
   // Lo que uno le dice en voz alta a su compañero (lo oye toda la mesa): la computadora compañera le hace caso
   const PEDIDOS = {
-    veni: { texto: '¡Vení!', ayuda: 'que gane esta baza, aunque tenga que jugar la mejor' },
+    veni: { texto: '¡Vení!', ayuda: 'que juegue su carta más baja, que la baza la hacés vos' },
     algo: { texto: '¡Jugá algo!', ayuda: 'que juegue una carta que valga algo, no la peor' },
     grita: { texto: '¡Gritá!', ayuda: 'que cante truco' },
     tanto: { texto: 'Tengo algo para el tanto', ayuda: 'que toque (envido) o quiera el envido' },
@@ -5429,8 +5450,10 @@ void main() {
     if (R.trucoLevel < 4 && (R.trucoOwner === null || R.trucoOwner === team(p)))
       acts.push({ type: 'truco', level: R.trucoLevel + 1 });
     if (canEnvidar(G, p)) acts.push(...envOptions(G, p, []));
-    // Art. 88/92: "paso" sale de la mano sin arrastrar al equipo (si queda algún compañero en juego)
-    if (G.n >= 4 && fromMano(G).some(q => q !== p && team(q) === team(p))) acts.push({ type: 'paso' });
+    // Art. 88/92: "paso" sale de la mano sin arrastrar al equipo (si queda algún compañero en juego).
+    // Quien ganó un envite o cantó flor también pasa en vez de irse al mazo: así no tira sus cartas y las
+    // puede mostrar al final (Art. 45); en el modo realista, el que se va al mazo sin mostrar pierde esos puntos.
+    if ((G.n >= 4 && fromMano(G).some(q => q !== p && team(q) === team(p))) || R.mustShow[p]) acts.push({ type: 'paso' });
     acts.push({ type: 'mazo' });
     return acts;
   }
@@ -5482,6 +5505,25 @@ void main() {
     G.scores[t] += pts;
     G.round.gained[t].push({ pts, why, cat: cat || 'otro' });
     info(G, `${G.teamNames[t]} +${pts} (${why}).`);
+  }
+  // Modo realista: el que ganó el envido o cantó flor y se va al mazo sin mostrar sus cartas pierde esos
+  // puntos (no los cobra nadie). Para salir de la mano sin perderlos está el paso.
+  function sinMostrar(G, p) {
+    const R = G.round, t = team(p), cobrado = cat => R.gained[t].filter(g => g.cat === cat).reduce((a, g) => a + g.pts, 0);
+    const env = R.envido.result && R.envido.result.winner === p && R.envido.result.accepted ? Math.min(R.envido.result.pts, cobrado('envido')) : 0;
+    const fr = R.florEnv && R.florEnv.result;
+    const flor = R.flor.sung[p] && R.flor.has[p] ? Math.min(fr && fr.winner === p ? fr.pts : 3, cobrado('flor')) : 0;
+    R.mustShow[p] = false;
+    R.sinMostrar = R.sinMostrar || {};
+    R.sinMostrar[p] = env + flor;
+    const quien = G.names[p] === 'Vos' ? 'Te fuiste' : G.names[p] + ' se fue';
+    if (!env && !flor) return;
+    for (const [pts, cat, que] of [[env, 'envido', 'del envido'], [flor, 'flor', 'de la flor']]) {
+      if (!pts) continue;
+      G.scores[t] -= pts;
+      R.gained[t].push({ pts: -pts, why: `se fue al mazo sin mostrar: pierde los puntos ${que}`, cat });
+    }
+    info(G, `${quien} al mazo sin mostrar las cartas: ${G.teamNames[t]} pierde ${env + flor} (${[env && 'envido', flor && 'flor'].filter(Boolean).join(' y ')}). Para no perderlos se dice paso (Art. 45).`);
   }
   function checkChico(G) {
     if (G.matchWinner !== null) return true;
@@ -5934,7 +5976,8 @@ void main() {
       }
       case 'mazo': {
         say(G, p, 'Me voy al mazo');
-        if (R.mustShow[p]) info(G, G.names[p] === 'Vos' ? 'Mostrás tus cartas del envite antes de irte (Art. 45).' : `${G.names[p]} muestra sus cartas del envite antes de irse (Art. 45).`);
+        if (R.mustShow[p] && G.manual[p]) sinMostrar(G, p);
+        else if (R.mustShow[p]) info(G, G.names[p] === 'Vos' ? 'Mostrás tus cartas del envite antes de irte (Art. 45).' : `${G.names[p]} muestra sus cartas del envite antes de irse (Art. 45).`);
         if (!esPie(G, p) && G.rules.mazo === 'solo') {
           // Sin ser el pie: se va solo él y su equipo sigue jugando
           R.out[p] = true;
@@ -5952,7 +5995,7 @@ void main() {
       case 'paso': {
         say(G, p, 'Paso');
         R.out[p] = true;
-        if (!fromMano(G).some(q => team(q) === t)) { winTruco(G, 1 - t, R.trucoLevel, 'el otro equipo pasó'); return; }
+        if (!fromMano(G).some(q => team(q) === t)) { winTruco(G, 1 - t, R.trucoLevel, G.n === 2 ? 'el rival pasó' : 'el otro equipo pasó'); return; }
         if (R.cur.some(x => x) && trickComplete(G)) resolveTrick(G);
         else R.turn = nextIn(G, p);
         return;
@@ -6281,7 +6324,7 @@ void main() {
       R.cur.forEach((c, q) => { if (c && (!mejor || rk(c) > rk(mejor.c))) mejor = { c, q }; });
       if (mejor && team(mejor.q) === team(p)) return orden[0];                 // ya la va ganando el equipo
       const ganan = mejor ? orden.filter(a => rk(a.card) > rk(mejor.c)) : [];
-      if (veni) return mejor ? (ganan[0] || orden[orden.length - 1]) : orden[orden.length - 1];
+      if (veni) return orden[0];                                               // vení: la más baja, que la baza la hace el compañero
       return mejor ? (ganan[0] || orden[Math.floor(orden.length / 2)]) : orden[Math.floor(orden.length / 2)];
     }
     return null;
@@ -6694,6 +6737,16 @@ function moverMazo(){
   mazoAnt = { k, id: G.id, n: G.n, x: r.left + scrollX, y: r.top + scrollY };
 }
 
+// Al terminar la mano, el que ganó el envite o cantó flor da vuelta sus cartas sobre la mesa (Art. 45).
+// Cada carta se da vuelta una atrás de otra; como la mesa se redibuja, la animación sigue desde donde iba.
+const mostr2d = {};
+function mostradasEl(p, cls){
+  const R = G.round, k = G.id + ':' + G.roundNo + ':' + p, t0 = mostr2d[k] || (mostr2d[k] = Date.now()), pasó = Date.now() - t0;
+  const h = el('div', (cls || 'hand') + ' mostradas');
+  h.title = (p === ME ? 'Mostrás' : G.names[p] + ' muestra') + ' las cartas del envite (Art. 45)';
+  R.initial[p].forEach((c, i) => { const e = cardEl(c); e.style.animationDelay = (i * 160 - pasó) + 'ms'; h.appendChild(e); });
+  return h;
+}
 function otherSeat(p, act){
   const R = G.round, pos = seatOf(p);
   const s = el('section','seat s-'+pos + (R.active[p] ? '' : ' inactive'));
@@ -6705,8 +6758,9 @@ function otherSeat(p, act){
   if (act===p && G.phase==='play') tags.push('<span class="tag turn">juega</span>');
   if (R.out[p]) tags.push('<span class="tag out">pasó</span>');
   const who = el('div','who', `<div class="name">${esc(G.names[p])}${NET && NET.talking && NET.talking[p] ? ' <span class="mic">🎙</span>' : ''}</div>${G.n>=4?`<div class="sub">${partner?'tu compañero':'rival'}</div>`:''}<div class="tags">${tags.join('')}</div>`);
-  const h = el('div','hand' + (pos==='top' && G.n===2 ? '' : ' mini'));
-  R.hands[p].forEach(() => h.appendChild(backEl()));
+  const muestra = G.phase !== 'play' && R.mustShow[p] && R.initial[p].every(c => !c.hidden);
+  const h = muestra ? mostradasEl(p) : el('div','hand' + (pos==='top' && G.n===2 ? '' : ' mini'));
+  if (!muestra) R.hands[p].forEach(() => h.appendChild(backEl()));
   s.appendChild(who); s.appendChild(h);
   if (partner && R.senasShown[p] && G.rules.senas && !R.leyPhase && !R.duel && !myCardsHidden()) {
     const box = el('div','senas');
@@ -6809,6 +6863,8 @@ function statusBox(act){
   if (R.leyPhase && act===ME) t = 'Todavía nadie ve sus cartas ni la muestra: se decide a ciegas (Art. 72).';
   else if (myCardsHidden() && R.ley) t = 'Ves tus cartas cuando el otro equipo conteste (Art. 79).';
   if (R.trucoLevel>1) t += (t?' · ':'') + `se juega por <b>${R.trucoLevel}</b>`;
+  if (G.phase==='play' && showHelp && R.mustShow[ME] && G.manual[ME] && R.active[ME] && !R.out[ME])
+    t += (t?'<br>':'') + 'Al final mostrás tus cartas: si no querés seguir, decí <b>paso</b> (al mazo sin mostrar perdés esos puntos).';
   if (G.n>=4 && !R.duel) {
     const vist = (R.seen[ME]||[]);
     if (vist.length) t += `<br><i>Se te escapó ver una seña de ${vist.map(v=>esc(G.names[v.p])).join(' y de ')}: la tenés anotada junto a su nombre.</i>`;
@@ -6826,8 +6882,9 @@ function mySeat(act){
   const playable = new Set(myLegal.filter(a=>a.type==='play').map(a=>a.card.id));
   sm.appendChild(actionsEl(myLegal));
   sm.appendChild(el('div','err', esc(errMsg)));
-  const mh = el('div','hand me');
-  R.hands[ME].forEach(c => {
+  const muestro = G.phase !== 'play' && R.mustShow[ME];
+  const mh = muestro ? mostradasEl(ME, 'hand me') : el('div','hand me');
+  if (!muestro) R.hands[ME].forEach(c => {
     const can = playable.has(c.id);
     const e = cardEl(c, {button: can, cls: can?'play':(act===ME?'dim':''), badge: showHelp && !R.leyPhase});
     if (can) e.onclick = () => human({type:'play', card:c});
@@ -6908,7 +6965,11 @@ function actionsEl(myLegal){
     acts.appendChild(box);
     setTimeout(()=>{ const i=$('singInput'); if(i) i.focus(); }, 0);
   } else {
-    const boton = a => { const b = el('button','act '+actClass(a)); b.textContent = T.label(G,a); b.onclick = () => human(a); return b; };
+    const boton = a => {
+      const b = el('button','act '+actClass(a)); b.textContent = T.label(G,a); b.onclick = () => human(a);
+      if (a.type === 'paso' && G.round.mustShow[ME]) b.title = 'Salís de la mano sin tirar tus cartas: al final las mostrás y no perdés los puntos del envite';
+      return b;
+    };
     const todas = myLegal.filter(a=>a.type!=='play');
     const resp = todas.filter(a => a.type==='quiero' || a.type==='noquiero').sort((a, b) => (a.type==='quiero' ? 0 : 1) - (b.type==='quiero' ? 0 : 1));
     if (resp.length) {
@@ -7375,7 +7436,7 @@ function step(){
         step();
       }), delay);
     }
-  } else timer = setTimeout(() => whenFree(showRoundEnd), (GM.n>=4 ? 2200 : 1600) * delayScale());
+  } else timer = setTimeout(() => whenFree(showRoundEnd), ((GM.n>=4 ? 2200 : 1600) + (GM.round && GM.round.mustShow.some(Boolean) ? 1300 : 0)) * delayScale());
 }
 // Pausas para ver lo que pasa: al empezar la mano y al cerrarse cada baza (devuelve cuánto esperar de más)
 function notePauses(S){
@@ -7399,7 +7460,7 @@ function showRoundEnd(){
   const them = NET && G.n === 2 ? G.names[otherOf2()] : 'La computadora';
   const lines = [];
   if (R.result && R.result.reason === 'abandono') lines.push(`<li><b>${esc(R.result.texto)}</b></li>`);
-  [0,1].forEach(t => R.gained[t].forEach(g => lines.push(`<li><b>${esc(G.teamNames[t])}</b> +${g.pts} — ${esc(g.why)}</li>`)));
+  [0,1].forEach(t => R.gained[t].forEach(g => lines.push(`<li><b>${esc(G.teamNames[t])}</b> ${g.pts < 0 ? '−' + (-g.pts) : '+' + g.pts} — ${esc(g.why)}</li>`)));
   let title = G.phase==='duelEnd' ? `Terminó el duelo ${R.duel.idx+1}` : 'Fin de la mano';
   recordStats(R);
   const res = R.result || {};
@@ -7472,6 +7533,7 @@ function newGame(n){
   clearTimeout(timer); busy = false; deferred = null; ME = 0;
   players = n; store.set('truco.players', String(n));
   GM = T.newMatch({players:n, manual:[realista], rules: tableRules});
+  GM.pjs = Array(n).fill(null); GM.pjs[0] = miPj();
   GM.id = newMatchId();
   T.startRound(GM); startRoundHook(); lastRoundNo = null;
   step();
@@ -7483,6 +7545,26 @@ function newGame(n){
 // La vista sigue al estado del juego: cada vez que se llama a render() se calcula dónde
 // tiene que estar cada carta y las que cambiaron de lugar viajan hasta ahí.
 // Si el navegador no tiene WebGL, se juega con la mesa 2D.
+
+// Personajes que se pueden elegir (así te ven los demás en la mesa 3D). Cada uno es una combinación de piel,
+// pelo, color de pelo y accesorios que arma makeChar. Para sumar uno, se agrega acá con un código nuevo
+// (minúsculas, sin espacios: es lo que se guarda en la cuenta). Más adelante un personaje podría traer su
+// propio modelo (un archivo .glb) en vez de armarse con piezas.
+const PERSONAJES = [
+  { id: 'clasico',   nombre: 'Clásico',     look: { skin: 0xdcae86, hair: 'corto', hc: 0x2b1c12 } },
+  { id: 'morocho',   nombre: 'Morocho',     look: { skin: 0x8a5636, hair: 'rapado', hc: 0x140e0a, barba: true } },
+  { id: 'moreno',    nombre: 'Moreno',      look: { skin: 0x5c3822, hair: 'rulos', hc: 0x0f0a07 } },
+  { id: 'blanquito', nombre: 'Blanquito',   look: { skin: 0xf7dcc6, hair: 'corto', hc: 0x7a5232, brow: 0x5e3e24 } },
+  { id: 'rubio',     nombre: 'Rubio',       look: { skin: 0xf3d2b5, hair: 'jopo', hc: 0xd9b55e, brow: 0x9a7a3c } },
+  { id: 'boina',     nombre: 'De boina',    look: { skin: 0xd6a078, hair: 'boina', hc: 0x23283a, brow: 0x2a1e18, must: true, mc: 0x2a1e18 } },
+  { id: 'callejero', nombre: 'Callejero',   look: { skin: 0xc28a5e, hair: 'gorra', hc: 0x1a120d, gc: 0x1d1d22, gc2: 0xc8312d, barba: true, capucha: true } },
+  { id: 'abuelo',    nombre: 'El abuelo',   look: { skin: 0xe8bd98, hair: 'pelado', hc: 0xd9d4cc, must: true, lentes: true } },
+  { id: 'morocha',   nombre: 'Morocha',     look: { skin: 0x9b6542, hair: 'largo', hc: 0x16100c } },
+  { id: 'rubia',     nombre: 'Rubia',       look: { skin: 0xf5d6bd, hair: 'colita', hc: 0xe0bf6a, brow: 0x9a7a3c } },
+  { id: 'colorada',  nombre: 'Colorada',    look: { skin: 0xf7d9c5, hair: 'rodete', hc: 0xa8461e, brow: 0x7a3a1c, lentes: true } },
+];
+const pjValido = k => typeof k === 'string' && PERSONAJES.some(x => x.id === k) ? k : null;
+
 const V3 = (function(){
   const OFF = { available: () => false, update(){}, pause(){} };
   if (typeof THREE === 'undefined') return OFF;
@@ -7689,6 +7771,7 @@ const V3 = (function(){
     GEO.lip = new THREE.CapsuleGeometry(.062, .3, 4, 12);
     GEO.must = new THREE.CapsuleGeometry(.06, .36, 4, 10);
     GEO.ring = new THREE.TorusGeometry(.085, .058, 12, 24);
+    GEO.lente = new THREE.TorusGeometry(.2, .028, 8, 28);
     GEO.arm = new THREE.CapsuleGeometry(.36, 1.7, 6, 14);
     GEO.torso = new THREE.CapsuleGeometry(1.15, 2.7, 8, 22);
     GEO.neck = new THREE.CylinderGeometry(.38, .44, .8, 18);
@@ -7759,11 +7842,12 @@ const V3 = (function(){
   function rowDir(p){ const a = ang(p); return (Lay.n === 4 && Math.abs(Math.cos(a)) > .5) ? v3(0, 0, 1) : v3(1, 0, 0); }
   function humanSeat(){ return v3(0, 4.3, Lay.TR + 2.2); }
 
+  const claveMesa = () => G.names.join('|') + '#' + ME + '#' + (G.pjs || []).join(',');
   function build(){
     if (Lay) { scene.remove(Lay.root); lbls.innerHTML = ''; }
     const n = G.n, P = PARAMS[n], root = new THREE.Group();
     scene.add(root);
-    Lay = Object.assign({ n, root, names: G.names.join('|') + '#' + ME, chars: [] }, P);
+    Lay = Object.assign({ n, root, names: claveMesa(), chars: [] }, P);
     buildTable(root, P.TR);
     for (let p = 0; p < n; p++) {
       if (p === ME) { Lay.chars.push(null); continue; }
@@ -7826,12 +7910,14 @@ const V3 = (function(){
     'nada': { eyeA: .03, eyeB: .03 },
   };
 
-  function makeChar(p, name){
-    const lk = LOOKS[name] || SEAT_LOOKS[p] || LOOKS.Tito;
+  const lookDe = id => { const x = PERSONAJES.find(q => q.id === id); return x ? x.look : null; };
+  function makeChar(p, name, forzar){
+    const lk = forzar || lookDe(G && G.pjs && G.pjs[p]) || LOOKS[name] || SEAT_LOOKS[p] || LOOKS.Tito;
     const shirt = SHIRTS[team(p) === team(ME) ? 0 : 1][Math.floor(p/2) % 3]; // tu equipo de celeste
     const M = {
       skin: std(lk.skin, .72), skin2: std(new THREE.Color(lk.skin).multiplyScalar(.9), .7), shirt: std(shirt, .9),
       hair: std(lk.hc, .95), brow: std(lk.brow || lk.hc, .9), pants: std(0x2d2b36, .9), wood: std(0x4a2b17, .65),
+      gorra: std(lk.gc || 0x222222, .8), gorra2: std(lk.gc2 || lk.gc || 0x222222, .8), mus: std(lk.mc || lk.hc, .95), lente: std(0x1c1612, .35),
       lip: std(0xa4433e, .55), tongue: std(0xd8606a, .45), white: std(0xfbfaf4, .35), dark: std(0x17110e, .4), inner: std(0x3a1313, .9), tooth: std(0xfffdf5, .3),
     };
     const g = new THREE.Group(), body = new THREE.Group(); g.add(body);
@@ -7843,6 +7929,7 @@ const V3 = (function(){
     body.add(mesh(GEO.box, M.pants, 0, -3.0, .7, 2.2, .95, 2.8));
     const torso = mesh(GEO.torso, M.shirt, 0, .25, -.2, 1.2, 1, .8); body.add(torso);
     body.add(mesh(GEO.neck, M.skin, 0, 3.05, -.12));
+    if (lk.capucha) body.add(mesh(GEO.sph, M.shirt, 0, 2.95, -.78, 1.05, .5, .55));   // la capucha del buzo, atrás del cuello
     const hands = [];
     for (const sx of [1, -1]) {
       const a = v3(sx*1.35, 2.15, -.2), b = v3(sx*.58, 1.38, 1.28);
@@ -7876,7 +7963,19 @@ const V3 = (function(){
     [lipU, lipL, inner, teeth, ring, tongue].forEach(m => { m.castShadow = false; mouth.add(m); });
     if (lk.must) {
       const mu = new THREE.Group(); mu.position.set(0, -.31, .92); mu.rotation.x = .3; head.add(mu);
-      for (const sx of [1, -1]) { const m = mesh(GEO.must, M.hair, sx*.13, 0, 0); m.rotation.z = PI/2 + sx*.35; m.castShadow = false; mu.add(m); }
+      for (const sx of [1, -1]) { const m = mesh(GEO.must, M.mus, sx*.13, 0, 0); m.rotation.z = PI/2 + sx*.35; m.castShadow = false; mu.add(m); }
+    }
+    if (lk.barba) {
+      // la barba va por debajo de la boca (no la tapa cuando habla ni cuando hace señas con los labios)
+      head.add(mesh(GEO.sph, M.hair, 0, -.78, .3, .8, .5, .55));
+      for (const sx of [1, -1]) head.add(mesh(GEO.sph, M.hair, sx*.8, -.25, .12, .16, .42, .34));
+    }
+    if (lk.lentes) {
+      for (const sx of [1, -1]) {
+        const l = mesh(GEO.lente, M.lente, sx*.34, .14, .92); l.castShadow = false; head.add(l);
+        const pat = mesh(GEO.box, M.lente, sx*.78, .17, .45, .04, .04, .8); pat.rotation.y = sx*.28; pat.castShadow = false; head.add(pat);
+      }
+      const pu = mesh(GEO.box, M.lente, 0, .17, .96, .16, .035, .035); pu.castShadow = false; head.add(pu);
     }
     hair(head, lk, M);
     const c = { p, g, body, pivot, head, skull, eyes, brows, nose, mouth, lipU, lipL, inner, teeth, ring, tongue, hands,
@@ -7905,6 +8004,27 @@ const V3 = (function(){
         if (z > .45 && y < .75) continue;
         head.add(mesh(GEO.sphLo, H, x*.95, y + .05, z, .3));
       }
+    } else if (lk.hair === 'rapado') cap(1.012, 1.3, .5);
+    else if (lk.hair === 'largo') {
+      cap(1.045, 1.35, .45);
+      head.add(mesh(GEO.sph, H, 0, -.4, -.42, 1.0, 1.25, .62));                       // cae por la espalda
+      for (const sx of [1, -1]) head.add(mesh(GEO.sph, H, sx*.84, -.5, -.05, .24, .78, .38));
+    } else if (lk.hair === 'colita') {
+      // flequillo y la colita que cae por adelante, sobre un hombro (así se ve de frente)
+      cap(1.045, 1.3, .5);
+      head.add(mesh(GEO.sph, H, -.12, .66, .58, .74, .24, .36));
+      head.add(mesh(GEO.sphLo, H, .62, .1, -.7, .2));
+      head.add(mesh(GEO.sph, H, .74, -.45, -.48, .25, .55, .27));
+      head.add(mesh(GEO.sph, H, .86, -1.05, -.12, .22, .5, .24));
+    } else if (lk.hair === 'rodete') {
+      cap(1.045, 1.3, .5);
+      head.add(mesh(GEO.sph, H, 0, 1.12, -.3, .42, .36, .42));            // rodete alto
+    } else if (lk.hair === 'gorra') {
+      // gorra con la visera de costado; se le ve el pelo a los costados
+      cap(1.03, 1.45, .5);
+      cap(1.075, 1.12, .28, M.gorra);
+      head.add(mesh(GEO.sphLo, M.gorra2, 0, 1.08, -.1, .1));
+      const v = mesh(GEO.sph, M.gorra2, .98, .48, -.22, .55, .06, .42); v.rotation.z = -.32; v.rotation.y = .25; head.add(v);
     } else if (lk.hair === 'pelado') {
       for (const sx of [1, -1]) head.add(mesh(GEO.sph, H, sx*.78, .1, -.32, .32, .42, .55));
       head.add(mesh(GEO.sph, H, 0, .05, -.8, .7, .45, .35));
@@ -8175,7 +8295,7 @@ const V3 = (function(){
     const R = G.round;
     if (!R) return;
     let fresh = false;
-    if (!Lay || Lay.n !== G.n || Lay.names !== G.names.join('|') + '#' + ME) { build(); fresh = true; }
+    if (!Lay || Lay.n !== G.n || Lay.names !== claveMesa()) { build(); fresh = true; }
     if (S.mid !== G.id) {   // empezó otro partido (G es una copia nueva en cada dibujo: se compara la marca)
       S.mid = G.id; S.roundNo = null; S.jobs = []; S.job = null; S.said = {}; S.cnt.partido++;
       CAM.user = false; const d = defaultCam();
@@ -8556,8 +8676,38 @@ const V3 = (function(){
   function resume(){ if (!running) { running = true; last = clock(); now = last; rafId = requestAnimationFrame(frame); } }
   function pause(){ if (running) { running = false; cancelAnimationFrame(rafId); } }
 
+  // ---------- retratos para elegir personaje ----------
+  // Cada personaje se arma igual que en la mesa y se le saca una foto de la cabeza y los hombros, con un
+  // renderizador chico aparte (la mesa puede estar pausada o sin abrir). Las fotos quedan guardadas.
+  let rt = null; const RET = {};
+  function retrato(id){
+    if (RET[id]) return RET[id];
+    const P = PERSONAJES.find(x => x.id === id);
+    if (!P || !init()) return null;
+    if (!rt) {
+      const cv = document.createElement('canvas'); cv.width = cv.height = 220;
+      let r; try { r = new THREE.WebGLRenderer({ canvas: cv, antialias: true, alpha: true, preserveDrawingBuffer: true }); } catch (e) { return null; }
+      r.setPixelRatio(1); r.setSize(220, 220, false); r.toneMapping = THREE.ACESFilmicToneMapping; r.toneMappingExposure = 1.1;
+      const sc = new THREE.Scene();
+      sc.add(new THREE.HemisphereLight(0xffe8c8, 0x2b1a10, 1.25));
+      const d = new THREE.DirectionalLight(0xfff1dc, 1.7); d.position.set(3, 9, 10); sc.add(d);
+      const b = new THREE.DirectionalLight(0x9fb9ff, .5); b.position.set(-6, 6, -8); sc.add(b);
+      const cam = new THREE.PerspectiveCamera(21, 1, .1, 60); cam.position.set(0, 4.55, 10); cam.lookAt(0, 3.75, 0);
+      rt = { r, sc, cam, cv };
+    }
+    const c = makeChar(ME, null, P.look);
+    c.g.rotation.y = -.28;  // apenas de costado, como se lo ve desde la mesa
+    rt.sc.add(c.g); rt.r.render(rt.sc, rt.cam);
+    const url = rt.cv.toDataURL('image/png');
+    rt.sc.remove(c.g);
+    const comunes = new Set(Object.values(GEO));
+    c.g.traverse(o => { if (o.isMesh) { if (!comunes.has(o.geometry)) o.geometry.dispose(); o.material.dispose(); } });
+    return RET[id] = url;
+  }
+
   return {
     available: () => init(),
+    retrato,
     update, pause,
     debug: () => ({ CARDS, S, CAM, Lay, camera, setView, renderer, queue: (p, l, k) => { queueSenas(p, l, k || 'partner'); S.jobs[S.jobs.length-1].notBefore = now; } }),
   };
@@ -8601,9 +8751,10 @@ function howToModal(){
   <p><b>La muestra de cerca:</b> pasá el cursor por encima de la muestra (o tocala) y la cámara se acerca a mirarla; con el teclado, la tecla M.</p>
   <p><b>Tiempo:</b> tenés 30 segundos para cada decisión (se cambia en Reglas de la mesa). Si se te acaba, decide la computadora por vos. Con el menú abierto la cuenta se frena.</p>
   <p><b>Señas pescadas:</b> de cada 50 señas que se hacen, una la ve algún rival. Te puede pasar a vos con las señas de Tito y Nacho, y a ellos con las tuyas o las de Pocho. Lo que se ve es siempre verdad, y la computadora también lo usa.</p>
-  <p><b>Modo realista:</b> la flor no se canta sola y los puntos los cantás vos. Si jugás o cantás otra cosa sin cantar tu flor, la negás. Las faltas se descubren cuando se ven tus cartas: si ganás un envite (tenés que mostrarlas) o si jugás las tres. Cantar errado o negar la flor, si se descubre, te hace perder todo lo de la mano (Art. 46). Cantar flor sin tenerla se descubre enseguida. Si se descubre que ganaste un envite negando la flor, es falta grave (Art. 100).</p>
+  <p><b>Modo realista:</b> la flor no se canta sola y los puntos los cantás vos. Si jugás o cantás otra cosa sin cantar tu flor, la negás. Las faltas se descubren cuando se ven tus cartas: si ganás un envite (tenés que mostrarlas) o si jugás las tres. Cantar errado o negar la flor, si se descubre, te hace perder todo lo de la mano (Art. 46). Cantar flor sin tenerla se descubre enseguida. Si se descubre que ganaste un envite negando la flor, es falta grave (Art. 100). Si ganaste el envido o cantaste flor y te vas al mazo, tirás tus cartas sin mostrarlas y perdés esos puntos: para salir de la mano sin perderlos, decí <i>paso</i> y las mostrás al final.</p>
+  <p><b>Mostrar las cartas:</b> al terminar la mano, el que ganó el envido o cantó flor da vuelta sus cartas sobre la mesa para que se vea que tenía lo que cantó (Art. 45).</p>
   <p><b>Paso y mazo:</b> en parejas y tercetos, si decís "paso" salís de la mano y no jugás más bazas, pero te quedás con tus cartas por si tenés que mostrarlas (Arts. 88 y 92). Si te vas al mazo sin ser el pie de tu equipo, te vas solo y tu equipo sigue; si se va el pie, pierde el equipo. En Reglas de la mesa podés elegir en cambio que irse al mazo saque a todo el equipo (Art. 90). Si un equipo se va en la primera baza sin que nadie haya tocado ni gritado, y al otro todavía le quedaba tocar, el otro cobra <b>dos</b> puntos.</p>
-  <p><b>Atajos al compañero:</b> en parejas y tercetos, abajo tenés <i>¡Vení!</i> (que gane la baza), <i>¡Jugá algo!</i> (que no tire la peor), <i>¡Gritá!</i> (que cante truco) y <i>Tengo algo para el tanto</i> (que toque o quiera el envido). Los oye toda la mesa, como si lo dijeras en voz alta; la computadora compañera te hace caso.</p>
+  <p><b>Atajos al compañero:</b> en parejas y tercetos, abajo tenés <i>¡Vení!</i> (que juegue su carta más baja, que la baza la hacés vos), <i>¡Jugá algo!</i> (que no tire la peor), <i>¡Gritá!</i> (que cante truco) y <i>Tengo algo para el tanto</i> (que toque o quiera el envido). Los oye toda la mesa, como si lo dijeras en voz alta; la computadora compañera te hace caso.</p>
   <p><b>Tercetos:</b> hasta que un equipo llega a la mitad del chico se alternan rondas generales y rondas mano a mano, en las que cada uno juega contra el rival de enfrente; ahí la falta tiene tope de 10 (Arts. 83 a 87). En esos duelos (el pico a pico) las piezas se juegan dadas vuelta: solo las ven los dos que juegan ese duelo.</p>
   <p><b>A ley de juego:</b> en parejas y tercetos, cuando algún equipo ya entró en buenas, el equipo que va perdiendo (o el del mano, si van iguales) puede imponerla en cada mano antes de ver las cartas y la muestra (nadie ve sus cartas mientras se decide), o jugar normal. Los rivales, ya con sus cartas a la vista, dicen cada uno en su turno "con ley" si tienen flor o "a punto" si no, y después el pie de su equipo contesta todo de una vez. Los que la impusieron ven sus cartas cuando llega la respuesta. Si hay flor y no se quiere el envite, se cobra la flor y el envite no querido no suma para nadie. Es una versión simplificada del Cap. 7: no incluye los reenvites del Art. 76 ni el Art. 79.</p>
   <p><b>Reglas de la mesa:</b> en Configuración, desde el menú: puntos por chico, cantidad de chicos, tiempo para decidir, con o sin flor, qué pasa con tu flor si tu compañero toca o grita, cartas iguales, señas y dificultad.</p>
@@ -8735,7 +8886,7 @@ function pintarInicio(){
     <div class="row"><button class="act flor" id="hYes">Empezar partido nuevo</button><button class="act mazo" id="hNo">Cancelar</button></div></div>`;
   h += '</section>';
   h += `<nav class="hlinks" aria-label="Más opciones">
-    <button class="tool" id="hCfg">Configuración</button><button class="tool" id="hDeck">Tu mazo</button>
+    <button class="tool" id="hCfg">Configuración</button><button class="tool" id="hPj">Tu personaje</button><button class="tool" id="hDeck">Tu mazo</button>
     <button class="tool" id="hHow">Cómo se juega</button><button class="tool" id="hStats">Estadísticas</button></nav>
     <p class="hcred">Cartas: baraja española libre de <a href="https://commons.wikimedia.org/wiki/Category:Spanish_playing_cards" target="_blank" rel="noopener">Basquetteur</a> (Wikimedia Commons), con licencia <a href="https://creativecommons.org/licenses/by-sa/3.0/deed.es" target="_blank" rel="noopener">CC BY-SA 3.0</a>.</p>`;
   box.innerHTML = h;
@@ -8753,6 +8904,7 @@ function pintarInicio(){
   if (confirmNew) { $('hYes').onclick = () => startGame(confirmNew); $('hNo').onclick = () => { confirmNew = null; renderHome(); }; }
   $('hCfg').onclick = () => { homeView = 'config'; renderHome(); $('hBack').focus(); };
   $('hDeck').onclick = deckModal;
+  $('hPj').onclick = pjModal;
   $('hHow').onclick = howToModal;
   $('hStats').onclick = statsModal;
   bindCuenta();
@@ -8973,7 +9125,7 @@ function onPeerEvent(ev, peer, err){
 }
 function serverHello(){
   if (!NET || NET.tr.kind !== 'server') return;
-  NET.tr.post({ t: 'hello', v: NETV, code: NET.code, from: NET.cid, name: NET.name, pid: myPid(), realista, key: NET.ownerKey || undefined, crear: NET.crear || undefined, token: CUENTA.token || undefined });
+  NET.tr.post({ t: 'hello', v: NETV, code: NET.code, from: NET.cid, name: NET.name, pid: myPid(), realista, pj: miPj() || undefined, key: NET.ownerKey || undefined, crear: NET.crear || undefined, token: CUENTA.token || undefined });
 }
 // el servidor se cortó o volvió (se reconecta solo)
 function onServerLink(ev){
@@ -8981,7 +9133,7 @@ function onServerLink(ev){
 }
 function sayHello(peer){
   if (NET && NET.tr.kind === 'server') return serverHello();
-  const go = () => { if (!NET || NET.role !== 'guest') return; try { NET.tr.post({ t: 'hello', name: NET.name, realista, v: NETV, code: NET.code, from: NET.cid }, peer || NET.hostPeer); } catch (e) {} };
+  const go = () => { if (!NET || NET.role !== 'guest') return; try { NET.tr.post({ t: 'hello', name: NET.name, realista, pj: miPj() || undefined, v: NETV, code: NET.code, from: NET.cid }, peer || NET.hostPeer); } catch (e) {} };
   if (!NET.tr.self || NET.ready0) go(); else NET.onSelf = go;
 }
 // el anfitrión pregunta "¿seguís ahí?" cada 4 segundos; quien no contesta tres seguidas se fue
@@ -9098,7 +9250,7 @@ function onHostMsg(m){
   switch (m.t) {
     case 'hello': {
       if (s >= 0) { netPost(lobbyMsg()); if (NET.started) publish(); return; }
-      const who = { kind: 'guest', cid: g, name: cleanName(m.name) };
+      const who = { kind: 'guest', cid: g, name: cleanName(m.name), pj: pjValido(m.pj) };
       if (NET.started) {
         // partido empezado: si vuelve alguien que se había ido, recupera su lugar; si no, elige uno libre
         const back = NET.seats.findIndex(x => x.kind === 'ai' && x.left && x.name === who.name);
@@ -9113,7 +9265,7 @@ function onHostMsg(m){
     case 'sit': {
       const p = m.seat;
       if (p === s || !NET.seats[p] || NET.seats[p].kind !== 'ai') return;
-      const who = s >= 0 ? NET.seats[s] : { kind: 'guest', cid: g, name: cleanName(m.name) };
+      const who = s >= 0 ? NET.seats[s] : { kind: 'guest', cid: g, name: cleanName(m.name), pj: pjValido(m.pj) };
       if (s >= 0) freeSeat(s);
       takeSeat(p, who, m.realista);
       return;
@@ -9153,6 +9305,8 @@ function takeSeat(p, who, realista){
   if (NET.started && GM) {
     if (!GM.humans.includes(p)) GM.humans.push(p);
     GM.names[p] = who.name;
+    if (!GM.pjs) GM.pjs = Array(GM.n).fill(null);
+    GM.pjs[p] = who.pj || null;
     if (GM.n > 2) GM.teamNames = [0, 1].map(t => joinY(GM.names.filter((_, q) => team(q) === t)));
     else GM.teamNames = GM.names.slice();
   }
@@ -9162,7 +9316,7 @@ function takeSeat(p, who, realista){
 // el lugar vuelve a la computadora (si ya empezó, sigue jugando con el nombre de quien estaba)
 function freeSeat(p){
   const prev = NET.seats[p];
-  NET.seats[p] = NET.started ? { kind: 'ai', name: prev.name, left: prev.kind === 'guest' } : { kind: 'ai', name: AI_NAMES[NET.n][p] };
+  NET.seats[p] = NET.started ? { kind: 'ai', name: prev.name, left: prev.kind === 'guest', pj: prev.pj || null } : { kind: 'ai', name: AI_NAMES[NET.n][p] };
   NET.ready.delete(p);
   if (NET.started && GM) {
     GM.humans = GM.humans.filter(q => q !== p);
@@ -9178,6 +9332,7 @@ function startTable(){
   ME = 0;
   GM = T.newMatch({ players: n, names, humans, rules: tableRules, manual: NET.seats.map((s, p) => p === 0 ? realista : s.kind === 'guest' && !!NET.prefs[p]), teamNames });
   GM.id = newMatchId();
+  GM.pjs = NET.seats.map((s, p) => p === 0 ? miPj() : s.kind === 'guest' ? s.pj || null : null);
   T.startRound(GM); startRoundHook(); lastRoundNo = null;
   NET.started = true; NET.ready = new Set();
   lobbyChanged();
@@ -9310,7 +9465,7 @@ function onState(m){
   render();
   if (!$('home').hidden) return;
   if (G.phase !== 'play') {
-    if (NET.shownEnd !== m.key && !$('mNext')) { NET.shownEnd = m.key; const k = m.key; setTimeout(() => { if (NET && NET.key === k && $('home').hidden && !$('mNext')) showRoundEnd(); }, (G.n >= 4 ? 2200 : 1600) * delayScale()); }
+    if (NET.shownEnd !== m.key && !$('mNext')) { NET.shownEnd = m.key; const k = m.key; setTimeout(() => { if (NET && NET.key === k && $('home').hidden && !$('mNext')) showRoundEnd(); }, ((G.n >= 4 ? 2200 : 1600) + (G.round && G.round.mustShow && G.round.mustShow.some(Boolean) ? 1300 : 0)) * delayScale()); }
   } else if ($('mNext')) closeModal();
 }
 
@@ -9901,7 +10056,7 @@ function renderPerfil(box){
   const datos = [p.lugar ? (p.lugar === 'Fuera de Uruguay' ? 'Juega desde fuera de Uruguay' : 'De ' + esc(p.lugar)) : '', p.cuadro ? 'Hincha de ' + esc(p.cuadro) : ''].filter(Boolean).join(' · ');
   h += `<div class="cficha grande">${avatar(p, 'g')}<div><b>${esc(p.apodo)}</b>${p.nombre ? `<span class="cnom">${esc(p.nombre)}</span>` : ''}<span>${p.enLinea ? '<i class="dot on"></i> En línea · ' : ''}Juega desde ${new Date(p.desde).toLocaleDateString('es-UY', { month: 'long', year: 'numeric' })}${propio ? ` · cuenta n.º ${p.id}` : ''}</span>${datos ? `<span>${datos}</span>` : ''}</div></div>`;
   if (p.bio) h += `<p class="cbio">${esc(p.bio)}</p>`;
-  if (propio) h += `<div class="hlinks"><button class="act flor" id="pEditar">Editar perfil</button></div>`;
+  if (propio) h += `<div class="hlinks"><button class="act flor" id="pEditar">Editar perfil</button><button class="act sec" id="pPj">Tu personaje</button></div>`;
   h += statsHTML(p);
   if (!propio && D.relacion) {
     const r = D.relacion;
@@ -9925,6 +10080,7 @@ function renderPerfil(box){
   };
   if ($('pInv')) $('pInv').onclick = () => invitar(p.id);
   if ($('pEditar')) $('pEditar').onclick = () => { cuentaVista.edit = null; homeView = 'editar'; renderHome(); window.scrollTo(0, 0); };
+  if ($('pPj')) $('pPj').onclick = pjModal;
   if ($('pSalir')) $('pSalir').onclick = async () => { await cuentaSalir(); homeView = 'main'; renderHome(); };
   if ($('pBorrar')) $('pBorrar').onclick = () => { cuentaVista.borrar = true; renderHome(); $('pBorrarNo').focus(); };
   if ($('pBorrarNo')) $('pBorrarNo').onclick = () => { cuentaVista.borrar = false; renderHome(); };
@@ -10103,6 +10259,36 @@ function renderEditar(box){
       volver();
     } catch (x) { E.error = x.message; renderHome(); }
   };
+}
+
+// ---------- Tu personaje: cómo te ven los demás en la mesa 3D ----------
+// Se guarda en este navegador y, con cuenta, también en la cuenta (así es el mismo en el celular y en la
+// compu). Se manda al sentarse en una mesa; los de la computadora tienen cada uno su cara.
+function miPj(){ return pjValido(conCuenta() && CUENTA.yo.pj) || pjValido(store.get('truco.pj')); }
+const hex = n => '#' + n.toString(16).padStart(6, '0');
+function pjModal(){
+  const yo = miPj();
+  const op = (id, nombre, img) => `<button type="button" class="pjop" data-pj="${id}" aria-pressed="${(yo || '') === id}">${img}<b>${esc(nombre)}</b></button>`;
+  const items = PERSONAJES.map(x => {
+    const src = V3.retrato(x.id);
+    return op(x.id, x.nombre, src ? `<img src="${src}" alt="" width="110" height="110">` : `<span class="pjsin" style="--piel:${hex(x.look.skin)};--pelo:${hex(x.look.hc)}" aria-hidden="true"></span>`);
+  }).join('');
+  toolModal(`<h3>Tu personaje</h3>
+    <p class="small">Así te ven los demás en la mesa 3D. Vos mirás desde tu lugar, así que en tu pantalla no aparecés.${NET ? ' En la mesa en la que estás se ve desde la próxima vez que entres.' : ''}</p>
+    <div class="pjgrid" role="group" aria-label="Personajes">${items}${op('', 'Que lo elija el juego', '<span class="pjsin nada" aria-hidden="true">?</span>')}</div>
+    <p class="small" id="pjNota" role="status"></p>
+    <div class="row"><button class="act" id="pjListo">Listo</button></div>`);
+  document.querySelectorAll('.pjop').forEach(b => b.onclick = () => elegirPj(b.dataset.pj || null));
+  $('pjListo').onclick = closeTool;
+}
+async function elegirPj(id){
+  store.set('truco.pj', id || '');
+  document.querySelectorAll('.pjop').forEach(b => b.setAttribute('aria-pressed', String((b.dataset.pj || null) === id)));
+  const nota = $('pjNota');
+  if (nota) nota.textContent = id ? `Elegiste: ${PERSONAJES.find(x => x.id === id).nombre}.` : 'Te toca la cara del lugar donde te sientes.';
+  if (!conCuenta()) return;
+  try { const r = await api('cuenta/editar', { pj: id }); cuentaGuardar(undefined, r.yo); }
+  catch (e) { if ($('pjNota')) $('pjNota').textContent = 'Quedó en este navegador, pero no se pudo guardar en tu cuenta: ' + e.message; }
 }
 
 // ---------- mesas públicas: cualquiera con cuenta elige el modo y se sienta donde esperan gente ----------

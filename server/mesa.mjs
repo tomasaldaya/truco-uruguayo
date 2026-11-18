@@ -9,6 +9,7 @@
 import T from '../engine.js';
 import AI from '../ai.js';
 import TV from '../vista.js';
+const PJ_RE = /^[a-z][a-z0-9-]{0,23}$/;   // código de personaje 3D (como en cuentas.mjs)
 
 const NETV = 1;
 const AI_NAMES = { 2: ['Vos', 'Computadora'], 4: ['Vos', 'Tito', 'Pocho', 'Nacho'], 6: ['Vos', 'Tito', 'Pocho', 'Nacho', 'Lalo', 'Beto'] };
@@ -135,6 +136,7 @@ export class Mesa {
     }
     const name = cleanName(m.name), pid = String(m.pid || '').slice(0, 40) || null;
     c.pid = pid;
+    c.pj = typeof m.pj === 'string' && PJ_RE.test(m.pj) ? m.pj : null;   // el personaje 3D que eligió
     if (typeof m.token === 'string' && m.token && this.io.cuenta && !c.uid) {
       Promise.resolve(this.io.cuenta(m.token.slice(0, 200))).then(u => this.conCuenta(cid, u)).catch(() => {});
     }
@@ -146,7 +148,7 @@ export class Mesa {
       this.n = [2, 4, 6].includes(m.crear.n) ? m.crear.n : 4;
       this.publica = !!m.crear.publica; this.votos = new Set();
       this.started = false; this.GM = null; this.chat = []; this.prefs = {};
-      this.seats = this.seatsFor(this.n, { kind: this.publica ? 'guest' : 'host', name, cid, pid, uid: c.uid || null });
+      this.seats = this.seatsFor(this.n, { kind: this.publica ? 'guest' : 'host', name, cid, pid, uid: c.uid || null, pj: c.pj });
       this.prefs[0] = !!m.realista;
       this.lobbyChanged(); this.saveNow();
       return;
@@ -221,12 +223,14 @@ export class Mesa {
   takeSeat(p, who, realista) {
     const cc = this.conns.get(who.cid);
     if (this.ausentes.has(p)) { this.io.clearTimeout(this.ausentes.get(p)); this.ausentes.delete(p); }
-    this.seats[p] = { kind: who.kind, name: who.name, cid: who.cid, pid: who.pid, uid: (cc && cc.uid) || null };
+    this.seats[p] = { kind: who.kind, name: who.name, cid: who.cid, pid: who.pid, uid: (cc && cc.uid) || null, pj: (cc && cc.pj) || null };
     if (realista !== undefined) this.prefs[p] = !!realista;
     const c = this.conns.get(who.cid); if (c) c.alive = this.pingSeq;
     if (this.started && this.GM) {
       if (!this.GM.humans.includes(p)) this.GM.humans.push(p);
       this.GM.names[p] = who.name;
+      if (!this.GM.pjs) this.GM.pjs = Array(this.GM.n).fill(null);
+      this.GM.pjs[p] = this.seats[p].pj;
       this.GM.teamNames = this.GM.n > 2 ? [0, 1].map(t => joinY(this.GM.names.filter((_, q) => team(q) === t))) : this.GM.names.slice();
     }
     this.notarCuenta(p);
@@ -236,7 +240,7 @@ export class Mesa {
   }
   freeSeat(p) {
     const prev = this.seats[p];
-    this.seats[p] = this.started ? { kind: 'ai', name: prev.name, left: true, pid: prev.pid, host: p === 0 && !this.publica, uid: prev.uid || null } : { kind: 'ai', name: AI_NAMES[this.n][p] };
+    this.seats[p] = this.started ? { kind: 'ai', name: prev.name, left: true, pid: prev.pid, host: p === 0 && !this.publica, uid: prev.uid || null, pj: prev.pj || null } : { kind: 'ai', name: AI_NAMES[this.n][p] };
     this.votos.delete(p);
     if (this.started && prev.uid && this.cuentas.has(prev.uid)) this.cuentas.get(prev.uid).abandono = true;
     this.ready.delete(p);
@@ -355,6 +359,7 @@ export class Mesa {
     this.level = LEVELS.includes(m.level) ? m.level : 'normal';
     this.stopTimers();
     this.GM = T.newMatch({ players: n, names, humans, rules, manual: this.seats.map((s, p) => s.kind !== 'ai' && !!this.prefs[p]), teamNames });
+    this.GM.pjs = this.seats.map(s => s.pj || null);   // los personajes 3D de cada uno (los de la computadora, por su nombre)
     this.GM.id = this.io.now().toString(36) + Math.random().toString(36).slice(2, 7);
     T.startRound(this.GM);
     this.started = true; this.ready = new Set(); this.lastRoundKey = null; this.clock = null;

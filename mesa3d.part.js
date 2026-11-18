@@ -5,6 +5,26 @@
 // La vista sigue al estado del juego: cada vez que se llama a render() se calcula dónde
 // tiene que estar cada carta y las que cambiaron de lugar viajan hasta ahí.
 // Si el navegador no tiene WebGL, se juega con la mesa 2D.
+
+// Personajes que se pueden elegir (así te ven los demás en la mesa 3D). Cada uno es una combinación de piel,
+// pelo, color de pelo y accesorios que arma makeChar. Para sumar uno, se agrega acá con un código nuevo
+// (minúsculas, sin espacios: es lo que se guarda en la cuenta). Más adelante un personaje podría traer su
+// propio modelo (un archivo .glb) en vez de armarse con piezas.
+const PERSONAJES = [
+  { id: 'clasico',   nombre: 'Clásico',     look: { skin: 0xdcae86, hair: 'corto', hc: 0x2b1c12 } },
+  { id: 'morocho',   nombre: 'Morocho',     look: { skin: 0x8a5636, hair: 'rapado', hc: 0x140e0a, barba: true } },
+  { id: 'moreno',    nombre: 'Moreno',      look: { skin: 0x5c3822, hair: 'rulos', hc: 0x0f0a07 } },
+  { id: 'blanquito', nombre: 'Blanquito',   look: { skin: 0xf7dcc6, hair: 'corto', hc: 0x7a5232, brow: 0x5e3e24 } },
+  { id: 'rubio',     nombre: 'Rubio',       look: { skin: 0xf3d2b5, hair: 'jopo', hc: 0xd9b55e, brow: 0x9a7a3c } },
+  { id: 'boina',     nombre: 'De boina',    look: { skin: 0xd6a078, hair: 'boina', hc: 0x23283a, brow: 0x2a1e18, must: true, mc: 0x2a1e18 } },
+  { id: 'callejero', nombre: 'Callejero',   look: { skin: 0xc28a5e, hair: 'gorra', hc: 0x1a120d, gc: 0x1d1d22, gc2: 0xc8312d, barba: true, capucha: true } },
+  { id: 'abuelo',    nombre: 'El abuelo',   look: { skin: 0xe8bd98, hair: 'pelado', hc: 0xd9d4cc, must: true, lentes: true } },
+  { id: 'morocha',   nombre: 'Morocha',     look: { skin: 0x9b6542, hair: 'largo', hc: 0x16100c } },
+  { id: 'rubia',     nombre: 'Rubia',       look: { skin: 0xf5d6bd, hair: 'colita', hc: 0xe0bf6a, brow: 0x9a7a3c } },
+  { id: 'colorada',  nombre: 'Colorada',    look: { skin: 0xf7d9c5, hair: 'rodete', hc: 0xa8461e, brow: 0x7a3a1c, lentes: true } },
+];
+const pjValido = k => typeof k === 'string' && PERSONAJES.some(x => x.id === k) ? k : null;
+
 const V3 = (function(){
   const OFF = { available: () => false, update(){}, pause(){} };
   if (typeof THREE === 'undefined') return OFF;
@@ -211,6 +231,7 @@ const V3 = (function(){
     GEO.lip = new THREE.CapsuleGeometry(.062, .3, 4, 12);
     GEO.must = new THREE.CapsuleGeometry(.06, .36, 4, 10);
     GEO.ring = new THREE.TorusGeometry(.085, .058, 12, 24);
+    GEO.lente = new THREE.TorusGeometry(.2, .028, 8, 28);
     GEO.arm = new THREE.CapsuleGeometry(.36, 1.7, 6, 14);
     GEO.torso = new THREE.CapsuleGeometry(1.15, 2.7, 8, 22);
     GEO.neck = new THREE.CylinderGeometry(.38, .44, .8, 18);
@@ -281,11 +302,12 @@ const V3 = (function(){
   function rowDir(p){ const a = ang(p); return (Lay.n === 4 && Math.abs(Math.cos(a)) > .5) ? v3(0, 0, 1) : v3(1, 0, 0); }
   function humanSeat(){ return v3(0, 4.3, Lay.TR + 2.2); }
 
+  const claveMesa = () => G.names.join('|') + '#' + ME + '#' + (G.pjs || []).join(',');
   function build(){
     if (Lay) { scene.remove(Lay.root); lbls.innerHTML = ''; }
     const n = G.n, P = PARAMS[n], root = new THREE.Group();
     scene.add(root);
-    Lay = Object.assign({ n, root, names: G.names.join('|') + '#' + ME, chars: [] }, P);
+    Lay = Object.assign({ n, root, names: claveMesa(), chars: [] }, P);
     buildTable(root, P.TR);
     for (let p = 0; p < n; p++) {
       if (p === ME) { Lay.chars.push(null); continue; }
@@ -348,12 +370,14 @@ const V3 = (function(){
     'nada': { eyeA: .03, eyeB: .03 },
   };
 
-  function makeChar(p, name){
-    const lk = LOOKS[name] || SEAT_LOOKS[p] || LOOKS.Tito;
+  const lookDe = id => { const x = PERSONAJES.find(q => q.id === id); return x ? x.look : null; };
+  function makeChar(p, name, forzar){
+    const lk = forzar || lookDe(G && G.pjs && G.pjs[p]) || LOOKS[name] || SEAT_LOOKS[p] || LOOKS.Tito;
     const shirt = SHIRTS[team(p) === team(ME) ? 0 : 1][Math.floor(p/2) % 3]; // tu equipo de celeste
     const M = {
       skin: std(lk.skin, .72), skin2: std(new THREE.Color(lk.skin).multiplyScalar(.9), .7), shirt: std(shirt, .9),
       hair: std(lk.hc, .95), brow: std(lk.brow || lk.hc, .9), pants: std(0x2d2b36, .9), wood: std(0x4a2b17, .65),
+      gorra: std(lk.gc || 0x222222, .8), gorra2: std(lk.gc2 || lk.gc || 0x222222, .8), mus: std(lk.mc || lk.hc, .95), lente: std(0x1c1612, .35),
       lip: std(0xa4433e, .55), tongue: std(0xd8606a, .45), white: std(0xfbfaf4, .35), dark: std(0x17110e, .4), inner: std(0x3a1313, .9), tooth: std(0xfffdf5, .3),
     };
     const g = new THREE.Group(), body = new THREE.Group(); g.add(body);
@@ -365,6 +389,7 @@ const V3 = (function(){
     body.add(mesh(GEO.box, M.pants, 0, -3.0, .7, 2.2, .95, 2.8));
     const torso = mesh(GEO.torso, M.shirt, 0, .25, -.2, 1.2, 1, .8); body.add(torso);
     body.add(mesh(GEO.neck, M.skin, 0, 3.05, -.12));
+    if (lk.capucha) body.add(mesh(GEO.sph, M.shirt, 0, 2.95, -.78, 1.05, .5, .55));   // la capucha del buzo, atrás del cuello
     const hands = [];
     for (const sx of [1, -1]) {
       const a = v3(sx*1.35, 2.15, -.2), b = v3(sx*.58, 1.38, 1.28);
@@ -398,7 +423,19 @@ const V3 = (function(){
     [lipU, lipL, inner, teeth, ring, tongue].forEach(m => { m.castShadow = false; mouth.add(m); });
     if (lk.must) {
       const mu = new THREE.Group(); mu.position.set(0, -.31, .92); mu.rotation.x = .3; head.add(mu);
-      for (const sx of [1, -1]) { const m = mesh(GEO.must, M.hair, sx*.13, 0, 0); m.rotation.z = PI/2 + sx*.35; m.castShadow = false; mu.add(m); }
+      for (const sx of [1, -1]) { const m = mesh(GEO.must, M.mus, sx*.13, 0, 0); m.rotation.z = PI/2 + sx*.35; m.castShadow = false; mu.add(m); }
+    }
+    if (lk.barba) {
+      // la barba va por debajo de la boca (no la tapa cuando habla ni cuando hace señas con los labios)
+      head.add(mesh(GEO.sph, M.hair, 0, -.78, .3, .8, .5, .55));
+      for (const sx of [1, -1]) head.add(mesh(GEO.sph, M.hair, sx*.8, -.25, .12, .16, .42, .34));
+    }
+    if (lk.lentes) {
+      for (const sx of [1, -1]) {
+        const l = mesh(GEO.lente, M.lente, sx*.34, .14, .92); l.castShadow = false; head.add(l);
+        const pat = mesh(GEO.box, M.lente, sx*.78, .17, .45, .04, .04, .8); pat.rotation.y = sx*.28; pat.castShadow = false; head.add(pat);
+      }
+      const pu = mesh(GEO.box, M.lente, 0, .17, .96, .16, .035, .035); pu.castShadow = false; head.add(pu);
     }
     hair(head, lk, M);
     const c = { p, g, body, pivot, head, skull, eyes, brows, nose, mouth, lipU, lipL, inner, teeth, ring, tongue, hands,
@@ -427,6 +464,27 @@ const V3 = (function(){
         if (z > .45 && y < .75) continue;
         head.add(mesh(GEO.sphLo, H, x*.95, y + .05, z, .3));
       }
+    } else if (lk.hair === 'rapado') cap(1.012, 1.3, .5);
+    else if (lk.hair === 'largo') {
+      cap(1.045, 1.35, .45);
+      head.add(mesh(GEO.sph, H, 0, -.4, -.42, 1.0, 1.25, .62));                       // cae por la espalda
+      for (const sx of [1, -1]) head.add(mesh(GEO.sph, H, sx*.84, -.5, -.05, .24, .78, .38));
+    } else if (lk.hair === 'colita') {
+      // flequillo y la colita que cae por adelante, sobre un hombro (así se ve de frente)
+      cap(1.045, 1.3, .5);
+      head.add(mesh(GEO.sph, H, -.12, .66, .58, .74, .24, .36));
+      head.add(mesh(GEO.sphLo, H, .62, .1, -.7, .2));
+      head.add(mesh(GEO.sph, H, .74, -.45, -.48, .25, .55, .27));
+      head.add(mesh(GEO.sph, H, .86, -1.05, -.12, .22, .5, .24));
+    } else if (lk.hair === 'rodete') {
+      cap(1.045, 1.3, .5);
+      head.add(mesh(GEO.sph, H, 0, 1.12, -.3, .42, .36, .42));            // rodete alto
+    } else if (lk.hair === 'gorra') {
+      // gorra con la visera de costado; se le ve el pelo a los costados
+      cap(1.03, 1.45, .5);
+      cap(1.075, 1.12, .28, M.gorra);
+      head.add(mesh(GEO.sphLo, M.gorra2, 0, 1.08, -.1, .1));
+      const v = mesh(GEO.sph, M.gorra2, .98, .48, -.22, .55, .06, .42); v.rotation.z = -.32; v.rotation.y = .25; head.add(v);
     } else if (lk.hair === 'pelado') {
       for (const sx of [1, -1]) head.add(mesh(GEO.sph, H, sx*.78, .1, -.32, .32, .42, .55));
       head.add(mesh(GEO.sph, H, 0, .05, -.8, .7, .45, .35));
@@ -697,7 +755,7 @@ const V3 = (function(){
     const R = G.round;
     if (!R) return;
     let fresh = false;
-    if (!Lay || Lay.n !== G.n || Lay.names !== G.names.join('|') + '#' + ME) { build(); fresh = true; }
+    if (!Lay || Lay.n !== G.n || Lay.names !== claveMesa()) { build(); fresh = true; }
     if (S.mid !== G.id) {   // empezó otro partido (G es una copia nueva en cada dibujo: se compara la marca)
       S.mid = G.id; S.roundNo = null; S.jobs = []; S.job = null; S.said = {}; S.cnt.partido++;
       CAM.user = false; const d = defaultCam();
@@ -1078,8 +1136,38 @@ const V3 = (function(){
   function resume(){ if (!running) { running = true; last = clock(); now = last; rafId = requestAnimationFrame(frame); } }
   function pause(){ if (running) { running = false; cancelAnimationFrame(rafId); } }
 
+  // ---------- retratos para elegir personaje ----------
+  // Cada personaje se arma igual que en la mesa y se le saca una foto de la cabeza y los hombros, con un
+  // renderizador chico aparte (la mesa puede estar pausada o sin abrir). Las fotos quedan guardadas.
+  let rt = null; const RET = {};
+  function retrato(id){
+    if (RET[id]) return RET[id];
+    const P = PERSONAJES.find(x => x.id === id);
+    if (!P || !init()) return null;
+    if (!rt) {
+      const cv = document.createElement('canvas'); cv.width = cv.height = 220;
+      let r; try { r = new THREE.WebGLRenderer({ canvas: cv, antialias: true, alpha: true, preserveDrawingBuffer: true }); } catch (e) { return null; }
+      r.setPixelRatio(1); r.setSize(220, 220, false); r.toneMapping = THREE.ACESFilmicToneMapping; r.toneMappingExposure = 1.1;
+      const sc = new THREE.Scene();
+      sc.add(new THREE.HemisphereLight(0xffe8c8, 0x2b1a10, 1.25));
+      const d = new THREE.DirectionalLight(0xfff1dc, 1.7); d.position.set(3, 9, 10); sc.add(d);
+      const b = new THREE.DirectionalLight(0x9fb9ff, .5); b.position.set(-6, 6, -8); sc.add(b);
+      const cam = new THREE.PerspectiveCamera(21, 1, .1, 60); cam.position.set(0, 4.55, 10); cam.lookAt(0, 3.75, 0);
+      rt = { r, sc, cam, cv };
+    }
+    const c = makeChar(ME, null, P.look);
+    c.g.rotation.y = -.28;  // apenas de costado, como se lo ve desde la mesa
+    rt.sc.add(c.g); rt.r.render(rt.sc, rt.cam);
+    const url = rt.cv.toDataURL('image/png');
+    rt.sc.remove(c.g);
+    const comunes = new Set(Object.values(GEO));
+    c.g.traverse(o => { if (o.isMesh) { if (!comunes.has(o.geometry)) o.geometry.dispose(); o.material.dispose(); } });
+    return RET[id] = url;
+  }
+
   return {
     available: () => init(),
+    retrato,
     update, pause,
     debug: () => ({ CARDS, S, CAM, Lay, camera, setView, renderer, queue: (p, l, k) => { queueSenas(p, l, k || 'partner'); S.jobs[S.jobs.length-1].notBefore = now; } }),
   };

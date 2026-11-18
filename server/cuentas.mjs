@@ -14,6 +14,7 @@ export const mesDe = t => new Date(t - 3 * 3600e3).toISOString().slice(0, 7);   
 export const LUGARES = ['Artigas', 'Canelones', 'Cerro Largo', 'Colonia', 'Durazno', 'Flores', 'Florida', 'Lavalleja', 'Maldonado', 'Montevideo', 'Paysandú',
   'Río Negro', 'Rivera', 'Rocha', 'Salto', 'San José', 'Soriano', 'Tacuarembó', 'Treinta y Tres', 'Fuera de Uruguay'];
 export const N_COLORES = 7;
+export const PJ_RE = /^[a-z][a-z0-9-]{0,23}$/;   // código de personaje 3D
 const FOTO_MAX = 90 * 1024;               // la foto ya llega recortada y achicada (256×256): con esto sobra
 const texto = (v, max) => String(v ?? '').normalize('NFC').replace(/[\u0000-\u001f\u007f<>]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max);
 const limpiarApodo = v => String(v || '').normalize('NFC').replace(/[^\p{L}\p{N} ._-]/gu, '').replace(/\s+/g, ' ').trim().slice(0, 20);
@@ -56,7 +57,7 @@ export class Cuentas {
     this.q(`CREATE TABLE IF NOT EXISTS cambios (nombre TEXT PRIMARY KEY, fecha INTEGER, hecho INTEGER)`);
     this.q(`CREATE TABLE IF NOT EXISTS publicas (codigo TEXT PRIMARY KEY, n INTEGER, personas INTEGER, nombres TEXT, creada INTEGER, actualizada INTEGER)`);
     // lo del perfil (columnas que se agregaron después: si ya están, no pasa nada)
-    for (const col of ['nombre TEXT', 'bio TEXT', 'lugar TEXT', 'cuadro TEXT', 'color INTEGER', 'foto_v INTEGER DEFAULT 0']) {
+    for (const col of ['nombre TEXT', 'bio TEXT', 'lugar TEXT', 'cuadro TEXT', 'color INTEGER', 'foto_v INTEGER DEFAULT 0', 'pj TEXT']) {
       try { this.q(`ALTER TABLE usuarios ADD COLUMN ${col}`); } catch (e) {}
     }
     this.q(`CREATE TABLE IF NOT EXISTS fotos (usuario INTEGER PRIMARY KEY, tipo TEXT, datos TEXT)`);
@@ -136,7 +137,7 @@ export class Cuentas {
     const mesActual = mesDe(this.now()), mes = u.mes === mesActual;
     return {
       id: u.id, apodo: u.apodo, desde: u.creado, ...this.cara(u),
-      nombre: u.nombre || '', bio: u.bio || '', lugar: u.lugar || '', cuadro: u.cuadro || '',
+      nombre: u.nombre || '', bio: u.bio || '', lugar: u.lugar || '', cuadro: u.cuadro || '', pj: u.pj || null,
       puntos: Math.round(u.elo), posicion: this.posicion(u),
       partidos: u.partidos, ganados: u.ganados, abandonos: u.abandonos, racha: u.racha, mejorRacha: u.mejor_racha,
       manos: u.manos, manosGanadas: u.manos_ganadas, envidos: u.envidos, flores: u.flores, trucos: u.trucos,
@@ -213,6 +214,8 @@ export class Cuentas {
           if (c.bio !== undefined) set.bio = texto(c.bio, 200);
           if (c.cuadro !== undefined) set.cuadro = texto(c.cuadro, 30);
           if (c.lugar !== undefined) { const l = String(c.lugar || ''); if (l && !LUGARES.includes(l)) return mal(400, 'Elegí de la lista de dónde sos.'); set.lugar = l; }
+          // el personaje de la mesa 3D: el código de uno de los que vienen hechos (la lista está en la página)
+          if (c.pj !== undefined) { const k = c.pj === null || c.pj === '' ? null : String(c.pj); if (k !== null && !PJ_RE.test(k)) return mal(400, 'Personaje inválido.'); set.pj = k; }
           if (c.color !== undefined) { const k = c.color === null ? null : int(c.color); if (k !== null && (k < 0 || k >= N_COLORES)) return mal(400, 'Color inválido.'); set.color = k; }
           if (c.foto === null) { this.q(`DELETE FROM fotos WHERE usuario = ?`, yo.id); set.foto_v = 0; }
           else if (c.foto !== undefined) {

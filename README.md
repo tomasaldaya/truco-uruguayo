@@ -344,3 +344,22 @@ y la mano no se cierra por detrás). Escape los cierra.
   parejas y tercetos una barra con Frases, Señas y Tanteador que abre hojas por encima (`pintarHoja`). La hoja
   de señas va arriba para que veas tus cartas mientras elegís. Los tamaños de las cartas se ajustan al alto de
   la pantalla (`--mh`, `--xc`, `--dk`).
+
+## Vení, mostrar las cartas, el paso y los personajes (18/11, tercera tanda)
+
+- **¡Vení!** quiere decir "jugá tu carta más baja, que la baza la hago yo": la computadora compañera tira la
+  más baja (`cumplirPedido` en `ai.js`).
+- **Mostrar las cartas (Art. 45)**: al terminar la mano, el que ganó el envido o cantó flor da vuelta sus
+  cartas sobre la mesa. En la 3D quedan boca arriba en su lugar; en la 2D aparecen en su asiento, una atrás de
+  otra (`mostradasEl`). El cartel del fin de mano espera un poco más para que se vean.
+- **Paso para el que tiene que mostrar**: quien ganó el envido o cantó flor puede decir paso (aun mano a mano):
+  sale de la mano sin tirar sus cartas y las muestra al final. En el modo realista, si en cambio se va al
+  mazo, tira las cartas sin mostrar y su equipo pierde esos puntos, que no cobra nadie (`sinMostrar` en
+  `engine.js`; en el cartel aparece con un menos). Sin el modo realista, al irse se muestran solas.
+- **Personajes 3D**: cada uno elige cómo lo ven los demás en la mesa 3D ("Tu personaje", en el inicio y en el
+  perfil). Vienen once hechos (`PERSONAJES` en `mesa3d.part.js`: clásico, morocho, moreno, blanquito, rubio,
+  de boina, callejero, el abuelo, morocha, rubia y colorada), armados con piezas (piel, pelo, barba, bigote,
+  lentes, gorra, capucha); las fotos del selector se sacan del mismo modelo (`V3.retrato`). Se guarda en el
+  navegador y en la cuenta (columna `pj`), se manda al sentarse (`pj` en `hello`) y llega a todos en
+  `G.pjs`. Los de la computadora tienen cada uno su cara. Para sumar personajes hechos con otro programa, la
+  idea es que un personaje pueda traer su propio modelo `.glb` en vez de armarse con piezas.

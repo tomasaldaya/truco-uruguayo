@@ -302,7 +302,7 @@ function renderPerfil(box){
   const datos = [p.lugar ? (p.lugar === 'Fuera de Uruguay' ? 'Juega desde fuera de Uruguay' : 'De ' + esc(p.lugar)) : '', p.cuadro ? 'Hincha de ' + esc(p.cuadro) : ''].filter(Boolean).join(' · ');
   h += `<div class="cficha grande">${avatar(p, 'g')}<div><b>${esc(p.apodo)}</b>${p.nombre ? `<span class="cnom">${esc(p.nombre)}</span>` : ''}<span>${p.enLinea ? '<i class="dot on"></i> En línea · ' : ''}Juega desde ${new Date(p.desde).toLocaleDateString('es-UY', { month: 'long', year: 'numeric' })}${propio ? ` · cuenta n.º ${p.id}` : ''}</span>${datos ? `<span>${datos}</span>` : ''}</div></div>`;
   if (p.bio) h += `<p class="cbio">${esc(p.bio)}</p>`;
-  if (propio) h += `<div class="hlinks"><button class="act flor" id="pEditar">Editar perfil</button></div>`;
+  if (propio) h += `<div class="hlinks"><button class="act flor" id="pEditar">Editar perfil</button><button class="act sec" id="pPj">Tu personaje</button></div>`;
   h += statsHTML(p);
   if (!propio && D.relacion) {
     const r = D.relacion;
@@ -326,6 +326,7 @@ function renderPerfil(box){
   };
   if ($('pInv')) $('pInv').onclick = () => invitar(p.id);
   if ($('pEditar')) $('pEditar').onclick = () => { cuentaVista.edit = null; homeView = 'editar'; renderHome(); window.scrollTo(0, 0); };
+  if ($('pPj')) $('pPj').onclick = pjModal;
   if ($('pSalir')) $('pSalir').onclick = async () => { await cuentaSalir(); homeView = 'main'; renderHome(); };
   if ($('pBorrar')) $('pBorrar').onclick = () => { cuentaVista.borrar = true; renderHome(); $('pBorrarNo').focus(); };
   if ($('pBorrarNo')) $('pBorrarNo').onclick = () => { cuentaVista.borrar = false; renderHome(); };
@@ -504,6 +505,36 @@ function renderEditar(box){
       volver();
     } catch (x) { E.error = x.message; renderHome(); }
   };
+}
+
+// ---------- Tu personaje: cómo te ven los demás en la mesa 3D ----------
+// Se guarda en este navegador y, con cuenta, también en la cuenta (así es el mismo en el celular y en la
+// compu). Se manda al sentarse en una mesa; los de la computadora tienen cada uno su cara.
+function miPj(){ return pjValido(conCuenta() && CUENTA.yo.pj) || pjValido(store.get('truco.pj')); }
+const hex = n => '#' + n.toString(16).padStart(6, '0');
+function pjModal(){
+  const yo = miPj();
+  const op = (id, nombre, img) => `<button type="button" class="pjop" data-pj="${id}" aria-pressed="${(yo || '') === id}">${img}<b>${esc(nombre)}</b></button>`;
+  const items = PERSONAJES.map(x => {
+    const src = V3.retrato(x.id);
+    return op(x.id, x.nombre, src ? `<img src="${src}" alt="" width="110" height="110">` : `<span class="pjsin" style="--piel:${hex(x.look.skin)};--pelo:${hex(x.look.hc)}" aria-hidden="true"></span>`);
+  }).join('');
+  toolModal(`<h3>Tu personaje</h3>
+    <p class="small">Así te ven los demás en la mesa 3D. Vos mirás desde tu lugar, así que en tu pantalla no aparecés.${NET ? ' En la mesa en la que estás se ve desde la próxima vez que entres.' : ''}</p>
+    <div class="pjgrid" role="group" aria-label="Personajes">${items}${op('', 'Que lo elija el juego', '<span class="pjsin nada" aria-hidden="true">?</span>')}</div>
+    <p class="small" id="pjNota" role="status"></p>
+    <div class="row"><button class="act" id="pjListo">Listo</button></div>`);
+  document.querySelectorAll('.pjop').forEach(b => b.onclick = () => elegirPj(b.dataset.pj || null));
+  $('pjListo').onclick = closeTool;
+}
+async function elegirPj(id){
+  store.set('truco.pj', id || '');
+  document.querySelectorAll('.pjop').forEach(b => b.setAttribute('aria-pressed', String((b.dataset.pj || null) === id)));
+  const nota = $('pjNota');
+  if (nota) nota.textContent = id ? `Elegiste: ${PERSONAJES.find(x => x.id === id).nombre}.` : 'Te toca la cara del lugar donde te sientes.';
+  if (!conCuenta()) return;
+  try { const r = await api('cuenta/editar', { pj: id }); cuentaGuardar(undefined, r.yo); }
+  catch (e) { if ($('pjNota')) $('pjNota').textContent = 'Quedó en este navegador, pero no se pudo guardar en tu cuenta: ' + e.message; }
 }
 
 // ---------- mesas públicas: cualquiera con cuenta elige el modo y se sienta donde esperan gente ----------

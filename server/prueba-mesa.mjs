@@ -83,6 +83,17 @@ t('solo el dueño cambia el modo y empieza; cada uno recibe solo sus cartas', ()
   assert(sb.view.round.hands[2].every(c => !c.hidden));
 });
 
+t('el personaje 3D que elige cada uno llega a todos (y uno inválido no)', () => {
+  const W = mundo(), m = new Mesa(W.io, null);
+  m.onOpen('a'); m.onMessage('a', { t: 'hello', name: 'Ana', pid: 'pa', pj: 'boina', crear: { n: 4, key: 'k' } });
+  m.onOpen('b'); m.onMessage('b', { t: 'hello', name: 'Juan', pid: 'pb', pj: '<script>' });
+  m.onOpen('c'); m.onMessage('c', { t: 'hello', name: 'Pedro', pid: 'pc', pj: 'callejero' });
+  m.onMessage('a', { t: 'start', speed: 'rápida' });
+  const v = last(W.inbox, 'b', 'state').view;
+  assert.equal(v.pjs[0], 'boina'); assert.equal(v.pjs[2], null);
+  assert.equal(v.pjs.filter(x => x === 'callejero').length, 1);
+});
+
 t('partido entre dos personas y la computadora: avanza, valida jugadas y sigue solo al fin de mano', () => {
   const W = mundo(), m = new Mesa(W.io, null);
   m.onOpen('a'); m.onMessage('a', { t: 'hello', name: 'Ana', pid: 'pa', crear: { n: 4, key: 'k' } });

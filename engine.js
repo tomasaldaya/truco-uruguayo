@@ -322,7 +322,7 @@
   }
   // Lo que uno le dice en voz alta a su compañero (lo oye toda la mesa): la computadora compañera le hace caso
   const PEDIDOS = {
-    veni: { texto: '¡Vení!', ayuda: 'que gane esta baza, aunque tenga que jugar la mejor' },
+    veni: { texto: '¡Vení!', ayuda: 'que juegue su carta más baja, que la baza la hacés vos' },
     algo: { texto: '¡Jugá algo!', ayuda: 'que juegue una carta que valga algo, no la peor' },
     grita: { texto: '¡Gritá!', ayuda: 'que cante truco' },
     tanto: { texto: 'Tengo algo para el tanto', ayuda: 'que toque (envido) o quiera el envido' },
@@ -494,8 +494,10 @@
     if (R.trucoLevel < 4 && (R.trucoOwner === null || R.trucoOwner === team(p)))
       acts.push({ type: 'truco', level: R.trucoLevel + 1 });
     if (canEnvidar(G, p)) acts.push(...envOptions(G, p, []));
-    // Art. 88/92: "paso" sale de la mano sin arrastrar al equipo (si queda algún compañero en juego)
-    if (G.n >= 4 && fromMano(G).some(q => q !== p && team(q) === team(p))) acts.push({ type: 'paso' });
+    // Art. 88/92: "paso" sale de la mano sin arrastrar al equipo (si queda algún compañero en juego).
+    // Quien ganó un envite o cantó flor también pasa en vez de irse al mazo: así no tira sus cartas y las
+    // puede mostrar al final (Art. 45); en el modo realista, el que se va al mazo sin mostrar pierde esos puntos.
+    if ((G.n >= 4 && fromMano(G).some(q => q !== p && team(q) === team(p))) || R.mustShow[p]) acts.push({ type: 'paso' });
     acts.push({ type: 'mazo' });
     return acts;
   }
@@ -547,6 +549,25 @@
     G.scores[t] += pts;
     G.round.gained[t].push({ pts, why, cat: cat || 'otro' });
     info(G, `${G.teamNames[t]} +${pts} (${why}).`);
+  }
+  // Modo realista: el que ganó el envido o cantó flor y se va al mazo sin mostrar sus cartas pierde esos
+  // puntos (no los cobra nadie). Para salir de la mano sin perderlos está el paso.
+  function sinMostrar(G, p) {
+    const R = G.round, t = team(p), cobrado = cat => R.gained[t].filter(g => g.cat === cat).reduce((a, g) => a + g.pts, 0);
+    const env = R.envido.result && R.envido.result.winner === p && R.envido.result.accepted ? Math.min(R.envido.result.pts, cobrado('envido')) : 0;
+    const fr = R.florEnv && R.florEnv.result;
+    const flor = R.flor.sung[p] && R.flor.has[p] ? Math.min(fr && fr.winner === p ? fr.pts : 3, cobrado('flor')) : 0;
+    R.mustShow[p] = false;
+    R.sinMostrar = R.sinMostrar || {};
+    R.sinMostrar[p] = env + flor;
+    const quien = G.names[p] === 'Vos' ? 'Te fuiste' : G.names[p] + ' se fue';
+    if (!env && !flor) return;
+    for (const [pts, cat, que] of [[env, 'envido', 'del envido'], [flor, 'flor', 'de la flor']]) {
+      if (!pts) continue;
+      G.scores[t] -= pts;
+      R.gained[t].push({ pts: -pts, why: `se fue al mazo sin mostrar: pierde los puntos ${que}`, cat });
+    }
+    info(G, `${quien} al mazo sin mostrar las cartas: ${G.teamNames[t]} pierde ${env + flor} (${[env && 'envido', flor && 'flor'].filter(Boolean).join(' y ')}). Para no perderlos se dice paso (Art. 45).`);
   }
   function checkChico(G) {
     if (G.matchWinner !== null) return true;
@@ -999,7 +1020,8 @@
       }
       case 'mazo': {
         say(G, p, 'Me voy al mazo');
-        if (R.mustShow[p]) info(G, G.names[p] === 'Vos' ? 'Mostrás tus cartas del envite antes de irte (Art. 45).' : `${G.names[p]} muestra sus cartas del envite antes de irse (Art. 45).`);
+        if (R.mustShow[p] && G.manual[p]) sinMostrar(G, p);
+        else if (R.mustShow[p]) info(G, G.names[p] === 'Vos' ? 'Mostrás tus cartas del envite antes de irte (Art. 45).' : `${G.names[p]} muestra sus cartas del envite antes de irse (Art. 45).`);
         if (!esPie(G, p) && G.rules.mazo === 'solo') {
           // Sin ser el pie: se va solo él y su equipo sigue jugando
           R.out[p] = true;
@@ -1017,7 +1039,7 @@
       case 'paso': {
         say(G, p, 'Paso');
         R.out[p] = true;
-        if (!fromMano(G).some(q => team(q) === t)) { winTruco(G, 1 - t, R.trucoLevel, 'el otro equipo pasó'); return; }
+        if (!fromMano(G).some(q => team(q) === t)) { winTruco(G, 1 - t, R.trucoLevel, G.n === 2 ? 'el rival pasó' : 'el otro equipo pasó'); return; }
         if (R.cur.some(x => x) && trickComplete(G)) resolveTrick(G);
         else R.turn = nextIn(G, p);
         return;

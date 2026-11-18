@@ -152,7 +152,7 @@ function onPeerEvent(ev, peer, err){
 }
 function serverHello(){
   if (!NET || NET.tr.kind !== 'server') return;
-  NET.tr.post({ t: 'hello', v: NETV, code: NET.code, from: NET.cid, name: NET.name, pid: myPid(), realista, key: NET.ownerKey || undefined, crear: NET.crear || undefined, token: CUENTA.token || undefined });
+  NET.tr.post({ t: 'hello', v: NETV, code: NET.code, from: NET.cid, name: NET.name, pid: myPid(), realista, pj: miPj() || undefined, key: NET.ownerKey || undefined, crear: NET.crear || undefined, token: CUENTA.token || undefined });
 }
 // el servidor se cortó o volvió (se reconecta solo)
 function onServerLink(ev){
@@ -160,7 +160,7 @@ function onServerLink(ev){
 }
 function sayHello(peer){
   if (NET && NET.tr.kind === 'server') return serverHello();
-  const go = () => { if (!NET || NET.role !== 'guest') return; try { NET.tr.post({ t: 'hello', name: NET.name, realista, v: NETV, code: NET.code, from: NET.cid }, peer || NET.hostPeer); } catch (e) {} };
+  const go = () => { if (!NET || NET.role !== 'guest') return; try { NET.tr.post({ t: 'hello', name: NET.name, realista, pj: miPj() || undefined, v: NETV, code: NET.code, from: NET.cid }, peer || NET.hostPeer); } catch (e) {} };
   if (!NET.tr.self || NET.ready0) go(); else NET.onSelf = go;
 }
 // el anfitrión pregunta "¿seguís ahí?" cada 4 segundos; quien no contesta tres seguidas se fue
@@ -277,7 +277,7 @@ function onHostMsg(m){
   switch (m.t) {
     case 'hello': {
       if (s >= 0) { netPost(lobbyMsg()); if (NET.started) publish(); return; }
-      const who = { kind: 'guest', cid: g, name: cleanName(m.name) };
+      const who = { kind: 'guest', cid: g, name: cleanName(m.name), pj: pjValido(m.pj) };
       if (NET.started) {
         // partido empezado: si vuelve alguien que se había ido, recupera su lugar; si no, elige uno libre
         const back = NET.seats.findIndex(x => x.kind === 'ai' && x.left && x.name === who.name);
@@ -292,7 +292,7 @@ function onHostMsg(m){
     case 'sit': {
       const p = m.seat;
       if (p === s || !NET.seats[p] || NET.seats[p].kind !== 'ai') return;
-      const who = s >= 0 ? NET.seats[s] : { kind: 'guest', cid: g, name: cleanName(m.name) };
+      const who = s >= 0 ? NET.seats[s] : { kind: 'guest', cid: g, name: cleanName(m.name), pj: pjValido(m.pj) };
       if (s >= 0) freeSeat(s);
       takeSeat(p, who, m.realista);
       return;
@@ -332,6 +332,8 @@ function takeSeat(p, who, realista){
   if (NET.started && GM) {
     if (!GM.humans.includes(p)) GM.humans.push(p);
     GM.names[p] = who.name;
+    if (!GM.pjs) GM.pjs = Array(GM.n).fill(null);
+    GM.pjs[p] = who.pj || null;
     if (GM.n > 2) GM.teamNames = [0, 1].map(t => joinY(GM.names.filter((_, q) => team(q) === t)));
     else GM.teamNames = GM.names.slice();
   }
@@ -341,7 +343,7 @@ function takeSeat(p, who, realista){
 // el lugar vuelve a la computadora (si ya empezó, sigue jugando con el nombre de quien estaba)
 function freeSeat(p){
   const prev = NET.seats[p];
-  NET.seats[p] = NET.started ? { kind: 'ai', name: prev.name, left: prev.kind === 'guest' } : { kind: 'ai', name: AI_NAMES[NET.n][p] };
+  NET.seats[p] = NET.started ? { kind: 'ai', name: prev.name, left: prev.kind === 'guest', pj: prev.pj || null } : { kind: 'ai', name: AI_NAMES[NET.n][p] };
   NET.ready.delete(p);
   if (NET.started && GM) {
     GM.humans = GM.humans.filter(q => q !== p);
@@ -357,6 +359,7 @@ function startTable(){
   ME = 0;
   GM = T.newMatch({ players: n, names, humans, rules: tableRules, manual: NET.seats.map((s, p) => p === 0 ? realista : s.kind === 'guest' && !!NET.prefs[p]), teamNames });
   GM.id = newMatchId();
+  GM.pjs = NET.seats.map((s, p) => p === 0 ? miPj() : s.kind === 'guest' ? s.pj || null : null);
   T.startRound(GM); startRoundHook(); lastRoundNo = null;
   NET.started = true; NET.ready = new Set();
   lobbyChanged();
@@ -489,7 +492,7 @@ function onState(m){
   render();
   if (!$('home').hidden) return;
   if (G.phase !== 'play') {
-    if (NET.shownEnd !== m.key && !$('mNext')) { NET.shownEnd = m.key; const k = m.key; setTimeout(() => { if (NET && NET.key === k && $('home').hidden && !$('mNext')) showRoundEnd(); }, (G.n >= 4 ? 2200 : 1600) * delayScale()); }
+    if (NET.shownEnd !== m.key && !$('mNext')) { NET.shownEnd = m.key; const k = m.key; setTimeout(() => { if (NET && NET.key === k && $('home').hidden && !$('mNext')) showRoundEnd(); }, ((G.n >= 4 ? 2200 : 1600) + (G.round && G.round.mustShow && G.round.mustShow.some(Boolean) ? 1300 : 0)) * delayScale()); }
   } else if ($('mNext')) closeModal();
 }
 

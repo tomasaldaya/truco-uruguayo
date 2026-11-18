@@ -225,6 +225,33 @@ t('realista: el humano canta sus puntos; canto correcto gana', () => {
   sing(G, 0, 33);
   assert.deepEqual(G.scores, [2, 0]);
 });
+t('realista: el que ganó el envido y se va al mazo sin mostrar pierde esos puntos; con paso no', () => {
+  const mano = () => [[C(6, 'oro'), C(7, 'oro'), C(3, 'basto')], [C(6, 'basto'), C(1, 'basto'), C(3, 'oro')]];
+  // realista: gana el envido (2), se va al mazo sin mostrar: pierde los 2 y el rival cobra la mano (1)
+  let G = setup(...mano(), C(4, 'espada'), null, true);
+  act(G, 0, typ('envido', { kind: 'envido' })); act(G, 1, typ('quiero')); sing(G, 0, 33);
+  assert.deepEqual(G.scores, [2, 0]);
+  assert(T.legal(G, 0).some(a => a.type === 'paso'), 'el que tiene que mostrar puede pasar, aun mano a mano');
+  act(G, 0, typ('mazo'));
+  assert.deepEqual(G.scores, [0, 1]);
+  assert(!G.round.mustShow[0]);
+  assert(G.round.gained[0].some(g => g.pts === -2 && g.cat === 'envido'));
+  // con paso: sale de la mano, el rival cobra la mano, pero el envido queda y muestra al final
+  G = setup(...mano(), C(4, 'espada'), null, true);
+  act(G, 0, typ('envido', { kind: 'envido' })); act(G, 1, typ('quiero')); sing(G, 0, 33);
+  act(G, 0, typ('paso'));
+  assert.deepEqual(G.scores, [2, 1]);
+  assert(G.round.mustShow[0]);
+  // sin el modo realista se muestran solas: irse al mazo no hace perder nada
+  G = setup(...mano(), C(4, 'espada'));
+  act(G, 0, typ('envido', { kind: 'envido' })); act(G, 1, typ('quiero'));
+  assert.deepEqual(G.scores, [2, 0]);
+  act(G, 0, typ('mazo'));
+  assert.deepEqual(G.scores, [2, 1]);
+  // y el que no tiene que mostrar, mano a mano, no tiene paso
+  G = setup(...mano(), C(4, 'espada'), null, true);
+  assert(!T.legal(G, 0).some(a => a.type === 'paso'));
+});
 t('realista: cifra que no vale como canto se rechaza (Art. 43)', () => {
   const G = setup([C(6, 'oro'), C(7, 'oro'), C(3, 'basto')], [C(6, 'basto'), C(1, 'basto'), C(3, 'oro')], C(4, 'espada'), null, true);
   act(G, 0, typ('envido', { kind: 'envido' })); act(G, 1, typ('quiero'));
@@ -616,14 +643,14 @@ t('ley de juego: si hay flor y no se quiere el envite, la flor se cobra y el pun
 t('atajos al compañero: vení, jugá algo, gritá y tengo algo para el tanto (la computadora hace caso)', () => {
   const H = () => [[C(4,'basto'),C(5,'oro'),C(6,'basto')],[C(3,'oro'),C(7,'basto'),C(11,'espada')],[C(4,'oro'),C(1,'basto'),C(2,'copa')],[C(10,'oro'),C(12,'espada'),C(6,'oro')]];
   const sin = { flor: false };
-  // vení: Pocho le gana a la baza con la más baja que alcanza (el ancho de basto, no la pieza)
+  // vení: Pocho juega su carta más baja (el cuatro de oro), que la baza la hace el compañero
   let G = setup4(H(), C(7,'copa'), 3, false, sin);
   act(G, 0, a => a.type === 'play' && a.card.id === '4-basto');
   act(G, 1, a => a.type === 'play' && a.card.id === '3-oro');
   assert(T.pedir(G, 0, 'veni'));
   assert.equal(G.round.said[0].text, '¡Vení!');
   let a = AI.choose(G, 2, { samples: 10 });
-  assert.equal(a.type, 'play'); assert.equal(a.card.id, '1-basto');
+  assert.equal(a.type, 'play'); assert.equal(a.card.id, '4-oro');
   // jugá algo, sin poder ganar: no tira la peor
   G = setup4(H(), C(7,'copa'), 3, false, sin);
   act(G, 0, a => a.type === 'play' && a.card.id === '4-basto');

@@ -247,6 +247,10 @@ await t('perfil: editar nombre, apodo, biografía, lugar, cuadro, color y foto; 
   assert.deepEqual([r.yo.nombre, r.yo.bio, r.yo.lugar, r.yo.cuadro, r.yo.color, r.yo.foto], ['Ana María b', 'Juego desde chica.', 'Montevideo', 'Peñarol', 3, null]);
   assert.equal((await W.pedir('POST', 'cuenta/editar', A.token, { lugar: 'Narnia' })).s, 400);
   assert.equal((await W.pedir('POST', 'cuenta/editar', A.token, { color: 99 })).s, 400);
+  // el personaje 3D: un código de la lista; se puede volver a "que lo elija el juego"
+  assert.equal((await W.pedir('POST', 'cuenta/editar', A.token, { pj: 'callejero' })).yo.pj, 'callejero');
+  assert.equal((await W.pedir('POST', 'cuenta/editar', A.token, { pj: 'Con Espacios' })).s, 400);
+  assert.equal((await W.pedir('POST', 'cuenta/editar', A.token, { pj: null })).yo.pj, null);
   assert.equal((await W.pedir('POST', 'cuenta/editar', A.token, { apodo: 'beto' })).s, 409);
   assert.equal((await W.pedir('POST', 'cuenta/editar', A.token, { bio: 'x'.repeat(500) })).yo.bio.length, 200);
   // foto: tiene que ser una imagen de verdad y no muy pesada
