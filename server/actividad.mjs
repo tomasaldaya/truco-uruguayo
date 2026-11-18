@@ -50,67 +50,89 @@ async function sondeo() {
 }
 
 // ---------- resumen ----------
-const fmtDia = d => new Date(d).toLocaleDateString('es-UY', { timeZone: 'America/Montevideo', weekday: 'short', day: 'numeric', month: 'short' });
+
 const fmtHora = d => new Date(d).toLocaleString('es-UY', { timeZone: 'America/Montevideo', weekday: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 const salida = [];
 const say = s => { salida.push(s); console.log(s); };
 
+// distintos valores de un campo de los registros, solo para las conexiones a mesas de gente
+// (se dejan afuera las pruebas automáticas, que corren en máquinas de GitHub en Microsoft Azure)
+const DE_GENTE = [
+  { kind: 'filter', key: '$workers.event.request.url', operation: 'includes', type: 'string', value: '/api/mesa/' },
+  { kind: 'filter', key: '$workers.event.request.cf.asOrganization', operation: 'not_includes', type: 'string', value: 'Microsoft' },
+  { kind: 'filter', key: '$workers.event.request.cf.asOrganization', operation: 'not_includes', type: 'string', value: 'MICROSOFT' },
+];
+async function valores(key, filters) {
+  const r = await cf(`/accounts/${CUENTA}/workers/observability/telemetry/values`, { datasets: [], key, type: 'string', timeframe: { from: +desde, to: +hasta }, filters, limit: 1000 });
+  if (!r.success) throw new Error(JSON.stringify(r.errors).slice(0, 200));
+  return [...new Set((r.result || []).map(x => String(x.value)))];
+}
+// las pruebas automáticas de cada publicación (para no contarlas como mesas)
+async function ventanasDePrueba() {
+  const repo = process.env.GITHUB_REPOSITORY, gh = process.env.GITHUB_TOKEN;
+  if (!repo || !gh) return [];
+  const r = await fetch(`https://api.github.com/repos/${repo}/actions/workflows/servidor.yml/runs?per_page=100`, { headers: { Authorization: 'Bearer ' + gh, Accept: 'application/vnd.github+json' } });
+  if (!r.ok) return [];
+  const j = await r.json();
+  return (j.workflow_runs || []).map(x => [Date.parse(x.run_started_at || x.created_at), Date.parse(x.updated_at) + 5 * 60e3]);
+}
+const UY = 'America/Montevideo';
+const plural = (n, a, b) => `${n} ${n === 1 ? a : b}`;
+const durTxt = min => min < 60 ? `${Math.round(min)} min` : `${Math.floor(min / 60)} h ${Math.round(min % 60)} min`;
+
 async function resumen() {
-  say(`# Actividad del Truco Uruguayo\n\nÚltimos ${dias} días (hasta ${fmtHora(hasta)}, hora de Uruguay).\n`);
-  // pedidos al servidor (página + conexiones a mesas), por hora
+  say(`# Actividad del Truco Uruguayo\n\nÚltimos ${plural(dias, 'día', 'días')}, hasta ${fmtHora(hasta)} (hora de Uruguay).\n`);
   const d = await gql(`query($a:String!,$s:Time!,$u:Time!){ viewer { accounts(filter:{accountTag:$a}) {
       workersInvocationsAdaptive(limit:5000, filter:{scriptName:"truco-uruguayo", datetime_geq:$s, datetime_leq:$u}) {
-        sum { requests errors } dimensions { datetimeHour status } }
-      durableObjectsPeriodicGroups(limit:5000, filter:{datetimeHour_geq:$s, datetimeHour_leq:$u}) {
-        sum { inboundWebsocketMsgCount outboundWebsocketMsgCount activeTime } dimensions { datetimeHour objectId } }
+        sum { requests errors } dimensions { datetimeHour } }
+      durableObjectsPeriodicGroups(limit:10000, filter:{datetimeFiveMinutes_geq:$s, datetimeFiveMinutes_leq:$u}) {
+        sum { inboundWebsocketMsgCount activeTime } max { activeWebsocketConnections } dimensions { datetimeFiveMinutes objectId } }
     } } }`, { a: CUENTA, s: desde.toISOString(), u: hasta.toISOString() });
   const acc = d.viewer.accounts[0] || {};
   const inv = acc.workersInvocationsAdaptive || [], per = acc.durableObjectsPeriodicGroups || [];
-  const pedidos = inv.reduce((t, x) => t + x.sum.requests, 0), errores = inv.reduce((t, x) => t + x.sum.errors, 0);
-  const mesas = new Set(per.filter(x => x.sum.inboundWebsocketMsgCount > 0).map(x => x.dimensions.objectId));
-  const msgs = per.reduce((t, x) => t + x.sum.inboundWebsocketMsgCount, 0);
-  const activo = per.reduce((t, x) => t + x.sum.activeTime, 0) / 1e6;   // microsegundos → segundos
-  say(`- **Mesas con gente**: ${mesas.size}`);
-  say(`- **Tiempo de mesas abiertas** (sumando todas): ${(activo / 3600).toFixed(1)} h`);
-  say(`- **Mensajes de los jugadores al servidor** (jugadas, chat, latidos): ${msgs.toLocaleString('es-UY')}`);
-  say(`- **Pedidos al servidor** (abrir la página o conectarse a una mesa): ${pedidos.toLocaleString('es-UY')}, con error: ${errores}`);
-  // por día
-  const porDia = new Map();
+  const pruebas = await ventanasDePrueba();
+  // cada mesa: cuándo empezó y terminó, cuánta gente llegó a tener a la vez
+  const mesas = new Map();
   for (const x of per) {
-    if (!x.sum.inboundWebsocketMsgCount) continue;
-    const dia = fmtDia(x.dimensions.datetimeHour);
-    const e = porDia.get(dia) || { mesas: new Set(), horas: new Set(), msgs: 0 };
-    e.mesas.add(x.dimensions.objectId); e.horas.add(x.dimensions.datetimeHour); e.msgs += x.sum.inboundWebsocketMsgCount;
-    porDia.set(dia, e);
+    const t = Date.parse(x.dimensions.datetimeFiveMinutes), id = x.dimensions.objectId;
+    const m = mesas.get(id) || { desde: t, hasta: t, gente: 0, msgs: 0, tramos: 0 };
+    m.desde = Math.min(m.desde, t); m.hasta = Math.max(m.hasta, t); m.tramos++;
+    m.gente = Math.max(m.gente, x.max.activeWebsocketConnections || 0); m.msgs += x.sum.inboundWebsocketMsgCount;
+    mesas.set(id, m);
   }
-  if (porDia.size) {
-    say(`\n| Día | Mesas | Horas con juego | Mensajes |\n|---|---|---|---|`);
-    for (const [dia, e] of porDia) say(`| ${dia} | ${e.mesas.size} | ${e.horas.size} | ${e.msgs.toLocaleString('es-UY')} |`);
+  const deGente = [...mesas.values()].filter(m => m.msgs > 0 && !pruebas.some(([a, b]) => m.desde >= a - 5 * 60e3 && m.hasta <= b));
+  deGente.sort((a, b) => a.desde - b.desde);
+  const conVarios = deGente.filter(m => m.gente >= 2);
+  const minutos = m => m.tramos * 5;
+  const totalMin = deGente.reduce((t, m) => t + minutos(m), 0);
+  say(`- **Mesas abiertas**: ${deGente.length} (${conVarios.length} con dos o más personas conectadas a la vez)`);
+  say(`- **Tiempo total con mesas abiertas**: ${durTxt(totalMin)}`);
+  if (deGente.length) {
+    const max = Math.max(...deGente.map(m => m.gente));
+    say(`- **Lo máximo en una mesa**: ${plural(max, 'persona conectada', 'personas conectadas')} a la vez`);
   }
-  // horas con más movimiento
-  const porHora = new Map();
-  for (const x of per) if (x.sum.inboundWebsocketMsgCount) {
-    const h = x.dimensions.datetimeHour, e = porHora.get(h) || { mesas: new Set(), msgs: 0 };
-    e.mesas.add(x.dimensions.objectId); e.msgs += x.sum.inboundWebsocketMsgCount; porHora.set(h, e);
+  try {
+    const ips = await valores('$workers.event.request.headers.cf-connecting-ip', DE_GENTE);
+    const paises = await valores('$workers.event.request.cf.country', DE_GENTE);
+    const uas = await valores('$workers.event.request.headers.user-agent', DE_GENTE);
+    const tipo = ua => /iPhone|iPad/.test(ua) ? 'iPhone/iPad' : /Android/.test(ua) ? 'Android' : /Windows/.test(ua) ? 'Windows' : /Macintosh/.test(ua) ? 'Mac' : /Linux|CrOS/.test(ua) ? 'Linux/Chromebook' : 'otro';
+    const porTipo = {}; for (const u of uas) porTipo[tipo(u)] = (porTipo[tipo(u)] || 0) + 1;
+    say(`- **Conexiones distintas** (más o menos, casas o celulares distintos): ${ips.length}`);
+    say(`- **Desde**: ${paises.sort().join(', ') || '—'}`);
+    say(`- **Aparatos** (combinaciones distintas de aparato y navegador): ${Object.entries(porTipo).sort((a, b) => b[1] - a[1]).map(([k, n]) => `${k} ${n}`).join(', ') || '—'}`);
+  } catch (e) { say(`- (No pude leer los registros de conexiones: ${e.message})`); }
+  // mesa por mesa
+  if (deGente.length) {
+    say(`\n| Empezó | Duró | Gente a la vez |\n|---|---|---|`);
+    for (const m of deGente) say(`| ${fmtHora(m.desde)} | ${durTxt(minutos(m))} | ${m.gente} |`);
   }
-  const top = [...porHora].sort((a, b) => b[1].msgs - a[1].msgs).slice(0, 8);
-  if (top.length) {
-    say(`\nHoras con más movimiento:\n`);
-    for (const [h, e] of top) say(`- ${fmtHora(h)}: ${e.mesas.size} mesa${e.mesas.size === 1 ? '' : 's'}, ${e.msgs.toLocaleString('es-UY')} mensajes`);
-  }
-  // errores del servidor (solo cuántos y el mensaje, sin datos de nadie)
-  const q = await cf(`/accounts/${CUENTA}/workers/observability/telemetry/query`, {
-    queryId: 'actividad-errores', view: 'events', limit: 50,
-    timeframe: { from: +desde, to: +hasta },
-    parameters: { datasets: ['cloudflare-workers'], filters: [{ key: '$metadata.level', operation: 'eq', type: 'string', value: 'error' }] },
-  });
-  if (q.success) {
-    const ev = (q.result && q.result.events && q.result.events.events) || [];
-    const tipos = new Map();
-    for (const e of ev) { const m = String((e.$metadata && (e.$metadata.error || e.$metadata.message)) || '?').slice(0, 120); tipos.set(m, (tipos.get(m) || 0) + 1); }
-    say(`\nErrores registrados por el servidor: ${ev.length}${ev.length ? '' : ' 🎉'}`);
-    for (const [m, n] of tipos) say(`- ${n} × ${m}`);
-  } else say(`\n(No pude leer los registros de errores: ${JSON.stringify(q.errors).slice(0, 200)})`);
+  // errores
+  const errores = inv.reduce((t, x) => t + x.sum.errors, 0);
+  let msgsErr = [];
+  try { msgsErr = await valores('$metadata.error', [{ kind: 'filter', key: '$metadata.level', operation: 'eq', type: 'string', value: 'error' }]); } catch (e) {}
+  say(`\nErrores del servidor: ${errores}${msgsErr.length ? '' : errores ? '' : ' (ninguno)'}`);
+  for (const m of msgsErr.slice(0, 10)) say(`- ${m.split('\n')[0].slice(0, 140)}`);
+  say(`\n_No incluye las mesas de prueba automáticas de cada publicación. Quien abre el juego desde GitHub Pages y no entra a una mesa no queda registrado._`);
 }
 
 try {
