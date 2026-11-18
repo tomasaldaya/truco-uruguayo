@@ -26,6 +26,7 @@ export class Cuentas {
     this.prueba = !!o.prueba;
     this.admins = new Set((o.admins || []).map(Number).filter(Number.isInteger));   // cuentas que ven la lista de cuentas creadas
     this.avisar = o.avisar || (() => {}); this.enLinea = o.enLinea || (() => new Set());
+    this.transaccion = o.transaccion || (f => f());
     this.invitado = new Map();             // "de>para" -> cuándo invitó (para no llenar de invitaciones)
   }
   q(s, ...a) { return this.sql(s, ...a); }
@@ -45,6 +46,33 @@ export class Cuentas {
     this.q(`CREATE INDEX IF NOT EXISTS jugadas_usuario ON jugadas (usuario, fecha)`);
     this.q(`CREATE INDEX IF NOT EXISTS usuarios_elo ON usuarios (elo)`);
     this.q(`CREATE INDEX IF NOT EXISTS amigos_para ON amigos (para)`);
+    this.q(`CREATE TABLE IF NOT EXISTS cambios (nombre TEXT PRIMARY KEY, fecha INTEGER, hecho INTEGER)`);
+  }
+  // un arreglo que se hace una sola vez en la base (queda anotado aunque no haya habido nada que cambiar)
+  unaVez(nombre, f) {
+    if (this.q1(`SELECT nombre FROM cambios WHERE nombre = ?`, nombre)) return false;
+    let hecho = false;
+    this.transaccion(() => { hecho = !!f(); this.q(`INSERT INTO cambios (nombre, fecha, hecho) VALUES (?, ?, ?)`, nombre, this.now(), hecho ? 1 : 0); });
+    return hecho;
+  }
+  // intercambia los números de dos cuentas: cada una se queda con todo lo suyo (apodo, puntos, sesiones,
+  // historial, amigos); solo cambia el número
+  intercambiar(a, b) {
+    if (a === b || !this.q1(`SELECT id FROM usuarios WHERE id = ?`, a) || !this.q1(`SELECT id FROM usuarios WHERE id = ?`, b)) return false;
+    const T = -987654;
+    const cambiar = (tabla, col) => {
+      this.q(`UPDATE ${tabla} SET ${col} = ? WHERE ${col} = ?`, T, a);
+      this.q(`UPDATE ${tabla} SET ${col} = ? WHERE ${col} = ?`, a, b);
+      this.q(`UPDATE ${tabla} SET ${col} = ? WHERE ${col} = ?`, b, T);
+    };
+    cambiar('usuarios', 'id'); cambiar('sesiones', 'usuario'); cambiar('jugadas', 'usuario'); cambiar('amigos', 'de'); cambiar('amigos', 'para');
+    for (const p of this.q(`SELECT id, equipos FROM partidos`)) {
+      let eq; try { eq = JSON.parse(p.equipos || '[]'); } catch (e) { continue; }
+      let cambio = false;
+      eq.forEach(l => (l || []).forEach(x => { if (x && x.cuenta === a) { x.cuenta = b; cambio = true; } else if (x && x.cuenta === b) { x.cuenta = a; cambio = true; } }));
+      if (cambio) this.q(`UPDATE partidos SET equipos = ? WHERE id = ?`, JSON.stringify(eq), p.id);
+    }
+    return true;
   }
 
   // ---------- sesiones ----------

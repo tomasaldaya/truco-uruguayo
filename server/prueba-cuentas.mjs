@@ -194,5 +194,30 @@ await t('administración: solo la ve quien administra; el ranking cuenta a los q
   assert.equal((await W.pedir('GET', 'cuenta/perfil?id=' + A.yo.id, B.token)).perfil.admin, undefined);
 });
 
+await t('intercambiar dos números de cuenta: cada uno se queda con todo lo suyo, una sola vez', async () => {
+  const W = mundo();
+  const A = await W.alta('Nica'), B = await W.alta('Tomas'), C = await W.alta('Ceci');
+  await W.pedir('POST', 'amigos/pedir', A.token, { id: B.yo.id }); await W.pedir('POST', 'amigos/aceptar', B.token, { id: A.yo.id });
+  await W.pedir('POST', 'amigos/pedir', B.token, { id: C.yo.id });
+  W.c.registrar({ ...partido('s1', 0, [{ uid: A.yo.id, equipo: 0, stats }, { uid: B.yo.id, equipo: 1 }]), equipos: [[{ nombre: 'Nica', cuenta: 1 }], [{ nombre: 'Tomas', cuenta: 2 }]] });
+  assert.equal(W.c.unaVez('intercambiar-1-2', () => W.c.intercambiar(1, 2)), true);
+  assert.equal(W.c.unaVez('intercambiar-1-2', () => W.c.intercambiar(1, 2)), false);   // no se repite
+  const yoB = (await W.pedir('GET', 'cuenta/yo', B.token)).yo, yoA = (await W.pedir('GET', 'cuenta/yo', A.token)).yo;
+  assert.deepEqual([yoB.id, yoB.apodo, yoB.partidos, yoB.ganados], [1, 'Tomas', 1, 0]);
+  assert.deepEqual([yoA.id, yoA.apodo, yoA.ganados, yoA.manos], [2, 'Nica', 1, 9]);
+  const am = await W.pedir('GET', 'amigos', B.token);
+  assert.deepEqual(am.amigos.map(x => [x.id, x.apodo]), [[2, 'Nica']]); assert.deepEqual(am.enviadas.map(x => x.apodo), ['Ceci']);
+  assert.deepEqual((await W.pedir('GET', 'amigos', C.token)).recibidas.map(x => [x.id, x.apodo]), [[1, 'Tomas']]);
+  const h = (await W.pedir('GET', 'cuenta/yo', B.token)).historial[0];
+  assert.deepEqual(h.equipos.map(e => e.map(x => [x.nombre, x.cuenta])), [[['Nica', 2]], [['Tomas', 1]]]);
+  assert.equal(h.equipo, 1); assert.equal(h.gano, false);
+  // en una base nueva, sin esas cuentas, no hace nada y queda anotado
+  const W2 = mundo();
+  assert.equal(W2.c.unaVez('intercambiar-1-2', () => W2.c.intercambiar(1, 2)), false);
+  await W2.alta('Equis'); await W2.alta('Ye');
+  assert.equal(W2.c.unaVez('intercambiar-1-2', () => W2.c.intercambiar(1, 2)), false);
+  assert.equal((await W2.pedir('GET', 'cuenta/perfil?id=1', null)).perfil.apodo, 'Equis');
+});
+
 console.log(fails ? `\n${fails} pruebas fallaron` : '\nTodo OK');
 process.exit(fails ? 1 : 0);

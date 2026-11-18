@@ -45,8 +45,11 @@ export class CuentasDO extends DurableObject {
       google: verificarGoogle, googleId: env.GOOGLE_CLIENT_ID || '', prueba: env.DEV_LOGIN === '1',
       admins: String(env.ADMINS || '').split(/[\s,]+/).filter(Boolean),
       avisar: (uid, msg) => this.avisar(uid, msg), enLinea: () => this.enLinea(),
+      transaccion: f => ctx.storage.transactionSync(f),
     });
     this.c.init();
+    // pedido del dueño del juego (18/11/2026): que su cuenta (la 2) pase a ser la 1 y la 1 pase a ser la 2
+    this.c.unaVez('intercambiar-1-2', () => this.c.intercambiar(1, 2));
     try { ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair('ping', 'pong')); } catch (e) {}
   }
   async fetch(req) {
