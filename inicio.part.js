@@ -76,6 +76,7 @@ function renderHome(){
   if (homeView === 'perfil') return renderPerfil(box);
   if (homeView === 'ranking') return renderRanking(box);
   if (homeView === 'amigos') return renderAmigos(box);
+  if (homeView === 'admin') return renderAdmin(box);
   const inGame = !!NET || (GM && GM.phase !== 'matchEnd');
   let h = netNote ? `<p class="hnote" role="alert">${esc(netNote)}</p>` : '';
   netNote = '';

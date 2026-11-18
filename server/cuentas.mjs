@@ -24,6 +24,7 @@ export class Cuentas {
     this.sql = o.sql; this.now = o.now || Date.now;
     this.google = o.google || null; this.googleId = o.googleId || '';
     this.prueba = !!o.prueba;
+    this.admins = new Set((o.admins || []).map(Number).filter(Number.isInteger));   // cuentas que ven la lista de cuentas creadas
     this.avisar = o.avisar || (() => {}); this.enLinea = o.enLinea || (() => new Set());
     this.invitado = new Map();             // "de>para" -> cuándo invitó (para no llenar de invitaciones)
   }
@@ -97,6 +98,7 @@ export class Cuentas {
       manos: u.manos, manosGanadas: u.manos_ganadas, envidos: u.envidos, flores: u.flores, trucos: u.trucos,
       mes: { mes: mesActual, puntos: Math.round(mes ? u.elo_mes : ELO0), partidos: mes ? u.partidos_mes : 0, ganados: mes ? u.ganados_mes : 0 },
       enLinea: !propio && this.enLinea().has(u.id) || undefined,
+      admin: propio && this.admins.has(u.id) || undefined,
     };
   }
   historial(uid, n) {
@@ -177,7 +179,20 @@ export class Cuentas {
               mio = { pos, id: yo.id, apodo: yo.apodo, puntos: Math.round(elo), partidos: jug, ganados: mes ? yo.ganados_mes : yo.ganados };
             }
           }
-          return ok({ tipo: mes ? 'mes' : 'general', mes: m, lista, mio });
+          const sinPartidos = mes ? null : this.q1(`SELECT COUNT(*) AS n FROM usuarios WHERE partidos = 0`).n;
+          return ok({ tipo: mes ? 'mes' : 'general', mes: m, lista, mio, sinPartidos });
+        }
+        case 'GET admin/cuentas': {
+          if (!yo) return conSesion();
+          if (!this.admins.has(yo.id)) return mal(403, 'Esta lista la ve solo quien administra el juego.');
+          const ahora = this.now(), hoy0 = Date.parse(new Date(ahora - 3 * 3600e3).toISOString().slice(0, 10) + 'T03:00:00Z');
+          const cuenta = desde => this.q1(`SELECT COUNT(*) AS n FROM usuarios WHERE creado >= ?`, desde).n;
+          const lista = this.q(`SELECT id, apodo, creado, visto, partidos, ganados, elo FROM usuarios ORDER BY creado DESC LIMIT 500`)
+            .map(r => ({ id: r.id, apodo: r.apodo, creado: r.creado, visto: r.visto, partidos: r.partidos, ganados: r.ganados, puntos: Math.round(r.elo) }));
+          const en = this.enLinea();
+          lista.forEach(r => { r.enLinea = en.has(r.id); });
+          return ok({ total: this.q1(`SELECT COUNT(*) AS n FROM usuarios`).n, hoy: cuenta(hoy0), semana: cuenta(ahora - 7 * 864e5),
+            conPartidos: this.q1(`SELECT COUNT(*) AS n FROM usuarios WHERE partidos > 0`).n, enLinea: en.size, lista });
         }
         case 'GET amigos': {
           if (!yo) return conSesion();

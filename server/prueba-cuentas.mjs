@@ -176,5 +176,23 @@ await t('Google: firma, emisor, app y vencimiento', async () => {
   assert.equal((await W.pedir('POST', 'cuenta/google', null, { credential: 'basura' })).s, 401);
 });
 
+await t('administración: solo la ve quien administra; el ranking cuenta a los que todavía no jugaron', async () => {
+  const W = mundo({ admins: ['1'] });
+  const A = await W.alta('Admin'), B = await W.alta('Beto'); W.avanzar(864e5); const C = await W.alta('Ceci');
+  assert.equal(A.yo.admin, true); assert.equal(B.yo.admin, undefined);
+  assert.equal((await W.pedir('GET', 'admin/cuentas', B.token)).s, 403);
+  assert.equal((await W.pedir('GET', 'admin/cuentas', null)).s, 401);
+  W.online.add(C.yo.id);
+  const r = await W.pedir('GET', 'admin/cuentas', A.token);
+  assert.equal(r.total, 3); assert.equal(r.hoy, 1); assert.equal(r.semana, 3); assert.equal(r.enLinea, 1);
+  assert.deepEqual(r.lista.map(x => [x.apodo, x.enLinea]), [['Ceci', true], ['Admin', false], ['Beto', false]]);
+  assert(!('google' in r.lista[0]), 'no muestra el identificador de Google');
+  W.c.registrar(partido('z1', 0, [{ uid: A.yo.id, equipo: 0 }, { uid: B.yo.id, equipo: 1 }]));
+  const rk = await W.pedir('GET', 'ranking', null);
+  assert.equal(rk.lista.length, 2); assert.equal(rk.sinPartidos, 1);
+  // el perfil de otro no dice si es administrador
+  assert.equal((await W.pedir('GET', 'cuenta/perfil?id=' + A.yo.id, B.token)).perfil.admin, undefined);
+});
+
 console.log(fails ? `\n${fails} pruebas fallaron` : '\nTodo OK');
 process.exit(fails ? 1 : 0);

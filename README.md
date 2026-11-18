@@ -207,6 +207,11 @@ tiene un apodo, que es su nombre en las mesas, y además:
   desde el ranking, el historial o los amigos.
 - **Amigos**: se buscan por apodo; la solicitud se acepta o se rechaza. Se ve quién está en línea y, desde
   una mesa del servidor, se lo invita: le aparece el aviso y entra con un toque.
+- **Cuentas creadas** (solo para quien administra el juego): cuántas cuentas hay, cuántas se crearon hoy
+  y en la semana, y la lista con apodo, cuándo se creó, la última vez que entró y sus partidos. Se habilita
+  poniendo el número de cuenta (se ve en "Mi perfil") en `ADMINS`, en `vars` de `wrangler.jsonc`.
+- En el ranking general, además de la lista, se dice cuántas personas tienen cuenta y todavía no jugaron
+  (aparecen después de su primer partido que cuenta).
 - **Borrar mi cuenta**, en el perfil, borra todo lo suyo. No se guarda el correo ni la foto
   ([privacidad.html](privacidad.html)).
 

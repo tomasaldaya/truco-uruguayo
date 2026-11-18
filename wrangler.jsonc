@@ -6,7 +6,8 @@
   "assets": { "directory": "./public", "binding": "ASSETS", "run_worker_first": ["/api/*"] },
   "durable_objects": { "bindings": [{ "name": "MESAS", "class_name": "MesaDO" }, { "name": "CUENTAS", "class_name": "CuentasDO" }] },
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["MesaDO"] }, { "tag": "v2", "new_sqlite_classes": ["CuentasDO"] }],
-  // el ID de cliente de Google (es público: lo ve cualquiera en la página)
-  "vars": { "GOOGLE_CLIENT_ID": "585711184422-tgds2q4ivf64q8i57pvldn9uu2l0cqgr.apps.googleusercontent.com" },
+  // el ID de cliente de Google (es público: lo ve cualquiera en la página) y los números de cuenta de
+  // quienes administran el juego (ven la lista de cuentas creadas; se ve el número en "Mi perfil")
+  "vars": { "GOOGLE_CLIENT_ID": "585711184422-tgds2q4ivf64q8i57pvldn9uu2l0cqgr.apps.googleusercontent.com", "ADMINS": "" },
   "observability": { "enabled": true }
 }

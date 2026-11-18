@@ -20,7 +20,7 @@ export default {
       if ((req.headers.get('Upgrade') || '').toLowerCase() !== 'websocket') return new Response('Acá se entra por WebSocket.', { status: 426 });
       return env.MESAS.get(env.MESAS.idFromName(m[1])).fetch(req);
     }
-    if (/^\/api\/(cuenta|ranking|amigos)(\/|$)/.test(url.pathname)) {
+    if (/^\/api\/(cuenta|ranking|amigos|admin)(\/|$)/.test(url.pathname)) {
       if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
       const r = await cuentas(env).fetch(req);
       if (r.status === 101) return r;
@@ -43,6 +43,7 @@ export class CuentasDO extends DurableObject {
     this.c = new Cuentas({
       sql: (q, ...a) => ctx.storage.sql.exec(q, ...a).toArray(),
       google: verificarGoogle, googleId: env.GOOGLE_CLIENT_ID || '', prueba: env.DEV_LOGIN === '1',
+      admins: String(env.ADMINS || '').split(/[\s,]+/).filter(Boolean),
       avisar: (uid, msg) => this.avisar(uid, msg), enLinea: () => this.enLinea(),
     });
     this.c.init();

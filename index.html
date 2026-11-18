@@ -332,6 +332,9 @@ aside{display:flex;flex-direction:column;gap:14px;margin-top:13px}
 .rk tbody tr[data-id]:hover,.rk tbody tr[data-id]:focus-visible{background:rgba(255,255,255,.07)}
 .rk tr.me td{color:var(--gold);font-weight:700}
 .rk tr.sep td{text-align:center;color:var(--muted);border:0;padding:2px}
+.rk.adm td:nth-child(n+3),.rk.adm th:nth-child(n+3){text-align:left;font-size:13.5px}
+.rk.adm td:last-child,.rk.adm th:last-child{text-align:right}
+.rk.adm small{color:var(--muted)}
 .hist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
 .hist li{position:relative;padding:8px 54px 8px 12px;border-radius:12px;background:rgba(255,255,255,.05);border-left:4px solid #8b2335}
 .hist li.w{border-left-color:var(--gold)}
@@ -8299,6 +8302,7 @@ function renderHome(){
   if (homeView === 'perfil') return renderPerfil(box);
   if (homeView === 'ranking') return renderRanking(box);
   if (homeView === 'amigos') return renderAmigos(box);
+  if (homeView === 'admin') return renderAdmin(box);
   const inGame = !!NET || (GM && GM.phase !== 'matchEnd');
   let h = netNote ? `<p class="hnote" role="alert">${esc(netNote)}</p>` : '';
   netNote = '';
@@ -9146,7 +9150,7 @@ function cuentaOlvidar(){
   try { if (window.google && google.accounts) google.accounts.id.disableAutoSelect(); } catch (e) {}
   cuentaRepintar();
 }
-function cuentaRepintar(){ if (!$('home').hidden && ['main', 'perfil', 'ranking', 'amigos', 'lobby', 'join'].includes(homeView)) renderHome(); }
+function cuentaRepintar(){ if (!$('home').hidden && ['main', 'perfil', 'ranking', 'amigos', 'admin', 'lobby', 'join'].includes(homeView)) renderHome(); }
 
 async function cuentaInit(){
   if (!cuentaOK()) return;
@@ -9307,7 +9311,7 @@ function cuentaHTML(){
     const en = A ? A.amigos.filter(a => a.enLinea).length : 0, sol = A ? A.recibidas.length : 0;
     h += `<div class="cficha">${avatar(y)}<div><b>${esc(y.apodo)}</b><span>${y.partidos ? `${y.puntos} puntos${y.posicion ? ` · puesto ${y.posicion} del ranking` : ''}` : 'Todavía sin partidos en el ranking'}</span></div></div>
       <div class="hlinks"><button class="tool" id="cPerfil">Mi perfil</button><button class="tool" id="cRank">Ranking</button>
-      <button class="tool" id="cAmigos">Amigos${en ? ` · ${en} en línea` : ''}${sol ? ` · <b class="cbadge">${sol} ${sol === 1 ? 'solicitud' : 'solicitudes'}</b>` : ''}</button></div>`;
+      <button class="tool" id="cAmigos">Amigos${en ? ` · ${en} en línea` : ''}${sol ? ` · <b class="cbadge">${sol} ${sol === 1 ? 'solicitud' : 'solicitudes'}</b>` : ''}</button>${y.admin ? '<button class="tool" id="cAdmin">Cuentas creadas</button>' : ''}</div>`;
   } else {
     h += `<p class="hkey cta">Entrá con tu cuenta para aparecer en el ranking, guardar tus estadísticas e historial y jugar con amigos. Sin cuenta se puede jugar igual.</p>`;
     if (CUENTA.cfg.google) h += '<div id="hGsi" class="gsi"></div>';
@@ -9320,6 +9324,7 @@ function bindCuenta(){
   if ($('cPerfil')) $('cPerfil').onclick = () => cuentaIr('perfil');
   if ($('cRank')) $('cRank').onclick = () => cuentaIr('ranking');
   if ($('cAmigos')) $('cAmigos').onclick = () => cuentaIr('amigos');
+  if ($('cAdmin')) $('cAdmin').onclick = () => cuentaIr('admin');
   if ($('hGsi')) gsiBoton($('hGsi'));
   if ($('cPrueba')) $('cPrueba').onsubmit = async e => {
     e.preventDefault();
@@ -9368,7 +9373,7 @@ function renderPerfil(box){
   const p = propio ? D.yo : D.perfil;
   if (propio) cuentaGuardar(undefined, p);
   let h = barra(propio ? 'Mi perfil' : 'Perfil') + avisoHTML();
-  h += `<div class="cficha grande">${avatar(p, 'g')}<div><b>${esc(p.apodo)}</b><span>${p.enLinea ? '<i class="dot on"></i> En línea · ' : ''}Juega desde ${new Date(p.desde).toLocaleDateString('es-UY', { month: 'long', year: 'numeric' })}</span></div></div>`;
+  h += `<div class="cficha grande">${avatar(p, 'g')}<div><b>${esc(p.apodo)}</b><span>${p.enLinea ? '<i class="dot on"></i> En línea · ' : ''}Juega desde ${new Date(p.desde).toLocaleDateString('es-UY', { month: 'long', year: 'numeric' })}${propio ? ` · cuenta n.º ${p.id}` : ''}</span></div></div>`;
   h += statsHTML(p);
   if (!propio && D.relacion) {
     const r = D.relacion;
@@ -9422,6 +9427,7 @@ function renderRanking(box){
       ? `<table class="rk"><thead><tr><th>#</th><th>Jugador</th><th>Puntos</th><th>Partidos</th><th>Ganados</th></tr></thead><tbody>${D.lista.map(fila).join('')}${D.mio ? '<tr class="sep"><td colspan="5">…</td></tr>' + fila(D.mio) : ''}</tbody></table>`
       : `<p class="lob">${tipo === 'mes' ? 'Este mes todavía no se jugó ningún partido para el ranking.' : 'Todavía no hay partidos en el ranking.'}</p>`;
     const mes = new Date(D.mes + '-15').toLocaleDateString('es-UY', { month: 'long' });
+    if (D.sinPartidos) h += `<p class="hkey">Además hay ${D.sinPartidos} ${D.sinPartidos === 1 ? 'persona con cuenta que todavía no jugó' : 'personas con cuenta que todavía no jugaron'} un partido para el ranking: aparecen después del primero.</p>`;
     h += `<p class="hkey">Cuentan los partidos terminados en mesas por internet donde hay alguien con cuenta en cada equipo (la computadora puede completar lugares). Todos arrancan con 1000 puntos: ganarle a alguien con más puntos da más.${tipo === 'mes' ? ` El ranking de ${mes} arranca de cero el primer día del mes.` : ''}${conCuenta() ? '' : ' Entrá con tu cuenta para aparecer.'}</p>`;
   }
   box.innerHTML = h;
@@ -9475,6 +9481,30 @@ function renderAmigos(box){
     } catch (x) { cuentaVista.aviso = x.message; }
     renderHome();
   });
+}
+
+// solo para quien administra el juego (ADMINS en wrangler.jsonc): quiénes se van creando una cuenta
+function renderAdmin(box){
+  if (!conCuenta() || !CUENTA.yo.admin) { homeView = 'main'; return renderHome(); }
+  const D = cuentaVista.datos;
+  let h = barra('Cuentas creadas');
+  if (!D) {
+    h += cuentaVista.error ? `<p class="hnote">${esc(cuentaVista.error)}</p>` : '<p class="lob">Cargando…</p>';
+    box.innerHTML = h; $('hBack').onclick = volverDeCuenta;
+    if (!cuentaVista.error) cuentaCargar('admin', 'admin/cuentas');
+    return;
+  }
+  const tile = (n, l) => `<div class="stile"><b>${n}</b><span>${l}</span></div>`;
+  const cuando = t => t ? fechaCorta(t) : '—';
+  h += `<div class="stiles">${tile(D.total, 'cuentas en total')}${tile(D.hoy, 'creadas hoy')}${tile(D.semana, 'en los últimos 7 días')}${tile(D.conPartidos, 'ya jugaron para el ranking')}${tile(D.enLinea, 'conectadas ahora')}</div>`;
+  h += D.lista.length ? `<table class="rk adm"><thead><tr><th>#</th><th>Apodo</th><th>Se creó</th><th>Última vez</th><th>Partidos</th></tr></thead><tbody>${D.lista.map(r =>
+      `<tr data-id="${r.id}" tabindex="0"><td>${r.id}</td><td>${r.enLinea ? '<i class="dot on" title="En línea"></i> ' : ''}${esc(r.apodo)}</td><td>${cuando(r.creado)}</td><td>${r.enLinea ? 'ahora' : cuando(r.visto)}</td><td>${r.partidos}${r.partidos ? ` <small>(${r.puntos} pts)</small>` : ''}</td></tr>`).join('')}</tbody></table>`
+    : '<p class="lob">Todavía no se creó ninguna cuenta.</p>';
+  h += '<p class="hkey">De la más nueva a la más vieja. Solo vos ves esta lista; tocá una fila para ver el perfil. No se guarda el correo de nadie.</p><div class="hlinks"><button class="tool" id="aAct">Actualizar</button></div>';
+  box.innerHTML = h;
+  $('hBack').onclick = volverDeCuenta;
+  $('aAct').onclick = () => { cuentaVista.datos = null; renderHome(); };
+  box.querySelectorAll('tr[data-id]').forEach(tr => { const ir = () => cuentaIr('perfil', { id: +tr.dataset.id, volver: 'main' }); tr.onclick = ir; tr.onkeydown = e => { if (e.key === 'Enter') ir(); }; });
 }
 
 window.__trucoCuentaIr = (v, o) => { if ($('home').hidden) showHome(); cuentaIr(v, o); };
