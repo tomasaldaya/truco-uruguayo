@@ -8,6 +8,7 @@
 // ajenas. El invitado solo dibuja lo que le llega y manda sus jugadas, sus señas y "listo".
 // Mensajes: hello, sit, bye, act, senas, ready, pref, pong (invitado → anfitrión);
 //           lobby, state, err, full, closed, away, ping (anfitrión → invitados; con "to" si es para uno solo).
+// Chat y voz: chat, talk (invitado → anfitrión, que los reparte a todos), chatlog (al que llega).
 const NETV = 1, AI_NAMES = { 2: ['Vos', 'Computadora'], 4: ['Vos', 'Tito', 'Pocho', 'Nacho'], 6: ['Vos', 'Tito', 'Pocho', 'Nacho', 'Lalo', 'Beto'] };
 const APP_ID = 'tomasaldaya/truco-uruguayo/1';
 // Relevo para redes que no dejan conectarse directo (datos del celular, redes de empresa). Ejemplo:
@@ -48,6 +49,7 @@ function openTransport(code, onMsg, onPeer){
   room.onPeerJoin(c => onPeer('join', c.peerId));
   room.onPeerLeave(c => onPeer('leave', c.peerId));
   room.onError(e => onPeer('error', e.peerId, e));
+  room.onPeerStream((stream, c) => onPeer('stream', c.peerId, stream));   // voz
   return {
     kind: 'internet', room,
     self: room.getSelf().then(x => x.peerId),
@@ -56,7 +58,7 @@ function openTransport(code, onMsg, onPeer){
   };
 }
 function openNet(role, code){
-  const me = NET = { role, code, cid: role === 'host' ? 'host' : 'g' + Math.random().toString(36).slice(2, 10), prefs: {}, ready: new Set(), readyKey: null, hostPeer: null, lastHost: Date.now(), alive: {}, pingSeq: 0 };
+  const me = NET = { role, code, cid: role === 'host' ? 'host' : 'g' + Math.random().toString(36).slice(2, 10), prefs: {}, ready: new Set(), readyKey: null, hostPeer: null, lastHost: Date.now(), alive: {}, pingSeq: 0, chat: [], chatAt: {}, talking: {} };
   me.tr = openTransport(code, (m, peer) => {
     if (NET !== me || me.mute || !m || m.v !== NETV || m.code !== code) return;
     if (me.tr.kind === 'internet') {
@@ -68,6 +70,7 @@ function openNet(role, code){
     }
     role === 'host' ? onHostMsg(m) : onGuestMsg(m);
   }, (ev, peer, err) => { if (NET === me) onPeerEvent(ev, peer, err); });
+  setTimeout(renderChat, 0);
   if (me.tr.self) me.tr.self.then(id => { if (role === 'guest') me.cid = id; me.ready0 = true; if (me.onSelf) me.onSelf(); });
   me.beat = setInterval(() => { if (NET === me && !me.mute) heartbeat(); }, 4000);
 }
@@ -77,6 +80,9 @@ const NET_ERR = {
   p2p: 'Encontré la mesa pero no pude conectarme. Pasa con algunas redes, sobre todo con datos del celular: probá desde un wifi.',
 };
 function onPeerEvent(ev, peer, err){
+  if (ev === 'stream') { vozAttach(peer, err); return; }
+  if (ev === 'join' && VOZ.stream) try { NET.tr.room.addStream(VOZ.stream, { target: peer }); } catch (e) {}
+  if (ev === 'leave') vozDetach(peer);
   if (ev === 'error') {
     const k = err && err.code === 'relay-failed' ? 'relay' : err && err.code === 'peer-connect-failed' && NET.role === 'guest' && !NET.lobby ? 'p2p' : null;
     if (k) { NET.netErr = k; if (!$('home').hidden && homeView === 'lobby') renderHome(); }
@@ -120,6 +126,7 @@ function leaveNet(soft){
   if (!soft) { if (NET.role === 'host') netPost({ t: 'closed' }); else netPost({ t: 'bye' }); }
   else if (NET.role === 'host') netPost({ t: 'away' }); else netPost({ t: 'bye' });
   clearTimeout(NET.helloT); clearInterval(NET.beat);
+  vozStop();
   const tr = NET.tr;
   setTimeout(() => { try { tr.close(); } catch (e) {} }, soft ? 0 : 300);   // que llegue el último aviso
   if (!soft) { netForget(); if (invitedCode()) try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {} }
@@ -128,6 +135,7 @@ function leaveNet(soft){
   clearTimeout(timer); busy = false; deferred = null; closeModal();
   GM = loadSavedGame(); G = null; refreshView();
   needStep = !!GM;
+  renderChat();
 }
 // al recargar o cerrar la página: se avisa, pero la mesa queda anotada en esta pestaña para volver
 window.addEventListener('pagehide', () => { if (NET) { netRemember(); leaveNet(true); } });
@@ -226,6 +234,14 @@ function onHostMsg(m){
     case 'senas': if (s >= 0 && NET.started && GM && GM.phase === 'play') { T.setSenas(GM, s, Array.isArray(m.list) ? m.list.filter(k => T.SENAS[k]) : []); render(); } return;
     case 'ready': if (s >= 0 && NET.started && m.key === roundKey(GM)) { NET.ready.add(s); checkReady(); } return;
     case 'pref': if (s >= 0) NET.prefs[s] = !!m.realista; return;
+    case 'chat': {
+      const now = Date.now(), name = s >= 0 ? NET.seats[s].name : cleanName(m.name);
+      if (now - (NET.chatAt[g] || 0) < 600) return;      // de a un mensaje por vez
+      NET.chatAt[g] = now;
+      chatAdd({ p: s, name, text: m.text }, true);
+      return;
+    }
+    case 'talk': if (s >= 0) { setTalking(s, !!m.on); netPost({ t: 'talk', p: s, on: !!m.on }); } return;
     case 'pong':
       if (s >= 0) NET.alive[g] = Math.max(NET.alive[g] || 0, m.s);
       else if (m.seated) netPost({ ...lobbyMsg(), to: g });   // se durmió y lo dejé afuera: que se entere y vuelva a entrar
@@ -235,6 +251,7 @@ function onHostMsg(m){
 const cleanName = v => (v || '').trim().slice(0, 20) || 'Invitado';
 function takeSeat(p, who, realista){
   NET.seats[p] = who;
+  if (who.cid && NET.chat.length) netPost({ t: 'chatlog', to: who.cid, list: NET.chat.slice(-40) });
   if (who.cid) NET.alive[who.cid] = NET.pingSeq;
   if (realista !== undefined) NET.prefs[p] = !!realista;
   if (NET.started && GM) {
@@ -280,15 +297,16 @@ function publish(){
   });
   netRemember();
 }
-// Fin de mano: si alguien no toca "Siguiente mano", pasado el tiempo por decisión (y unos segundos
-// para leer el resumen) se sigue igual, así nadie deja la mesa esperando
+// Fin de mano: si alguien no toca "Siguiente mano", a los 15 segundos de aparecer el resumen se sigue
+// igual, así nadie deja la mesa esperando (con "sin límite" de tiempo, se espera a todos)
+const END_WAIT = 17000;   // 15 s con el cartel a la vista, más los 2 s que tarda en aparecer
 function netEndWait(){
   if (!GM || !NET.started || GM.phase === 'play' || GM.phase === 'matchEnd') { NET.endKey = null; return; }
   const lim = clockLimit(GM), k = roundKey(GM);
   if (!lim) return;
   if (NET.endKey !== k) { NET.endKey = k; NET.endAt = Date.now(); publish(); return; }   // los invitados ven la cuenta
   if (toolOpen()) { NET.endAt = Date.now(); return; }
-  if (Date.now() - NET.endAt > lim + 4000) { NET.seats.forEach((s, p) => { if (s.kind !== 'ai') NET.ready.add(p); }); checkReady(); }
+  if (Date.now() - NET.endAt > END_WAIT) { NET.seats.forEach((s, p) => { if (s.kind !== 'ai') NET.ready.add(p); }); checkReady(); }
 }
 // personas que todavía no tocaron "Siguiente mano"
 function waitingNames(){ return NET.seats.map((s, p) => s.kind !== 'ai' && !NET.ready.has(p) ? s.name : null).filter(Boolean); }
@@ -349,6 +367,9 @@ function onGuestMsg(m){
     case 'state': onState(m); return;
     case 'err': errMsg = m.msg; NET.legal = []; render(); return;
     case 'away': NET.hostLost = true; NET.hostPeer = null; netStatus(); return;   // el anfitrión recarga la página
+    case 'chat': chatAdd({ p: m.p, name: m.name, text: m.text }, false); return;
+    case 'chatlog': NET.chat = (m.list || []).slice(-80); renderChat(); return;
+    case 'talk': setTalking(m.p, !!m.on); return;
     case 'full': leaveNet(); netNote = 'La mesa está completa.'; homeView = 'join'; showHome('join'); return;
     case 'closed': leaveNet(); netNote = 'El anfitrión cerró la mesa.'; showHome(); return;
   }
@@ -409,7 +430,9 @@ function renderLobby(box){
     }
     h += `<div class="row">${G ? '<button class="act flor" id="hGo">Volver a la mesa</button>' : ''}<button class="act mazo" id="hClose">Salir de la mesa</button></div>`;
   }
+  h += `<section class="lchat"><h3>Chat de la mesa</h3>${chatUI('lc')}</section>`;
   box.innerHTML = h;
+  bindChat('lc'); renderChat();
   $('hBack').onclick = () => { homeView = 'main'; renderHome(); };
   if ($('hName')) $('hName').oninput = e => { setMyName(e.target.value); if (NET && NET.role === 'host' && !NET.started) { NET.seats[0].name = myName() || 'Anfitrión'; netPost(lobbyMsg()); } };
   box.querySelectorAll('[data-mode]').forEach(b => b.onclick = () => setTableMode(+b.dataset.mode));
@@ -440,6 +463,141 @@ function renderJoin(box){
   setTimeout(() => $(myName() && !joinCode ? 'hCode' : 'hName').focus(), 0);
 }
 
+window.__trucoMute = v => { if (NET) NET.mute = !!v; };   // para las pruebas: la pestaña queda sorda y muda, como dormida
+
+// ---------- Chat de la mesa ----------
+// Cada mensaje va al anfitrión, que lo reparte a todos (así el orden es el mismo para todos).
+function chatSend(text){
+  text = String(text || '').replace(/\s+/g, ' ').trim().slice(0, 200);
+  if (!text || !NET) return;
+  if (NET.role === 'host') chatAdd({ p: 0, name: NET.seats[0].name, text }, true);
+  else netPost({ t: 'chat', text, name: NET.name });
+}
+function chatAdd(m, broadcast){
+  const msg = { p: typeof m.p === 'number' ? m.p : -1, name: String(m.name || '').slice(0, 20), text: String(m.text || '').slice(0, 200), at: Date.now() };
+  NET.chat.push(msg); if (NET.chat.length > 80) NET.chat.shift();
+  if (broadcast) netPost({ t: 'chat', p: msg.p, name: msg.name, text: msg.text });
+  const mine = msg.p === chatSeat();
+  if (!mine) { SND.play('chat'); chatToast(msg); }
+  renderChat();
+}
+const chatSeat = () => !NET ? 0 : NET.role === 'host' ? 0 : NET.seat;
+function chatLine(m){
+  const mine = m.p === chatSeat(), seat = chatSeat();
+  const cls = m.p < 0 || seat < 0 || seat === undefined ? '' : mine ? 'yo' : team(m.p) === team(seat) ? 'nos' : 'ellos';
+  return `<div class="cm ${cls}"><b>${esc(mine ? 'Vos' : m.name)}</b> ${esc(m.text)}</div>`;
+}
+function chatUI(k){
+  return `<div class="chatlog" id="${k}Log" aria-live="polite"></div>
+    <form class="chatf" id="${k}Form"><input id="${k}In" maxlength="200" autocomplete="off" placeholder="Escribí algo y apretá Enter" aria-label="Mensaje para la mesa"><button class="tool" type="submit">Enviar</button></form>
+    <div class="voz" data-voz></div>`;
+}
+function bindChat(k){
+  const f = $(k + 'Form'); if (!f) return;
+  f.onsubmit = e => { e.preventDefault(); const i = $(k + 'In'); chatSend(i.value); i.value = ''; };
+}
+function renderChat(){
+  document.querySelectorAll('.chatlog').forEach(box => {
+    const list = NET ? NET.chat : [];
+    box.innerHTML = list.length ? list.map(chatLine).join('') : '<div class="cm vacio">Todavía no hay mensajes.</div>';
+    box.scrollTop = box.scrollHeight;
+  });
+  const p = $('chatPanel'); if (p) p.hidden = !NET;
+  renderVoz();
+}
+// si el chat no está a la vista (en el celular queda abajo), el mensaje aparece un momento arriba
+function chatToast(m){
+  const shown = [...document.querySelectorAll('.chatlog')].some(b => { const r = b.getBoundingClientRect(); return r.width > 0 && r.top < innerHeight && r.bottom > 0; });
+  if (shown) return;
+  const t = $('chatToast'); if (!t) return;
+  t.innerHTML = `<b>${esc(m.name)}:</b> ${esc(m.text)}`; t.hidden = false; t.classList.remove('go'); void t.offsetWidth; t.classList.add('go');
+  clearTimeout(chatToast.tm); chatToast.tm = setTimeout(() => { t.hidden = true; }, 4200);
+}
+
+// ---------- Voz: pulsar para hablar ----------
+// Por la misma conexión directa entre navegadores (WebRTC). El micrófono se pide la primera vez que
+// se pulsa, y solo manda sonido mientras se mantiene apretado el botón (o la tecla V).
+const VOZ = { stream: null, on: false, audios: {}, mute: store.get('truco.voces') === '0', err: '' };
+const vozOK = () => online() && !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia) && !!(NET.tr.room && NET.tr.room.addStream);
+async function vozMic(){
+  if (VOZ.stream) return true;
+  try {
+    VOZ.stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
+  } catch (e) {
+    VOZ.err = e && e.name === 'NotAllowedError' ? 'No diste permiso para usar el micrófono. Se cambia en el candado de la barra de direcciones.' : 'No encontré un micrófono para usar.';
+    renderVoz(); return false;
+  }
+  VOZ.err = '';
+  VOZ.stream.getAudioTracks().forEach(t => { t.enabled = false; });
+  if (NET && NET.tr.room) try { NET.tr.room.addStream(VOZ.stream); } catch (e) {}
+  return true;
+}
+async function talk(on){
+  if (!NET || !vozOK()) return;
+  if (on === VOZ.on) return;
+  VOZ.on = on;
+  if (on && !(await vozMic())) { VOZ.on = false; return; }
+  if (!VOZ.stream || VOZ.on !== on) return;
+  VOZ.stream.getAudioTracks().forEach(t => { t.enabled = on; });
+  clearTimeout(VOZ.cut); if (on) VOZ.cut = setTimeout(() => talk(false), 60000);   // nadie queda hablando sin querer
+  if (NET.role === 'host') { setTalking(0, on); netPost({ t: 'talk', p: 0, on }); } else netPost({ t: 'talk', on });
+  renderVoz();
+}
+function vozStop(){
+  if (VOZ.stream) VOZ.stream.getTracks().forEach(t => t.stop());
+  VOZ.stream = null; VOZ.on = false;
+  for (const k in VOZ.audios) vozDetach(k);
+}
+function vozAttach(peer, stream){
+  vozDetach(peer);
+  const a = document.createElement('audio'); a.autoplay = true; a.srcObject = stream; a.muted = VOZ.mute; a.dataset.peer = peer;
+  document.body.appendChild(a); a.play().catch(() => {});
+  VOZ.audios[peer] = a;
+}
+function vozDetach(peer){ const a = VOZ.audios[peer]; if (a) { a.srcObject = null; a.remove(); delete VOZ.audios[peer]; } }
+function setVocesMute(m){ VOZ.mute = m; store.set('truco.voces', m ? '0' : '1'); for (const k in VOZ.audios) VOZ.audios[k].muted = m; renderVoz(); }
+function setTalking(p, on){
+  if (!NET || typeof p !== 'number') return;
+  NET.talking[p] = on;
+  if ($('home').hidden && G) render();
+  renderVoz();
+}
+function talkingNames(){ return NET ? Object.keys(NET.talking).filter(p => NET.talking[p] && +p !== chatSeat()).map(p => (G && G.names[p]) || ((NET.seats || (NET.lobby && NET.lobby.seats) || [])[p] || {}).name).filter(Boolean) : []; }
+function renderVoz(){
+  const ok = !!(NET && vozOK());
+  document.querySelectorAll('[data-voz]').forEach(box => {
+    if (!ok) { box.dataset.built = ''; box.innerHTML = NET && NET.tr && !online() ? '<p class="vozn">La voz funciona en las mesas por internet.</p>' : ''; return; }
+    // se arma una vez y después solo se actualiza (si se rehiciera, se perdería el botón apretado)
+    if (!box.dataset.built) {
+      box.dataset.built = '1';
+      box.innerHTML = '<button type="button" class="ptt"></button><button type="button" class="tool vmute"></button><p class="vozn"></p>';
+      bindPtt(box.querySelector('.ptt'));
+      box.querySelector('.vmute').onclick = () => setVocesMute(!VOZ.mute);
+    }
+    const b = box.querySelector('.ptt'), who = talkingNames();
+    b.classList.toggle('on', VOZ.on); b.setAttribute('aria-pressed', String(VOZ.on));
+    b.textContent = '🎙 ' + (VOZ.on ? 'Hablando…' : VOZ.prep ? 'Prendiendo el micrófono…' : VOZ.stream ? 'Mantené apretado para hablar' : 'Prender el micrófono');
+    const m = box.querySelector('.vmute'); m.setAttribute('aria-pressed', String(VOZ.mute)); m.textContent = VOZ.mute ? '🔇 Voces apagadas' : '🔈 Escuchando voces';
+    box.querySelector('.vozn').innerHTML = (who.length ? `🎙 Habla ${esc(joinY(who))}` : VOZ.stream ? 'También con la tecla V.' : 'Se prende una vez y después hablás manteniendo apretado el botón o la tecla V.') + (VOZ.err ? ` <span class="err">${esc(VOZ.err)}</span>` : '');
+  });
+  const fab = $('pttFab');
+  if (fab) { fab.hidden = !(ok && $('home').hidden); fab.classList.toggle('on', VOZ.on); fab.classList.toggle('off', !VOZ.stream); fab.setAttribute('aria-label', VOZ.stream ? 'Mantené apretado para hablar' : 'Prender el micrófono'); }
+}
+function bindPtt(b){
+  if (!b) return;
+  b.onpointerdown = e => {
+    e.preventDefault();
+    // la primera vez solo se prende el micrófono (pide permiso y conecta); después, apretar es hablar
+    if (!VOZ.stream) { VOZ.prep = true; renderVoz(); vozMic().then(() => { VOZ.prep = false; renderVoz(); }); return; }
+    try { b.setPointerCapture(e.pointerId); } catch (x) {} talk(true);
+  };
+  b.onpointerup = b.onpointercancel = b.onlostpointercapture = () => talk(false);
+  b.oncontextmenu = e => e.preventDefault();
+}
+document.addEventListener('keydown', e => { if ((e.key === 'v' || e.key === 'V') && !e.repeat && NET && !/INPUT|SELECT|TEXTAREA/.test((document.activeElement || {}).tagName || '')) talk(true); });
+document.addEventListener('keyup', e => { if (e.key === 'v' || e.key === 'V') talk(false); });
+addEventListener('blur', () => talk(false));
+document.addEventListener('visibilitychange', () => { if (document.hidden) talk(false); });
+
 // al abrir: si esta pestaña estaba en una mesa (se recargó la página), vuelve a ella
 const netBack = netOK() && netRestore();
-window.__trucoMute = v => { if (NET) NET.mute = !!v; };   // para las pruebas: la pestaña queda sorda y muda, como dormida

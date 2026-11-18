@@ -11,6 +11,7 @@ Juego de truco uruguayo para el navegador, según el *Reglamento del Truco Urugu
 - `inicio.part.js` — pantalla de inicio, configuración y guardado del partido.
 - `vista.js` — lo que ve cada jugador: una copia del partido sin lo que ese lugar no puede saber.
 - `red.part.js` — mesa compartida: crear una mesa, unirse, lugares, la conexión por internet y los mensajes entre anfitrión e invitados.
+- `sonido.part.js` — sonidos hechos con WebAudio (sin archivos).
 - `trystero.min.js` — Trystero 0.27 (licencia MIT) en un solo archivo: hace que los navegadores se encuentren y se conecten directo (WebRTC).
 - `mesa3d.part.js` — la mesa 3D: escena, jugadores con cara y señas, cartas animadas, cámara.
 - `three.min.js` — recorte de Three.js r187 (licencia MIT) con solo lo que usa la mesa 3D.
@@ -39,7 +40,7 @@ Tocar = envido, gritar = truco, cantar = flor (o cantar los tantos).
 - Señas pescadas: de cada 50 señas hechas, una la pesca algún rival.
 - Tiempo para decidir: 30 segundos por decisión de cada persona (opción: 60 o sin límite). Si se
   acaba, decide la computadora por esa persona; la cuenta se frena con un menú abierto. En una
-  mesa compartida, si alguien no toca "Siguiente mano", pasado ese tiempo se sigue igual (el
+  mesa compartida, si alguien no toca "Siguiente mano", a los 15 segundos se sigue igual (el
   cartel de fin de mano muestra la cuenta).
 - Si tocan y un rival tiene flor, la canta antes de contestar y anula el envido (Art. 27).
 - El envido está primero: se puede tocar contra un truco mientras no hayas jugado tu primera carta.
@@ -60,6 +61,13 @@ Tocar = envido, gritar = truco, cantar = flor (o cantar los tantos).
 - Modo realista: faltas ocultas que se descubren al verse las cartas (Art. 45 o tres cartas jugadas).
 - Las ilustraciones del mazo Tatú no se incluyen: el juego usa la baraja española libre de
   Basquetteur (ver "Cartas"), y el jugador puede cargar su propia imagen del mazo en "Tu mazo".
+
+## Sonido
+
+Suaves y cortos, hechos en el momento con WebAudio: barajar al empezar la mano, repartir, cada
+carta que cae en la mesa, un golpe en la mesa al gritar truco, un acorde chico con la flor, dos
+notas cuando te toca, un tic en tus últimos cinco segundos, tres notas al ganar la mano y el aviso
+del chat. En Configuración se apagan o se cambia el volumen (bajo por defecto).
 
 ## Cartas
 
@@ -120,6 +128,16 @@ una mesa**.
 - **Si el anfitrión va al menú**, el partido se detiene y los invitados ven el aviso hasta que
   vuelve.
 - **Modo realista:** cada uno juega con el suyo (el de su configuración al entrar a la mesa).
+- **Chat de la mesa:** en el costado (y en la pantalla de la mesa antes de empezar). Cada mensaje
+  pasa por el anfitrión, que lo reparte, así todos lo ven en el mismo orden. Si el chat no está a
+  la vista (en el celular queda abajo), el mensaje aparece un momento arriba de todo. El que llega
+  tarde recibe los últimos mensajes.
+- **Voz (pulsar para hablar):** primero se toca "Prender el micrófono" (pide permiso y conecta,
+  tarda unos segundos); después se habla manteniendo apretado el botón 🎙 (en el celular, el
+  redondo de abajo a la derecha) o la tecla V. Solo manda sonido mientras está apretado (un minuto
+  como mucho seguido). Viaja directo entre navegadores,
+  con cancelación de eco. Al lado del nombre de quien habla aparece 🎙. "Escuchando voces" apaga
+  las voces de los demás. Solo en mesas por internet.
 - El partido de una mesa compartida no se guarda en el navegador; tu partido solo, si tenías
   uno, sigue ahí al salir de la mesa.
 
@@ -149,6 +167,9 @@ Si el navegador no tiene WebGL, se juega en 2D y el botón queda desactivado.
   "Tu lugar" (o doble clic) vuelve a tu silla; "Desde arriba" muestra toda la mesa.
 - **Tus cartas:** abajo, pegadas a la cámara. Las que podés jugar se levantan un poco; clic
   o toque para jugarlas, o las teclas 1, 2 y 3. Con Ayudas se ven las insignias pieza, mata y fío.
+- **Ver la muestra de cerca:** con el cursor encima de la muestra la cámara se acerca a mirarla
+  (en pantallas táctiles, tocándola; con el teclado, la tecla M) y al salir vuelve. En la mesa 2D
+  la muestra se agranda.
 - **Mazo:** queda sobre la mesa a la derecha del que dio, con la muestra boca arriba debajo,
   asomando hacia el centro como se pone en la realidad; si la muestra es una negra (sota, caballo
   o rey) asoma la parte de arriba, con el palo. En la mesa 2D asoma la mitad de arriba. Así

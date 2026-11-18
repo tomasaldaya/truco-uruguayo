@@ -37,6 +37,7 @@ function showHome(view){
   homeView = view || 'main'; confirmNew = null;
   $('home').hidden = false; document.querySelector('.app').hidden = true;
   V3.pause();
+  if (NET) renderVoz();
   if (NET && NET.role === 'host') publish();   // los invitados ven que el anfitrión está en el menú
   paintFan(!fanDealt); fanDealt = true;
   renderHome();
@@ -48,7 +49,7 @@ function paintFan(deal){
   [[1, 'espada'], [1, 'basto'], [7, 'espada']].forEach(([n, s], i) => { const c = cardEl({ n, s, id: n + '-' + s }); c.classList.add('f' + i); fan.appendChild(c); });
   fan.classList.toggle('deal', !!deal);
 }
-function hideHome(){ $('home').hidden = true; document.querySelector('.app').hidden = false; }
+function hideHome(){ $('home').hidden = true; document.querySelector('.app').hidden = false; if (NET) renderVoz(); }
 function continueGame(){
   hideHome();
   if (isGuest()) { render(); if (G && G.phase !== 'play' && G.phase !== 'idle' && !$('mNext')) showRoundEnd(); return; }
@@ -135,6 +136,10 @@ function renderConfig(box){
       ${row('help', 'Ayudas', [['1', 'Sí'], ['0', 'No']], showHelp ? '1' : '0', 'Marca qué cartas son pieza, mata o fío, qué significa cada seña y cuánto tenés de envido.')}
       ${row('speed', 'Velocidad', Object.keys(SPEEDS).map(k => [k, k.charAt(0).toUpperCase() + k.slice(1)]), speed, 'Cuánto tarda la computadora en jugar.')}
     </div></section>
+    <section class="cfgsec"><h3>Sonido</h3><div class="cfg">
+      ${row('snd', 'Sonidos', [['1', 'Sí'], ['0', 'No']], SND.on ? '1' : '0', 'Barajar, repartir, cartas a la mesa, el golpe al gritar truco, tu turno y los últimos segundos. Suaves y cortos.')}
+      ${row('vol', 'Volumen', [['bajo', 'Bajo'], ['medio', 'Medio'], ['alto', 'Alto']], SND.vol)}
+    </div></section>
     <section class="cfgsec"><h3>Partido</h3><div class="cfg">
       ${row('level', 'Dificultad', [['facil', 'Fácil'], ['normal', 'Normal'], ['dificil', 'Difícil']], level, 'En difícil la computadora se acuerda de tus mentiras y tus faroles.')}
       ${row('real', 'Modo realista', [['0', 'No'], ['1', 'Sí']], realista ? '1' : '0', 'Cantás tus puntos a mano y podés equivocarte o negar la flor, con las penas del reglamento. Rige desde la próxima mano.')}
@@ -152,6 +157,8 @@ function setCfg(k, v){
   if (k === 'view') setView3d(v === '3d');
   else if (k === 'help') setHelp(v === '1');
   else if (k === 'speed') setSpeed(v);
+  else if (k === 'snd') SND.setOn(v === '1');
+  else if (k === 'vol') SND.setVol(v);
   else if (k === 'level') { level = v; store.set('truco.level', v); }
   else if (k === 'real') setRealista(v === '1');
   else {

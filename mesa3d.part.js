@@ -589,7 +589,7 @@ const V3 = (function(){
     const R = G.round, hand = R.hands[ME], k = hand.length, i = Math.max(0, hand.findIndex(c => c.id === o.id)), L = handLayout();
     const d = i - (k-1)/2, can = S.playable.has(o.id), hov = S.hover === o.id && can;
     const lift = hov ? .26 : can ? .1 : 0;
-    const pos = v3(d*L.sp, L.baseY - Math.abs(d)*.03*L.ch + lift*L.ch - (S.myOut ? .4*L.ch : 0), -L.D + i*.004);
+    const pos = v3(d*L.sp, L.baseY - Math.abs(d)*.03*L.ch + lift*L.ch - (S.mz ? .8*L.ch : S.myOut ? .4*L.ch : 0), -L.D + i*.004);
     return { pos, quat: qA(ZAX, -d*.06), scale: L.s * (hov ? 1.05 : 1), i };
   }
   function slotPose(slot, o){
@@ -656,6 +656,7 @@ const V3 = (function(){
         if (tw.slot.face || tw.slot.hand) setFace(o, true);
         else if (!tw.slot.deck && !tw.slot.muestra) setFace(o, false);
         if (tw.slot.table && tw.slot.p !== ME) S.cnt[tw.fromPose ? 'desdeMano' : 'desdeMazo']++; // carta jugada por otro: sale de su mano
+        if (t < S.dealEnd && !tw.slot.deck && !tw.slot.table) SND.play('deal');
         tw.fromHand = o.where === 'hand';
         tw.from = { pos: o.g.position.clone(), quat: o.g.quaternion.clone(), scale: o.g.scale.x };
         o.where = 'moving';
@@ -668,6 +669,7 @@ const V3 = (function(){
       if (tw.fromHand && !tw.slot.hand) setOnTop(o, k < .45, 160);
       if (k >= 1) {
         o.tws.shift();
+        if (tw.slot.table) SND.play('place');
         if (tw.slot.hand) { handGroup.attach(o.g); o.where = 'hand'; }
         else if (tw.slot.deck) { o.g.visible = false; o.where = 'deck'; setOnTop(o, false); }
         else { o.where = 'scene'; setOnTop(o, false); }
@@ -732,6 +734,7 @@ const V3 = (function(){
         for (const id in CARDS) { const o = CARDS[id]; if (o.where !== 'deck' || o.tws.length) { go(o, { key: 'd', deck: true }, k*.012, { dur: .32, arc: .35 }); k++; } }
         dealT0 = k ? .45*AS() : .1;
       }
+      if (S.mz) muestraZoom(false);
       S.roundNo = G.roundNo; S.jobs = []; S.job = null; S.senasRk = null; S.seenN = 0; S.humanSenas = null; S.pescados = '';
       Lay.chars.forEach(c => { if (c) c.gest = null; });
     }
@@ -756,7 +759,7 @@ const V3 = (function(){
       else o.slot = s;
     }
     for (const k in gone) gone[k].forEach(ph => { ph.tws = []; ph.g.visible = false; ph.where = 'deck'; ph.key = 'd'; ph.slot = null; });
-    if (dealT0 !== null) { S.dealEnd = now + dealT0 + (3*G.n + 2)*dt + .45*AS(); S.cnt.reparto++; }
+    if (dealT0 !== null) { S.dealEnd = now + dealT0 + (3*G.n + 2)*dt + .45*AS(); S.cnt.reparto++; SND.play('shuffle'); }
     else if (snap) { S.dealEnd = now; S.cnt.ubicar++; }
     S.rk = rk;
 
@@ -847,7 +850,8 @@ const V3 = (function(){
       let sen = '';
       if (partner && R.senasShown[p] && G.rules.senas && !R.leyPhase && !R.duel && !R.hands[ME].some(c => c.hidden)) sen += senaGroups(R.senasShown[p]).map(([k, n]) => `<span class="sena">${senaTxt(k, n)}</span>`).join('');
       if (!R.leyPhase) senaGroups((R.seen[ME] || []).filter(v => v.p === p).map(v => v.s)).forEach(([k, n]) => { sen += `<span class="sena caught">👀 ${senaTxt(k, n)}</span>`; });
-      const html = `<div class="nm">${esc(G.names[p])}${G.n >= 4 ? `<small>${partner ? 'compañero' : 'rival'}</small>` : ''}</div>`
+      const mic = NET && NET.talking && NET.talking[p] ? ' 🎙' : '';
+      const html = `<div class="nm">${esc(G.names[p])}${mic}${G.n >= 4 ? `<small>${partner ? 'compañero' : 'rival'}</small>` : ''}</div>`
         + (tags.length ? `<div class="tags">${tags.join('')}</div>` : '') + (sen ? `<div class="senas">${sen}</div>` : '');
       if (html !== c.lblHTML) { c.lblIn.innerHTML = html; c.lblHTML = html; }
       c.lbl.classList.toggle('inactive', !R.active[p]);
@@ -875,7 +879,7 @@ const V3 = (function(){
     camera.position.set(CAM.tx + CAM.rho*Math.sin(CAM.phi)*cb, CAM.ty + CAM.rho*Math.sin(CAM.beta), CAM.tz + CAM.rho*Math.cos(CAM.phi)*cb);
     camera.lookAt(CAM.tx, CAM.ty, CAM.tz);
   }
-  function setView(v){ CAM.user = v !== 'mine'; CAM.g = v === 'top' ? topCam() : defaultCam(); CAM.k = 3; }
+  function setView(v){ if (S.mz) { S.mz = null; muLbl.classList.remove('on'); } CAM.user = v !== 'mine'; CAM.g = v === 'top' ? topCam() : defaultCam(); CAM.k = 3; }
 
   // ---------- puntero: girar, acercar, jugar cartas ----------
   const ptrs = new Map();
@@ -891,7 +895,26 @@ const V3 = (function(){
     const heads = Lay ? Lay.chars.filter(Boolean).map(c => c.skull) : [];
     const hh = ray.intersectObjects(heads, false);
     if (hh.length) return { p: hh[0].object.userData.charP };
+    const mo = muestraObj();
+    if (mo && ray.intersectObject(mo.front, false).length) return { muestra: true };
     return {};
+  }
+  // ---------- ver la muestra de cerca ----------
+  // Con el cursor encima de la muestra (o tocándola en pantallas táctiles, o con la tecla M) la cámara
+  // se acerca a mirarla desde arriba y la mano baja; al salir, vuelve a donde estaba.
+  function muestraObj(){
+    const R = G && G.round; if (!R || !R.muestra || R.muestra.hidden) return null;
+    const o = CARDS[R.muestra.id]; return o && o.g.visible && o.face && !o.tws.length ? o : null;
+  }
+  function muestraZoom(on){
+    if (on && (S.mz || !muestraObj())) return;
+    if (!on) { if (!S.mz) return; const z = S.mz; S.mz = null; CAM.g = z.prevG; CAM.user = z.prevUser; CAM.k = 4; muLbl.classList.remove('on'); muLbl.textContent = 'Muestra'; return; }
+    const mp = muePose(true).pos, y = Lay.deck.rotation.y, k = CH*.1;
+    const prevG = CAM.g ? { ...CAM.g } : defaultCam();
+    S.mz = { prevG, prevUser: CAM.user, round: G.roundNo };
+    CAM.g = { phi: CAM.phi, beta: 1.2, rho: 3.4, tx: mp.x + Math.sin(y)*k, ty: 0, tz: mp.z + Math.cos(y)*k };
+    CAM.user = true; CAM.k = 4;
+    muLbl.classList.add('on'); muLbl.textContent = 'Muestra: ' + T.cardName(G.round.muestra);
   }
   function canReplay(p){ const c = Lay && Lay.chars[p]; return c && c.lblHTML.includes('class="sena'); }
   function events(){
@@ -904,7 +927,14 @@ const V3 = (function(){
     canvas.addEventListener('pointermove', ev => {
       const pt = ptrs.get(ev.pointerId);
       if (!pt) {
-        if (ev.pointerType === 'mouse') { const h = pick(ev); S.hover = h.card || null; S.hoverP = h.p !== undefined ? h.p : null; canvas.style.cursor = (h.card && S.playable.has(h.card)) || (S.hoverP !== null && canReplay(S.hoverP)) ? 'pointer' : 'grab'; }
+        if (ev.pointerType === 'mouse') {
+          const h = pick(ev); S.hover = h.card || null; S.hoverP = h.p !== undefined ? h.p : null;
+          canvas.style.cursor = h.muestra ? 'zoom-in' : (h.card && S.playable.has(h.card)) || (S.hoverP !== null && canReplay(S.hoverP)) ? 'pointer' : 'grab';
+          // cursor sobre la muestra: acercarse; al salir, volver (con un respiro para que no tiemble)
+          clearTimeout(S.mzT);
+          if (h.muestra && !S.mz) S.mzT = setTimeout(() => muestraZoom(true), 180);
+          else if (!h.muestra && S.mz && !S.mz.sticky) S.mzT = setTimeout(() => muestraZoom(false), 250);
+        }
         return;
       }
       const dx = ev.clientX - pt.x, dy = ev.clientY - pt.y;
@@ -927,18 +957,21 @@ const V3 = (function(){
       if (!had || !drag) return;
       if (!drag.moved && ptrs.size === 0) {
         const h = pick(ev);
-        if (h.card && S.playable.has(h.card)) { const c = G.round.hands[ME].find(x => x.id === h.card); if (c) { S.hover = null; human({ type: 'play', card: c }); } }
+        if (S.mz && S.mz.sticky) muestraZoom(false);   // tocando de nuevo, se vuelve
+        else if (h.muestra && ev.pointerType !== 'mouse') { muestraZoom(true); if (S.mz) S.mz.sticky = true; }
+        else if (h.card && S.playable.has(h.card)) { const c = G.round.hands[ME].find(x => x.id === h.card); if (c) { S.hover = null; human({ type: 'play', card: c }); } }
         else if (h.p !== undefined) replaySenas(h.p);
       }
       if (ptrs.size === 0) { drag = null; canvas.style.cursor = 'grab'; }
     };
     canvas.addEventListener('pointerup', up);
     canvas.addEventListener('pointercancel', up);
-    canvas.addEventListener('pointerleave', ev => { if (ev.pointerType === 'mouse' && !ptrs.size) S.hover = null; });
+    canvas.addEventListener('pointerleave', ev => { if (ev.pointerType === 'mouse' && !ptrs.size) { S.hover = null; clearTimeout(S.mzT); if (S.mz && !S.mz.sticky) muestraZoom(false); } });
     canvas.addEventListener('wheel', ev => { ev.preventDefault(); startUserCam(); CAM.g.rho = clamp(CAM.g.rho * Math.exp(ev.deltaY * .0011), 7, 34); }, { passive: false });
     canvas.addEventListener('dblclick', () => setView('mine'));
     document.addEventListener('keydown', ev => {
       if (!running || document.querySelector('.overlay') || /INPUT|SELECT|TEXTAREA/.test((document.activeElement || {}).tagName || '')) return;
+      if (ev.key === 'm' || ev.key === 'M') { if (S.mz) muestraZoom(false); else { muestraZoom(true); if (S.mz) S.mz.sticky = true; } return; }
       const i = '123'.indexOf(ev.key);
       if (i >= 0) { const c = G.round && G.round.hands[ME][i]; if (c && S.playable.has(c.id)) human({ type: 'play', card: c }); }
     });
@@ -946,7 +979,7 @@ const V3 = (function(){
     $('cam3dMine').onclick = () => setView('mine');
     $('cam3dTop').onclick = () => setView('top');
   }
-  function startUserCam(){ if (!CAM.g) CAM.g = defaultCam(); CAM.user = true; CAM.k = 9; }
+  function startUserCam(){ if (S.mz) { S.mz = null; muLbl.classList.remove('on'); } if (!CAM.g) CAM.g = defaultCam(); CAM.user = true; CAM.k = 9; }
 
   // ---------- cuadro con la cara del que hace señas ----------
   function renderPip(){

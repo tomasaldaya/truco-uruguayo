@@ -101,6 +101,9 @@ h1 small{font-family:'Alegreya Sans',sans-serif;font-size:15px;font-weight:500;c
 /* la muestra boca arriba debajo del mazo, asomando la mitad de arriba (el número y el palo), como se pone en la mesa */
 .deckpile .card,.deckpile .back.mue{position:absolute;left:2px;top:3px;transform:rotate(-2deg)}
 .deckpile .back{position:absolute;left:calc(var(--cw)*.13);top:calc(var(--ch)*.5);transform:rotate(3deg);z-index:1;box-shadow:0 1px 0 #d9ccb0,0 2px 0 #cdbf9f,0 3px 0 #bfb08d,0 8px 16px rgba(0,0,0,.45)}
+.deckpile .card{transition:transform .28s cubic-bezier(.2,.8,.25,1),box-shadow .28s;transform-origin:50% 30%;cursor:zoom-in}
+.deckpile .card:hover,.deckpile .card.zoom{transform:scale(2.1) rotate(0);z-index:5;box-shadow:0 18px 40px rgba(0,0,0,.55)}
+@media (prefers-reduced-motion:reduce){.deckpile .card{transition:none}}
 .deckpile .back.mue{z-index:0;box-shadow:0 6px 14px rgba(0,0,0,.35)}
 /* cruz de 4 */
 .cross-wrap{display:flex;flex-direction:column;align-items:center;gap:10px}
@@ -225,6 +228,7 @@ aside{display:flex;flex-direction:column;gap:14px;margin-top:13px}
 .l3d.side .say{align-self:inherit}
 .mybub{position:absolute;left:12px;top:auto}
 .mybub.on{opacity:1}
+.mue3d.on{font-size:15px;letter-spacing:.5px;text-transform:none}
 .mue3d{position:absolute;left:0;top:0;font-size:11px;color:var(--gold);text-transform:uppercase;letter-spacing:1.5px;font-weight:700;text-shadow:0 1px 4px #000}
 .baz3d{position:absolute;left:12px;top:12px;display:flex;gap:6px;flex-wrap:wrap;max-width:calc(100% - 250px)}
 .bz{display:flex;gap:5px;align-items:center;background:rgba(0,0,0,.5);border-radius:999px;padding:3px 4px 3px 10px;font-size:12px}
@@ -307,6 +311,23 @@ aside{display:flex;flex-direction:column;gap:14px;margin-top:13px}
 .clock.low .bar i{background:#d9533f}.clock.low b{color:#ff8a73}
 .endclock{font-size:14px;margin:6px 0 0;opacity:.8}.endclock b{font-variant-numeric:tabular-nums}
 .sena .x{color:var(--gold)}
+/* chat y voz */
+.chatlog{max-height:220px;overflow:auto;font-size:14px;display:flex;flex-direction:column;gap:5px;padding-right:4px;margin-bottom:8px}
+.cm{line-height:1.35;word-wrap:break-word}.cm b{color:var(--gold)}.cm.nos b{color:#9cc7ee}.cm.ellos b{color:#e08a96}.cm.yo b{color:var(--muted, #cbbd9f)}
+.cm.vacio{opacity:.6;font-size:13px}
+.chatf{display:flex;gap:6px}.chatf input{flex:1;min-width:0;font:inherit;font-size:14px;padding:7px 10px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:#2a1d13;color:var(--ink)}
+.voz{margin-top:10px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.ptt{font:inherit;font-weight:700;font-size:14px;padding:9px 14px;border-radius:12px;border:1px solid rgba(255,255,255,.25);background:#2f3a2c;color:var(--ink);cursor:pointer;user-select:none;-webkit-user-select:none;touch-action:none}
+.ptt.on{background:#3c8a4a;border-color:#7fd08f;box-shadow:0 0 0 3px rgba(127,208,143,.35)}
+.vozn{flex-basis:100%;margin:0;font-size:12.5px;opacity:.75}.vozn .err{color:#ff8a73;opacity:1}
+.lchat{margin-top:16px}.lchat h3{font-family:'Alegreya',serif;font-size:17px;margin:0 0 8px}
+.chattoast{position:fixed;left:50%;top:12px;transform:translateX(-50%);z-index:40;max-width:min(92vw,520px);background:rgba(251,246,234,.96);color:#2b1d10;padding:8px 14px;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.4);font-size:14px}
+.chattoast.go{animation:pop .3s ease-out}
+.pttfab{position:fixed;right:14px;bottom:14px;z-index:35;width:58px;height:58px;border-radius:50%;border:1px solid rgba(255,255,255,.3);background:#2f3a2c;color:#fff;font-size:24px;box-shadow:0 8px 20px rgba(0,0,0,.45);cursor:pointer;touch-action:none;user-select:none;-webkit-user-select:none}
+.pttfab.off{opacity:.75}
+.pttfab.on{background:#3c8a4a;box-shadow:0 0 0 5px rgba(127,208,143,.35),0 8px 20px rgba(0,0,0,.45)}
+@media (min-width:981px){.pttfab{display:none}}
+.who .name .mic{font-size:.8em}
 .hcred{font-size:12px;opacity:.65;margin:14px 0 0;line-height:1.4}.hcred a{color:inherit}
 .invite{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 10px}
 .invite input{flex:1 1 240px;min-width:0;font:inherit;font-size:14px;padding:6px 10px;border-radius:9px;border:1px solid rgba(255,255,255,.2);background:#2a1d13;color:var(--ink)}
@@ -417,12 +438,15 @@ aside{display:flex;flex-direction:column;gap:14px;margin-top:13px}
   </main>
   <aside>
     <div class="panel"><h2>Tanteador</h2><div class="score" id="score"></div></div>
+    <div class="panel chatp" id="chatPanel" hidden><h2>Chat de la mesa</h2><div id="chatBox"></div></div>
     <div class="panel" id="ranksPanel" hidden><h2>Jerarquía con esta muestra</h2><div class="rank-list" id="ranks"></div></div>
     <div class="panel"><h2>Lo que se dijo</h2><div class="log" id="log" aria-live="polite"></div></div>
   </aside>
 </div>
 <div id="overlay"></div>
 <div id="overlay2"></div>
+<div class="chattoast" id="chatToast" role="status" hidden></div>
+<button type="button" class="pttfab" id="pttFab" hidden aria-label="Mantené apretado para hablar">🎙</button>
 
 <script>/*THREE*/</script>
 <script>/*ENGINE*/</script>
@@ -459,6 +483,7 @@ if (savedPlayers) players = ['4','6'].includes(savedPlayers) ? +savedPlayers : 2
 if (['facil','normal','dificil'].includes(store.get('truco.level'))) level = store.get('truco.level');
 if (SPEEDS[store.get('truco.speed')]) speed = store.get('truco.speed');
 
+/*SONIDO*/
 /*NAIPES*/
 /*CARDS*/
 /*TALLY*/
@@ -496,6 +521,8 @@ function render(){
   clockSync();
   if (NET && NET.role === 'host') publish();
   setTimeout(paintClock, 0);
+  soundCues();
+  if (NET) renderVoz();
   const R = G.round;
   $('modeLbl').textContent = (G.n===6 ? 'tercetos' : G.n===4 ? 'parejas' : 'mano a mano') + (NET ? ', mesa ' + NET.code : '');
   saveGame();
@@ -528,7 +555,7 @@ function otherSeat(p, act){
   if (R.flor.sung[p]) tags.push('<span class="tag flor">flor</span>');
   if (act===p && G.phase==='play') tags.push('<span class="tag turn">juega</span>');
   if (R.out[p]) tags.push('<span class="tag out">pasó</span>');
-  const who = el('div','who', `<div class="name">${esc(G.names[p])}</div>${G.n>=4?`<div class="sub">${partner?'tu compañero':'rival'}</div>`:''}<div class="tags">${tags.join('')}</div>`);
+  const who = el('div','who', `<div class="name">${esc(G.names[p])}${NET && NET.talking && NET.talking[p] ? ' <span class="mic">🎙</span>' : ''}</div>${G.n>=4?`<div class="sub">${partner?'tu compañero':'rival'}</div>`:''}<div class="tags">${tags.join('')}</div>`);
   const h = el('div','hand' + (pos==='top' && G.n===2 ? '' : ' mini'));
   R.hands[p].forEach(() => h.appendChild(backEl()));
   s.appendChild(who); s.appendChild(h);
@@ -586,11 +613,19 @@ function center4(){
   c.appendChild(wrap); c.appendChild(muestraBox());
   return c;
 }
+let mz2d = null;
 function muestraBox(){
   const mu = el('div','muestra-box','<div class="lbl">Muestra</div>');
   const pile = el('div','deckpile'); pile.appendChild(backEl());
   if (G.round.leyPhase) { const b = backEl(); b.classList.add('mue'); pile.appendChild(b); }
-  else pile.appendChild(cardEl(G.round.muestra));
+  else {
+    // tocada (pantallas táctiles), queda agrandada hasta volver a tocarla, aunque la mesa se redibuje
+    const mc = cardEl(G.round.muestra), key = G.roundNo + ':' + G.round.muestra.id; mc.tabIndex = 0;
+    mc.title = 'Muestra: ' + T.cardName(G.round.muestra) + ' (pasá el cursor o tocala para verla de cerca)';
+    if (mz2d === key) mc.classList.add('zoom');
+    mc.onclick = () => { mz2d = mz2d === key ? null : key; mc.classList.toggle('zoom', mz2d === key); };
+    pile.appendChild(mc);
+  }
   mu.appendChild(pile); return mu;
 }
 
@@ -1030,7 +1065,30 @@ function timeUp(p){
 function endLeft(){
   if (!NET || !G || G.phase === 'play') return null;
   if (isGuest()) { const c = NET.endClock; return c ? c.left - (Date.now() - c.at) : null; }
-  return NET.endAt && NET.endKey ? clockLimit(GM) + 4000 - (Date.now() - NET.endAt) : null;
+  return NET.endAt && NET.endKey ? END_WAIT - (Date.now() - NET.endAt) : null;
+}
+// Sonidos según lo que cambió desde el último dibujo (las cartas de la mesa 3D suenan desde la escena)
+let sndPrev = null;
+function soundCues(){
+  if (!G || !G.round || !$('home').hidden) return;
+  const R = G.round, act = actorNow();
+  const cur = { key: G.roundNo + ':' + (R.duel ? R.duel.idx : 0), played: R.played.reduce((a, b) => a + b, 0), act, phase: G.phase, logN: G.log.length, id: G.id };
+  const p = sndPrev; sndPrev = cur;
+  if (!p || p.id !== cur.id) return;
+  if (!use3D()) {
+    if (cur.key !== p.key) SND.play('shuffle');
+    else if (cur.played > p.played) SND.play('place');
+  }
+  for (let i = p.logN; i < cur.logN && i >= 0; i++) {
+    const l = G.log[i]; if (!l || l.kind !== 'canto') continue;
+    if (/^(truco|retruco|vale cuatro)$/i.test(l.text)) SND.play('call');
+    else if (/flor/i.test(l.text) && !/achico|sin cantar/i.test(l.text)) SND.play('flor', .05);
+  }
+  if (cur.phase === 'play' && act === ME && p.act !== ME) SND.play('turn', .15);
+  if (cur.phase !== 'play' && p.phase === 'play' && cur.key === p.key) {
+    const g = R.gained || [[], []], mine = (g[MT()] || []).reduce((a, x) => a + x.pts, 0), theirs = (g[1 - MT()] || []).reduce((a, x) => a + x.pts, 0);
+    if (mine > theirs) SND.play('win', .3); else if (theirs > mine) SND.play('lose', .3);
+  }
 }
 function paintClock(){
   const ec = document.querySelector('.endclock'), el2 = endLeft();
@@ -1044,6 +1102,8 @@ function paintClock(){
     el.querySelector('b').textContent = sec + ' s';
     el.querySelector('i').style.width = (100 * ms / lim).toFixed(1) + '%';
   });
+  // tu tiempo: un tic suave en los últimos 5 segundos
+  if (c && lim && c.p === ME && G.phase === 'play') { const sec = Math.ceil(Math.max(0, Math.min(lim, c.ms)) / 1000); if (sec <= 5 && sec > 0 && sec !== paintClock.lastSec) SND.play('tick'); paintClock.lastSec = sec; }
 }
 setInterval(() => {
   if (GM && !isGuest()) {
@@ -1209,6 +1269,7 @@ function howToModal(){
   <p><b>Envido:</b> se canta antes de jugar tu primera carta. Envido 2, real envido 3, falta envido lo que le falta al que va ganando. No querido vale 1.</p>
   <p><b>Truco:</b> truco 2, retruco 3, vale cuatro 4. Gana la mano quien gane dos bazas. Si dos rivales tiran cartas iguales la baza es parda; si las iguales son de compañeros, la baza es de ese equipo (Arts. 57 a 59).</p>
   <p><b>Parejas:</b> se juega hacia la derecha. Si un rival te canta truco o envido y podés contestar, contestás vos. Las señas del Art. 102 te las hace tu compañero al empezar la mano, y vos se las hacés a él con los botones de abajo. Con <b>Ayudas</b> se ve qué significa cada seña. Si tenés dos cartas iguales (dos matas, dos tres), la seña se hace dos veces: tocá el botón otra vez. Si tu compañero toca o grita antes de que cantes tu flor, te la anula: por eso la computadora deja tocar y gritar al que ya tiene a sus compañeros jugados.</p>
+  <p><b>La muestra de cerca:</b> pasá el cursor por encima de la muestra (o tocala) y la cámara se acerca a mirarla; con el teclado, la tecla M.</p>
   <p><b>Tiempo:</b> tenés 30 segundos para cada decisión (se cambia en Reglas de la mesa). Si se te acaba, decide la computadora por vos. Con el menú abierto la cuenta se frena.</p>
   <p><b>Señas pescadas:</b> de cada 50 señas que se hacen, una la ve algún rival. Te puede pasar a vos con las señas de Tito y Nacho, y a ellos con las tuyas o las de Pocho. Lo que se ve es siempre verdad, y la computadora también lo usa.</p>
   <p><b>Modo realista:</b> la flor no se canta sola y los puntos los cantás vos. Si jugás o cantás otra cosa sin cantar tu flor, la negás. Las faltas se descubren cuando se ven tus cartas: si ganás un envite (tenés que mostrarlas) o si jugás las tres. Cantar errado o negar la flor, si se descubre, te hace perder todo lo de la mano (Art. 46). Cantar flor sin tenerla se descubre enseguida. Si se descubre que ganaste un envite negando la flor, es falta grave (Art. 100).</p>
@@ -1237,6 +1298,8 @@ window.__trucoNew = n => startGame(n); window.__v3 = V3;
 GM = loadSavedGame();
 if (GM) { players = GM.n; refreshView(); }
 /*RED*/
+$('chatBox').innerHTML = chatUI('ch'); bindChat('ch'); bindPtt($('pttFab'));
+window.__trucoSnd = SND; window.__trucoVoz = VOZ; window.__trucoChat = t => chatSend(t);
 if (netBack && NET && NET.role === 'host' && NET.started) { showHome(); continueGame(); }
 else if (netBack) showHome('lobby');
 else if (netOK() && invitedCode()) { joinCode = invitedCode(); showHome('join'); }

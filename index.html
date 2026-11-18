@@ -101,6 +101,9 @@ h1 small{font-family:'Alegreya Sans',sans-serif;font-size:15px;font-weight:500;c
 /* la muestra boca arriba debajo del mazo, asomando la mitad de arriba (el número y el palo), como se pone en la mesa */
 .deckpile .card,.deckpile .back.mue{position:absolute;left:2px;top:3px;transform:rotate(-2deg)}
 .deckpile .back{position:absolute;left:calc(var(--cw)*.13);top:calc(var(--ch)*.5);transform:rotate(3deg);z-index:1;box-shadow:0 1px 0 #d9ccb0,0 2px 0 #cdbf9f,0 3px 0 #bfb08d,0 8px 16px rgba(0,0,0,.45)}
+.deckpile .card{transition:transform .28s cubic-bezier(.2,.8,.25,1),box-shadow .28s;transform-origin:50% 30%;cursor:zoom-in}
+.deckpile .card:hover,.deckpile .card.zoom{transform:scale(2.1) rotate(0);z-index:5;box-shadow:0 18px 40px rgba(0,0,0,.55)}
+@media (prefers-reduced-motion:reduce){.deckpile .card{transition:none}}
 .deckpile .back.mue{z-index:0;box-shadow:0 6px 14px rgba(0,0,0,.35)}
 /* cruz de 4 */
 .cross-wrap{display:flex;flex-direction:column;align-items:center;gap:10px}
@@ -225,6 +228,7 @@ aside{display:flex;flex-direction:column;gap:14px;margin-top:13px}
 .l3d.side .say{align-self:inherit}
 .mybub{position:absolute;left:12px;top:auto}
 .mybub.on{opacity:1}
+.mue3d.on{font-size:15px;letter-spacing:.5px;text-transform:none}
 .mue3d{position:absolute;left:0;top:0;font-size:11px;color:var(--gold);text-transform:uppercase;letter-spacing:1.5px;font-weight:700;text-shadow:0 1px 4px #000}
 .baz3d{position:absolute;left:12px;top:12px;display:flex;gap:6px;flex-wrap:wrap;max-width:calc(100% - 250px)}
 .bz{display:flex;gap:5px;align-items:center;background:rgba(0,0,0,.5);border-radius:999px;padding:3px 4px 3px 10px;font-size:12px}
@@ -307,6 +311,23 @@ aside{display:flex;flex-direction:column;gap:14px;margin-top:13px}
 .clock.low .bar i{background:#d9533f}.clock.low b{color:#ff8a73}
 .endclock{font-size:14px;margin:6px 0 0;opacity:.8}.endclock b{font-variant-numeric:tabular-nums}
 .sena .x{color:var(--gold)}
+/* chat y voz */
+.chatlog{max-height:220px;overflow:auto;font-size:14px;display:flex;flex-direction:column;gap:5px;padding-right:4px;margin-bottom:8px}
+.cm{line-height:1.35;word-wrap:break-word}.cm b{color:var(--gold)}.cm.nos b{color:#9cc7ee}.cm.ellos b{color:#e08a96}.cm.yo b{color:var(--muted, #cbbd9f)}
+.cm.vacio{opacity:.6;font-size:13px}
+.chatf{display:flex;gap:6px}.chatf input{flex:1;min-width:0;font:inherit;font-size:14px;padding:7px 10px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:#2a1d13;color:var(--ink)}
+.voz{margin-top:10px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.ptt{font:inherit;font-weight:700;font-size:14px;padding:9px 14px;border-radius:12px;border:1px solid rgba(255,255,255,.25);background:#2f3a2c;color:var(--ink);cursor:pointer;user-select:none;-webkit-user-select:none;touch-action:none}
+.ptt.on{background:#3c8a4a;border-color:#7fd08f;box-shadow:0 0 0 3px rgba(127,208,143,.35)}
+.vozn{flex-basis:100%;margin:0;font-size:12.5px;opacity:.75}.vozn .err{color:#ff8a73;opacity:1}
+.lchat{margin-top:16px}.lchat h3{font-family:'Alegreya',serif;font-size:17px;margin:0 0 8px}
+.chattoast{position:fixed;left:50%;top:12px;transform:translateX(-50%);z-index:40;max-width:min(92vw,520px);background:rgba(251,246,234,.96);color:#2b1d10;padding:8px 14px;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.4);font-size:14px}
+.chattoast.go{animation:pop .3s ease-out}
+.pttfab{position:fixed;right:14px;bottom:14px;z-index:35;width:58px;height:58px;border-radius:50%;border:1px solid rgba(255,255,255,.3);background:#2f3a2c;color:#fff;font-size:24px;box-shadow:0 8px 20px rgba(0,0,0,.45);cursor:pointer;touch-action:none;user-select:none;-webkit-user-select:none}
+.pttfab.off{opacity:.75}
+.pttfab.on{background:#3c8a4a;box-shadow:0 0 0 5px rgba(127,208,143,.35),0 8px 20px rgba(0,0,0,.45)}
+@media (min-width:981px){.pttfab{display:none}}
+.who .name .mic{font-size:.8em}
 .hcred{font-size:12px;opacity:.65;margin:14px 0 0;line-height:1.4}.hcred a{color:inherit}
 .invite{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 10px}
 .invite input{flex:1 1 240px;min-width:0;font:inherit;font-size:14px;padding:6px 10px;border-radius:9px;border:1px solid rgba(255,255,255,.2);background:#2a1d13;color:var(--ink)}
@@ -417,12 +438,15 @@ aside{display:flex;flex-direction:column;gap:14px;margin-top:13px}
   </main>
   <aside>
     <div class="panel"><h2>Tanteador</h2><div class="score" id="score"></div></div>
+    <div class="panel chatp" id="chatPanel" hidden><h2>Chat de la mesa</h2><div id="chatBox"></div></div>
     <div class="panel" id="ranksPanel" hidden><h2>Jerarquía con esta muestra</h2><div class="rank-list" id="ranks"></div></div>
     <div class="panel"><h2>Lo que se dijo</h2><div class="log" id="log" aria-live="polite"></div></div>
   </aside>
 </div>
 <div id="overlay"></div>
 <div id="overlay2"></div>
+<div class="chattoast" id="chatToast" role="status" hidden></div>
+<button type="button" class="pttfab" id="pttFab" hidden aria-label="Mantené apretado para hablar">🎙</button>
 
 <script>
 var THREE=(()=>{var $a=Object.defineProperty;var Gh=Object.getOwnPropertyDescriptor;var Vh=Object.getOwnPropertyNames;var Hh=Object.prototype.hasOwnProperty;var Wh=(i,t)=>{for(var e in t)$a(i,e,{get:t[e],enumerable:!0})},Xh=(i,t,e,n)=>{if(t&&typeof t=="object"||typeof t=="function")for(let s of Vh(t))!Hh.call(i,s)&&s!==e&&$a(i,s,{get:()=>t[s],enumerable:!(n=Gh(t,s))||n.enumerable});return i};var qh=i=>Xh($a({},"__esModule",{value:!0}),i);var Gg={};Wh(Gg,{ACESFilmicToneMapping:()=>Os,BoxGeometry:()=>Gn,CanvasTexture:()=>us,CapsuleGeometry:()=>ps,CircleGeometry:()=>ms,Color:()=>Bt,CylinderGeometry:()=>gs,DirectionalLight:()=>Us,Fog:()=>rs,Group:()=>Mn,HemisphereLight:()=>Is,Mesh:()=>Je,MeshBasicMaterial:()=>Pi,MeshStandardMaterial:()=>Rs,PCFShadowMap:()=>ni,PerspectiveCamera:()=>we,PlaneGeometry:()=>ei,Quaternion:()=>Ze,REVISION:()=>ea,Raycaster:()=>Fs,RepeatWrapping:()=>Ti,SRGBColorSpace:()=>Ie,Scene:()=>as,Shape:()=>Di,ShapeGeometry:()=>As,SphereGeometry:()=>Es,SpotLight:()=>Ds,TorusGeometry:()=>ws,Vector2:()=>_t,Vector3:()=>U,WebGLRenderer:()=>Xa});/**
@@ -6115,6 +6139,76 @@ if (savedPlayers) players = ['4','6'].includes(savedPlayers) ? +savedPlayers : 2
 if (['facil','normal','dificil'].includes(store.get('truco.level'))) level = store.get('truco.level');
 if (SPEEDS[store.get('truco.speed')]) speed = store.get('truco.speed');
 
+// ---------- Sonidos ----------
+// Hechos en el momento con WebAudio (sin archivos): suaves y cortos, para acompañar sin molestar.
+// barajar, repartir, carta a la mesa, gritar (golpe en la mesa), flor, tu turno, últimos segundos,
+// mano ganada o perdida y mensaje de chat. Se apagan o se cambia el volumen en Configuración.
+const SND = (() => {
+  const VOL = { bajo: .35, medio: .65, alto: 1 };
+  let ctx = null, out = null, noise = null;
+  let on = store.get('truco.sonido') !== '0', vol = VOL[store.get('truco.volumen')] ? store.get('truco.volumen') : 'bajo';
+  const last = {};
+  function ac(){
+    if (!on) return null;
+    if (!ctx) {
+      const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return null;
+      try { ctx = new AC(); } catch (e) { return null; }
+      out = ctx.createGain(); out.gain.value = VOL[vol] * .55;
+      const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -18; comp.ratio.value = 4;
+      out.connect(comp); comp.connect(ctx.destination);
+      const n = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate), d = n.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+      noise = n;
+    }
+    if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+    return ctx;
+  }
+  // los navegadores no dejan sonar nada hasta que la persona toca algo
+  ['pointerdown', 'keydown'].forEach(ev => addEventListener(ev, () => { if (on && (!ctx || ctx.state === 'suspended')) ac(); }, { passive: true }));
+
+  // ruido filtrado con envolvente: roce de cartas, golpes
+  function hiss(t, dur, f0, f1, q, gain, type){
+    const s = ctx.createBufferSource(); s.buffer = noise; s.playbackRate.value = .9 + Math.random()*.2;
+    const f = ctx.createBiquadFilter(); f.type = type || 'bandpass'; f.Q.value = q;
+    f.frequency.setValueAtTime(f0, t); f.frequency.exponentialRampToValueAtTime(f1, t + dur);
+    const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(gain, t + Math.min(.012, dur/3)); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    s.connect(f); f.connect(g); g.connect(out); s.start(t, Math.random()*.5, dur + .05);
+  }
+  // nota corta y redonda (tipo marimba)
+  function tone(t, freq, dur, gain, type){
+    const o = ctx.createOscillator(); o.type = type || 'sine'; o.frequency.value = freq;
+    const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(gain, t + .008); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(out); o.start(t); o.stop(t + dur + .02);
+  }
+  const SOUNDS = {
+    shuffle(t){ for (let i = 0; i < 9; i++) hiss(t + i*.045 + Math.random()*.01, .05, 3800, 2200, 1.2, .1); hiss(t + .45, .09, 2600, 900, .9, .14); },
+    deal(t){ hiss(t, .07, 4200, 1600, 1.1, .07); },
+    place(t){ hiss(t, .045, 1800, 700, .8, .16, 'lowpass'); tone(t, 170, .07, .07); },
+    call(t){ tone(t, 120, .11, .16); hiss(t, .05, 900, 300, .7, .18, 'lowpass'); },        // golpe en la mesa al gritar
+    flor(t){ tone(t, 784, .22, .035); tone(t + .07, 988, .26, .03); },
+    turn(t){ tone(t, 660, .18, .04, 'triangle'); tone(t + .1, 880, .24, .035, 'triangle'); },
+    tick(t){ tone(t, 1250, .035, .025, 'triangle'); },
+    win(t){ [523, 659, 784].forEach((f, i) => tone(t + i*.09, f, .3, .04, 'triangle')); },
+    lose(t){ tone(t, 392, .25, .03, 'triangle'); tone(t + .12, 330, .32, .028, 'triangle'); },
+    chat(t){ tone(t, 988, .09, .03); tone(t + .06, 1318, .12, .025); },
+  };
+  // cada sonido tiene un mínimo de tiempo entre uno y otro, para que nunca se amontonen
+  const GAP = { deal: .035, place: .06, tick: .5, chat: .4, turn: .8, shuffle: .8, call: .25 };
+  function play(name, delay){
+    const c = ac(); if (!c || !SOUNDS[name]) return;
+    const t = c.currentTime + (delay || 0);
+    if (last[name] !== undefined && t - last[name] < (GAP[name] || .15)) return;
+    last[name] = t;
+    try { SOUNDS[name](t); } catch (e) {}
+  }
+  return {
+    play,
+    get on(){ return on; }, get vol(){ return vol; },
+    setOn(v){ on = !!v; store.set('truco.sonido', on ? '1' : '0'); if (on) play('turn'); else if (ctx) ctx.suspend().catch(() => {}); },
+    setVol(v){ if (!VOL[v]) return; vol = v; store.set('truco.volumen', v); if (out) out.gain.value = VOL[v] * .55; play('turn'); },
+  };
+})();
+
 // ---------- Naipes ----------
 // Baraja española libre de Basquetteur (Wikimedia Commons, https://commons.wikimedia.org/wiki/Category:Spanish_playing_cards),
 // licencia CC BY-SA 3.0 (https://creativecommons.org/licenses/by-sa/3.0/). Tomada de los SVG de
@@ -6241,6 +6335,8 @@ function render(){
   clockSync();
   if (NET && NET.role === 'host') publish();
   setTimeout(paintClock, 0);
+  soundCues();
+  if (NET) renderVoz();
   const R = G.round;
   $('modeLbl').textContent = (G.n===6 ? 'tercetos' : G.n===4 ? 'parejas' : 'mano a mano') + (NET ? ', mesa ' + NET.code : '');
   saveGame();
@@ -6273,7 +6369,7 @@ function otherSeat(p, act){
   if (R.flor.sung[p]) tags.push('<span class="tag flor">flor</span>');
   if (act===p && G.phase==='play') tags.push('<span class="tag turn">juega</span>');
   if (R.out[p]) tags.push('<span class="tag out">pasó</span>');
-  const who = el('div','who', `<div class="name">${esc(G.names[p])}</div>${G.n>=4?`<div class="sub">${partner?'tu compañero':'rival'}</div>`:''}<div class="tags">${tags.join('')}</div>`);
+  const who = el('div','who', `<div class="name">${esc(G.names[p])}${NET && NET.talking && NET.talking[p] ? ' <span class="mic">🎙</span>' : ''}</div>${G.n>=4?`<div class="sub">${partner?'tu compañero':'rival'}</div>`:''}<div class="tags">${tags.join('')}</div>`);
   const h = el('div','hand' + (pos==='top' && G.n===2 ? '' : ' mini'));
   R.hands[p].forEach(() => h.appendChild(backEl()));
   s.appendChild(who); s.appendChild(h);
@@ -6331,11 +6427,19 @@ function center4(){
   c.appendChild(wrap); c.appendChild(muestraBox());
   return c;
 }
+let mz2d = null;
 function muestraBox(){
   const mu = el('div','muestra-box','<div class="lbl">Muestra</div>');
   const pile = el('div','deckpile'); pile.appendChild(backEl());
   if (G.round.leyPhase) { const b = backEl(); b.classList.add('mue'); pile.appendChild(b); }
-  else pile.appendChild(cardEl(G.round.muestra));
+  else {
+    // tocada (pantallas táctiles), queda agrandada hasta volver a tocarla, aunque la mesa se redibuje
+    const mc = cardEl(G.round.muestra), key = G.roundNo + ':' + G.round.muestra.id; mc.tabIndex = 0;
+    mc.title = 'Muestra: ' + T.cardName(G.round.muestra) + ' (pasá el cursor o tocala para verla de cerca)';
+    if (mz2d === key) mc.classList.add('zoom');
+    mc.onclick = () => { mz2d = mz2d === key ? null : key; mc.classList.toggle('zoom', mz2d === key); };
+    pile.appendChild(mc);
+  }
   mu.appendChild(pile); return mu;
 }
 
@@ -6775,7 +6879,30 @@ function timeUp(p){
 function endLeft(){
   if (!NET || !G || G.phase === 'play') return null;
   if (isGuest()) { const c = NET.endClock; return c ? c.left - (Date.now() - c.at) : null; }
-  return NET.endAt && NET.endKey ? clockLimit(GM) + 4000 - (Date.now() - NET.endAt) : null;
+  return NET.endAt && NET.endKey ? END_WAIT - (Date.now() - NET.endAt) : null;
+}
+// Sonidos según lo que cambió desde el último dibujo (las cartas de la mesa 3D suenan desde la escena)
+let sndPrev = null;
+function soundCues(){
+  if (!G || !G.round || !$('home').hidden) return;
+  const R = G.round, act = actorNow();
+  const cur = { key: G.roundNo + ':' + (R.duel ? R.duel.idx : 0), played: R.played.reduce((a, b) => a + b, 0), act, phase: G.phase, logN: G.log.length, id: G.id };
+  const p = sndPrev; sndPrev = cur;
+  if (!p || p.id !== cur.id) return;
+  if (!use3D()) {
+    if (cur.key !== p.key) SND.play('shuffle');
+    else if (cur.played > p.played) SND.play('place');
+  }
+  for (let i = p.logN; i < cur.logN && i >= 0; i++) {
+    const l = G.log[i]; if (!l || l.kind !== 'canto') continue;
+    if (/^(truco|retruco|vale cuatro)$/i.test(l.text)) SND.play('call');
+    else if (/flor/i.test(l.text) && !/achico|sin cantar/i.test(l.text)) SND.play('flor', .05);
+  }
+  if (cur.phase === 'play' && act === ME && p.act !== ME) SND.play('turn', .15);
+  if (cur.phase !== 'play' && p.phase === 'play' && cur.key === p.key) {
+    const g = R.gained || [[], []], mine = (g[MT()] || []).reduce((a, x) => a + x.pts, 0), theirs = (g[1 - MT()] || []).reduce((a, x) => a + x.pts, 0);
+    if (mine > theirs) SND.play('win', .3); else if (theirs > mine) SND.play('lose', .3);
+  }
 }
 function paintClock(){
   const ec = document.querySelector('.endclock'), el2 = endLeft();
@@ -6789,6 +6916,8 @@ function paintClock(){
     el.querySelector('b').textContent = sec + ' s';
     el.querySelector('i').style.width = (100 * ms / lim).toFixed(1) + '%';
   });
+  // tu tiempo: un tic suave en los últimos 5 segundos
+  if (c && lim && c.p === ME && G.phase === 'play') { const sec = Math.ceil(Math.max(0, Math.min(lim, c.ms)) / 1000); if (sec <= 5 && sec > 0 && sec !== paintClock.lastSec) SND.play('tick'); paintClock.lastSec = sec; }
 }
 setInterval(() => {
   if (GM && !isGuest()) {
@@ -7509,7 +7638,7 @@ const V3 = (function(){
     const R = G.round, hand = R.hands[ME], k = hand.length, i = Math.max(0, hand.findIndex(c => c.id === o.id)), L = handLayout();
     const d = i - (k-1)/2, can = S.playable.has(o.id), hov = S.hover === o.id && can;
     const lift = hov ? .26 : can ? .1 : 0;
-    const pos = v3(d*L.sp, L.baseY - Math.abs(d)*.03*L.ch + lift*L.ch - (S.myOut ? .4*L.ch : 0), -L.D + i*.004);
+    const pos = v3(d*L.sp, L.baseY - Math.abs(d)*.03*L.ch + lift*L.ch - (S.mz ? .8*L.ch : S.myOut ? .4*L.ch : 0), -L.D + i*.004);
     return { pos, quat: qA(ZAX, -d*.06), scale: L.s * (hov ? 1.05 : 1), i };
   }
   function slotPose(slot, o){
@@ -7576,6 +7705,7 @@ const V3 = (function(){
         if (tw.slot.face || tw.slot.hand) setFace(o, true);
         else if (!tw.slot.deck && !tw.slot.muestra) setFace(o, false);
         if (tw.slot.table && tw.slot.p !== ME) S.cnt[tw.fromPose ? 'desdeMano' : 'desdeMazo']++; // carta jugada por otro: sale de su mano
+        if (t < S.dealEnd && !tw.slot.deck && !tw.slot.table) SND.play('deal');
         tw.fromHand = o.where === 'hand';
         tw.from = { pos: o.g.position.clone(), quat: o.g.quaternion.clone(), scale: o.g.scale.x };
         o.where = 'moving';
@@ -7588,6 +7718,7 @@ const V3 = (function(){
       if (tw.fromHand && !tw.slot.hand) setOnTop(o, k < .45, 160);
       if (k >= 1) {
         o.tws.shift();
+        if (tw.slot.table) SND.play('place');
         if (tw.slot.hand) { handGroup.attach(o.g); o.where = 'hand'; }
         else if (tw.slot.deck) { o.g.visible = false; o.where = 'deck'; setOnTop(o, false); }
         else { o.where = 'scene'; setOnTop(o, false); }
@@ -7652,6 +7783,7 @@ const V3 = (function(){
         for (const id in CARDS) { const o = CARDS[id]; if (o.where !== 'deck' || o.tws.length) { go(o, { key: 'd', deck: true }, k*.012, { dur: .32, arc: .35 }); k++; } }
         dealT0 = k ? .45*AS() : .1;
       }
+      if (S.mz) muestraZoom(false);
       S.roundNo = G.roundNo; S.jobs = []; S.job = null; S.senasRk = null; S.seenN = 0; S.humanSenas = null; S.pescados = '';
       Lay.chars.forEach(c => { if (c) c.gest = null; });
     }
@@ -7676,7 +7808,7 @@ const V3 = (function(){
       else o.slot = s;
     }
     for (const k in gone) gone[k].forEach(ph => { ph.tws = []; ph.g.visible = false; ph.where = 'deck'; ph.key = 'd'; ph.slot = null; });
-    if (dealT0 !== null) { S.dealEnd = now + dealT0 + (3*G.n + 2)*dt + .45*AS(); S.cnt.reparto++; }
+    if (dealT0 !== null) { S.dealEnd = now + dealT0 + (3*G.n + 2)*dt + .45*AS(); S.cnt.reparto++; SND.play('shuffle'); }
     else if (snap) { S.dealEnd = now; S.cnt.ubicar++; }
     S.rk = rk;
 
@@ -7767,7 +7899,8 @@ const V3 = (function(){
       let sen = '';
       if (partner && R.senasShown[p] && G.rules.senas && !R.leyPhase && !R.duel && !R.hands[ME].some(c => c.hidden)) sen += senaGroups(R.senasShown[p]).map(([k, n]) => `<span class="sena">${senaTxt(k, n)}</span>`).join('');
       if (!R.leyPhase) senaGroups((R.seen[ME] || []).filter(v => v.p === p).map(v => v.s)).forEach(([k, n]) => { sen += `<span class="sena caught">👀 ${senaTxt(k, n)}</span>`; });
-      const html = `<div class="nm">${esc(G.names[p])}${G.n >= 4 ? `<small>${partner ? 'compañero' : 'rival'}</small>` : ''}</div>`
+      const mic = NET && NET.talking && NET.talking[p] ? ' 🎙' : '';
+      const html = `<div class="nm">${esc(G.names[p])}${mic}${G.n >= 4 ? `<small>${partner ? 'compañero' : 'rival'}</small>` : ''}</div>`
         + (tags.length ? `<div class="tags">${tags.join('')}</div>` : '') + (sen ? `<div class="senas">${sen}</div>` : '');
       if (html !== c.lblHTML) { c.lblIn.innerHTML = html; c.lblHTML = html; }
       c.lbl.classList.toggle('inactive', !R.active[p]);
@@ -7795,7 +7928,7 @@ const V3 = (function(){
     camera.position.set(CAM.tx + CAM.rho*Math.sin(CAM.phi)*cb, CAM.ty + CAM.rho*Math.sin(CAM.beta), CAM.tz + CAM.rho*Math.cos(CAM.phi)*cb);
     camera.lookAt(CAM.tx, CAM.ty, CAM.tz);
   }
-  function setView(v){ CAM.user = v !== 'mine'; CAM.g = v === 'top' ? topCam() : defaultCam(); CAM.k = 3; }
+  function setView(v){ if (S.mz) { S.mz = null; muLbl.classList.remove('on'); } CAM.user = v !== 'mine'; CAM.g = v === 'top' ? topCam() : defaultCam(); CAM.k = 3; }
 
   // ---------- puntero: girar, acercar, jugar cartas ----------
   const ptrs = new Map();
@@ -7811,7 +7944,26 @@ const V3 = (function(){
     const heads = Lay ? Lay.chars.filter(Boolean).map(c => c.skull) : [];
     const hh = ray.intersectObjects(heads, false);
     if (hh.length) return { p: hh[0].object.userData.charP };
+    const mo = muestraObj();
+    if (mo && ray.intersectObject(mo.front, false).length) return { muestra: true };
     return {};
+  }
+  // ---------- ver la muestra de cerca ----------
+  // Con el cursor encima de la muestra (o tocándola en pantallas táctiles, o con la tecla M) la cámara
+  // se acerca a mirarla desde arriba y la mano baja; al salir, vuelve a donde estaba.
+  function muestraObj(){
+    const R = G && G.round; if (!R || !R.muestra || R.muestra.hidden) return null;
+    const o = CARDS[R.muestra.id]; return o && o.g.visible && o.face && !o.tws.length ? o : null;
+  }
+  function muestraZoom(on){
+    if (on && (S.mz || !muestraObj())) return;
+    if (!on) { if (!S.mz) return; const z = S.mz; S.mz = null; CAM.g = z.prevG; CAM.user = z.prevUser; CAM.k = 4; muLbl.classList.remove('on'); muLbl.textContent = 'Muestra'; return; }
+    const mp = muePose(true).pos, y = Lay.deck.rotation.y, k = CH*.1;
+    const prevG = CAM.g ? { ...CAM.g } : defaultCam();
+    S.mz = { prevG, prevUser: CAM.user, round: G.roundNo };
+    CAM.g = { phi: CAM.phi, beta: 1.2, rho: 3.4, tx: mp.x + Math.sin(y)*k, ty: 0, tz: mp.z + Math.cos(y)*k };
+    CAM.user = true; CAM.k = 4;
+    muLbl.classList.add('on'); muLbl.textContent = 'Muestra: ' + T.cardName(G.round.muestra);
   }
   function canReplay(p){ const c = Lay && Lay.chars[p]; return c && c.lblHTML.includes('class="sena'); }
   function events(){
@@ -7824,7 +7976,14 @@ const V3 = (function(){
     canvas.addEventListener('pointermove', ev => {
       const pt = ptrs.get(ev.pointerId);
       if (!pt) {
-        if (ev.pointerType === 'mouse') { const h = pick(ev); S.hover = h.card || null; S.hoverP = h.p !== undefined ? h.p : null; canvas.style.cursor = (h.card && S.playable.has(h.card)) || (S.hoverP !== null && canReplay(S.hoverP)) ? 'pointer' : 'grab'; }
+        if (ev.pointerType === 'mouse') {
+          const h = pick(ev); S.hover = h.card || null; S.hoverP = h.p !== undefined ? h.p : null;
+          canvas.style.cursor = h.muestra ? 'zoom-in' : (h.card && S.playable.has(h.card)) || (S.hoverP !== null && canReplay(S.hoverP)) ? 'pointer' : 'grab';
+          // cursor sobre la muestra: acercarse; al salir, volver (con un respiro para que no tiemble)
+          clearTimeout(S.mzT);
+          if (h.muestra && !S.mz) S.mzT = setTimeout(() => muestraZoom(true), 180);
+          else if (!h.muestra && S.mz && !S.mz.sticky) S.mzT = setTimeout(() => muestraZoom(false), 250);
+        }
         return;
       }
       const dx = ev.clientX - pt.x, dy = ev.clientY - pt.y;
@@ -7847,18 +8006,21 @@ const V3 = (function(){
       if (!had || !drag) return;
       if (!drag.moved && ptrs.size === 0) {
         const h = pick(ev);
-        if (h.card && S.playable.has(h.card)) { const c = G.round.hands[ME].find(x => x.id === h.card); if (c) { S.hover = null; human({ type: 'play', card: c }); } }
+        if (S.mz && S.mz.sticky) muestraZoom(false);   // tocando de nuevo, se vuelve
+        else if (h.muestra && ev.pointerType !== 'mouse') { muestraZoom(true); if (S.mz) S.mz.sticky = true; }
+        else if (h.card && S.playable.has(h.card)) { const c = G.round.hands[ME].find(x => x.id === h.card); if (c) { S.hover = null; human({ type: 'play', card: c }); } }
         else if (h.p !== undefined) replaySenas(h.p);
       }
       if (ptrs.size === 0) { drag = null; canvas.style.cursor = 'grab'; }
     };
     canvas.addEventListener('pointerup', up);
     canvas.addEventListener('pointercancel', up);
-    canvas.addEventListener('pointerleave', ev => { if (ev.pointerType === 'mouse' && !ptrs.size) S.hover = null; });
+    canvas.addEventListener('pointerleave', ev => { if (ev.pointerType === 'mouse' && !ptrs.size) { S.hover = null; clearTimeout(S.mzT); if (S.mz && !S.mz.sticky) muestraZoom(false); } });
     canvas.addEventListener('wheel', ev => { ev.preventDefault(); startUserCam(); CAM.g.rho = clamp(CAM.g.rho * Math.exp(ev.deltaY * .0011), 7, 34); }, { passive: false });
     canvas.addEventListener('dblclick', () => setView('mine'));
     document.addEventListener('keydown', ev => {
       if (!running || document.querySelector('.overlay') || /INPUT|SELECT|TEXTAREA/.test((document.activeElement || {}).tagName || '')) return;
+      if (ev.key === 'm' || ev.key === 'M') { if (S.mz) muestraZoom(false); else { muestraZoom(true); if (S.mz) S.mz.sticky = true; } return; }
       const i = '123'.indexOf(ev.key);
       if (i >= 0) { const c = G.round && G.round.hands[ME][i]; if (c && S.playable.has(c.id)) human({ type: 'play', card: c }); }
     });
@@ -7866,7 +8028,7 @@ const V3 = (function(){
     $('cam3dMine').onclick = () => setView('mine');
     $('cam3dTop').onclick = () => setView('top');
   }
-  function startUserCam(){ if (!CAM.g) CAM.g = defaultCam(); CAM.user = true; CAM.k = 9; }
+  function startUserCam(){ if (S.mz) { S.mz = null; muLbl.classList.remove('on'); } if (!CAM.g) CAM.g = defaultCam(); CAM.user = true; CAM.k = 9; }
 
   // ---------- cuadro con la cara del que hace señas ----------
   function renderPip(){
@@ -7990,6 +8152,7 @@ function howToModal(){
   <p><b>Envido:</b> se canta antes de jugar tu primera carta. Envido 2, real envido 3, falta envido lo que le falta al que va ganando. No querido vale 1.</p>
   <p><b>Truco:</b> truco 2, retruco 3, vale cuatro 4. Gana la mano quien gane dos bazas. Si dos rivales tiran cartas iguales la baza es parda; si las iguales son de compañeros, la baza es de ese equipo (Arts. 57 a 59).</p>
   <p><b>Parejas:</b> se juega hacia la derecha. Si un rival te canta truco o envido y podés contestar, contestás vos. Las señas del Art. 102 te las hace tu compañero al empezar la mano, y vos se las hacés a él con los botones de abajo. Con <b>Ayudas</b> se ve qué significa cada seña. Si tenés dos cartas iguales (dos matas, dos tres), la seña se hace dos veces: tocá el botón otra vez. Si tu compañero toca o grita antes de que cantes tu flor, te la anula: por eso la computadora deja tocar y gritar al que ya tiene a sus compañeros jugados.</p>
+  <p><b>La muestra de cerca:</b> pasá el cursor por encima de la muestra (o tocala) y la cámara se acerca a mirarla; con el teclado, la tecla M.</p>
   <p><b>Tiempo:</b> tenés 30 segundos para cada decisión (se cambia en Reglas de la mesa). Si se te acaba, decide la computadora por vos. Con el menú abierto la cuenta se frena.</p>
   <p><b>Señas pescadas:</b> de cada 50 señas que se hacen, una la ve algún rival. Te puede pasar a vos con las señas de Tito y Nacho, y a ellos con las tuyas o las de Pocho. Lo que se ve es siempre verdad, y la computadora también lo usa.</p>
   <p><b>Modo realista:</b> la flor no se canta sola y los puntos los cantás vos. Si jugás o cantás otra cosa sin cantar tu flor, la negás. Las faltas se descubren cuando se ven tus cartas: si ganás un envite (tenés que mostrarlas) o si jugás las tres. Cantar errado o negar la flor, si se descubre, te hace perder todo lo de la mano (Art. 46). Cantar flor sin tenerla se descubre enseguida. Si se descubre que ganaste un envite negando la flor, es falta grave (Art. 100).</p>
@@ -8047,6 +8210,7 @@ function showHome(view){
   homeView = view || 'main'; confirmNew = null;
   $('home').hidden = false; document.querySelector('.app').hidden = true;
   V3.pause();
+  if (NET) renderVoz();
   if (NET && NET.role === 'host') publish();   // los invitados ven que el anfitrión está en el menú
   paintFan(!fanDealt); fanDealt = true;
   renderHome();
@@ -8058,7 +8222,7 @@ function paintFan(deal){
   [[1, 'espada'], [1, 'basto'], [7, 'espada']].forEach(([n, s], i) => { const c = cardEl({ n, s, id: n + '-' + s }); c.classList.add('f' + i); fan.appendChild(c); });
   fan.classList.toggle('deal', !!deal);
 }
-function hideHome(){ $('home').hidden = true; document.querySelector('.app').hidden = false; }
+function hideHome(){ $('home').hidden = true; document.querySelector('.app').hidden = false; if (NET) renderVoz(); }
 function continueGame(){
   hideHome();
   if (isGuest()) { render(); if (G && G.phase !== 'play' && G.phase !== 'idle' && !$('mNext')) showRoundEnd(); return; }
@@ -8145,6 +8309,10 @@ function renderConfig(box){
       ${row('help', 'Ayudas', [['1', 'Sí'], ['0', 'No']], showHelp ? '1' : '0', 'Marca qué cartas son pieza, mata o fío, qué significa cada seña y cuánto tenés de envido.')}
       ${row('speed', 'Velocidad', Object.keys(SPEEDS).map(k => [k, k.charAt(0).toUpperCase() + k.slice(1)]), speed, 'Cuánto tarda la computadora en jugar.')}
     </div></section>
+    <section class="cfgsec"><h3>Sonido</h3><div class="cfg">
+      ${row('snd', 'Sonidos', [['1', 'Sí'], ['0', 'No']], SND.on ? '1' : '0', 'Barajar, repartir, cartas a la mesa, el golpe al gritar truco, tu turno y los últimos segundos. Suaves y cortos.')}
+      ${row('vol', 'Volumen', [['bajo', 'Bajo'], ['medio', 'Medio'], ['alto', 'Alto']], SND.vol)}
+    </div></section>
     <section class="cfgsec"><h3>Partido</h3><div class="cfg">
       ${row('level', 'Dificultad', [['facil', 'Fácil'], ['normal', 'Normal'], ['dificil', 'Difícil']], level, 'En difícil la computadora se acuerda de tus mentiras y tus faroles.')}
       ${row('real', 'Modo realista', [['0', 'No'], ['1', 'Sí']], realista ? '1' : '0', 'Cantás tus puntos a mano y podés equivocarte o negar la flor, con las penas del reglamento. Rige desde la próxima mano.')}
@@ -8162,6 +8330,8 @@ function setCfg(k, v){
   if (k === 'view') setView3d(v === '3d');
   else if (k === 'help') setHelp(v === '1');
   else if (k === 'speed') setSpeed(v);
+  else if (k === 'snd') SND.setOn(v === '1');
+  else if (k === 'vol') SND.setVol(v);
   else if (k === 'level') { level = v; store.set('truco.level', v); }
   else if (k === 'real') setRealista(v === '1');
   else {
@@ -8188,6 +8358,7 @@ if (GM) { players = GM.n; refreshView(); }
 // ajenas. El invitado solo dibuja lo que le llega y manda sus jugadas, sus señas y "listo".
 // Mensajes: hello, sit, bye, act, senas, ready, pref, pong (invitado → anfitrión);
 //           lobby, state, err, full, closed, away, ping (anfitrión → invitados; con "to" si es para uno solo).
+// Chat y voz: chat, talk (invitado → anfitrión, que los reparte a todos), chatlog (al que llega).
 const NETV = 1, AI_NAMES = { 2: ['Vos', 'Computadora'], 4: ['Vos', 'Tito', 'Pocho', 'Nacho'], 6: ['Vos', 'Tito', 'Pocho', 'Nacho', 'Lalo', 'Beto'] };
 const APP_ID = 'tomasaldaya/truco-uruguayo/1';
 // Relevo para redes que no dejan conectarse directo (datos del celular, redes de empresa). Ejemplo:
@@ -8228,6 +8399,7 @@ function openTransport(code, onMsg, onPeer){
   room.onPeerJoin(c => onPeer('join', c.peerId));
   room.onPeerLeave(c => onPeer('leave', c.peerId));
   room.onError(e => onPeer('error', e.peerId, e));
+  room.onPeerStream((stream, c) => onPeer('stream', c.peerId, stream));   // voz
   return {
     kind: 'internet', room,
     self: room.getSelf().then(x => x.peerId),
@@ -8236,7 +8408,7 @@ function openTransport(code, onMsg, onPeer){
   };
 }
 function openNet(role, code){
-  const me = NET = { role, code, cid: role === 'host' ? 'host' : 'g' + Math.random().toString(36).slice(2, 10), prefs: {}, ready: new Set(), readyKey: null, hostPeer: null, lastHost: Date.now(), alive: {}, pingSeq: 0 };
+  const me = NET = { role, code, cid: role === 'host' ? 'host' : 'g' + Math.random().toString(36).slice(2, 10), prefs: {}, ready: new Set(), readyKey: null, hostPeer: null, lastHost: Date.now(), alive: {}, pingSeq: 0, chat: [], chatAt: {}, talking: {} };
   me.tr = openTransport(code, (m, peer) => {
     if (NET !== me || me.mute || !m || m.v !== NETV || m.code !== code) return;
     if (me.tr.kind === 'internet') {
@@ -8248,6 +8420,7 @@ function openNet(role, code){
     }
     role === 'host' ? onHostMsg(m) : onGuestMsg(m);
   }, (ev, peer, err) => { if (NET === me) onPeerEvent(ev, peer, err); });
+  setTimeout(renderChat, 0);
   if (me.tr.self) me.tr.self.then(id => { if (role === 'guest') me.cid = id; me.ready0 = true; if (me.onSelf) me.onSelf(); });
   me.beat = setInterval(() => { if (NET === me && !me.mute) heartbeat(); }, 4000);
 }
@@ -8257,6 +8430,9 @@ const NET_ERR = {
   p2p: 'Encontré la mesa pero no pude conectarme. Pasa con algunas redes, sobre todo con datos del celular: probá desde un wifi.',
 };
 function onPeerEvent(ev, peer, err){
+  if (ev === 'stream') { vozAttach(peer, err); return; }
+  if (ev === 'join' && VOZ.stream) try { NET.tr.room.addStream(VOZ.stream, { target: peer }); } catch (e) {}
+  if (ev === 'leave') vozDetach(peer);
   if (ev === 'error') {
     const k = err && err.code === 'relay-failed' ? 'relay' : err && err.code === 'peer-connect-failed' && NET.role === 'guest' && !NET.lobby ? 'p2p' : null;
     if (k) { NET.netErr = k; if (!$('home').hidden && homeView === 'lobby') renderHome(); }
@@ -8300,6 +8476,7 @@ function leaveNet(soft){
   if (!soft) { if (NET.role === 'host') netPost({ t: 'closed' }); else netPost({ t: 'bye' }); }
   else if (NET.role === 'host') netPost({ t: 'away' }); else netPost({ t: 'bye' });
   clearTimeout(NET.helloT); clearInterval(NET.beat);
+  vozStop();
   const tr = NET.tr;
   setTimeout(() => { try { tr.close(); } catch (e) {} }, soft ? 0 : 300);   // que llegue el último aviso
   if (!soft) { netForget(); if (invitedCode()) try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {} }
@@ -8308,6 +8485,7 @@ function leaveNet(soft){
   clearTimeout(timer); busy = false; deferred = null; closeModal();
   GM = loadSavedGame(); G = null; refreshView();
   needStep = !!GM;
+  renderChat();
 }
 // al recargar o cerrar la página: se avisa, pero la mesa queda anotada en esta pestaña para volver
 window.addEventListener('pagehide', () => { if (NET) { netRemember(); leaveNet(true); } });
@@ -8406,6 +8584,14 @@ function onHostMsg(m){
     case 'senas': if (s >= 0 && NET.started && GM && GM.phase === 'play') { T.setSenas(GM, s, Array.isArray(m.list) ? m.list.filter(k => T.SENAS[k]) : []); render(); } return;
     case 'ready': if (s >= 0 && NET.started && m.key === roundKey(GM)) { NET.ready.add(s); checkReady(); } return;
     case 'pref': if (s >= 0) NET.prefs[s] = !!m.realista; return;
+    case 'chat': {
+      const now = Date.now(), name = s >= 0 ? NET.seats[s].name : cleanName(m.name);
+      if (now - (NET.chatAt[g] || 0) < 600) return;      // de a un mensaje por vez
+      NET.chatAt[g] = now;
+      chatAdd({ p: s, name, text: m.text }, true);
+      return;
+    }
+    case 'talk': if (s >= 0) { setTalking(s, !!m.on); netPost({ t: 'talk', p: s, on: !!m.on }); } return;
     case 'pong':
       if (s >= 0) NET.alive[g] = Math.max(NET.alive[g] || 0, m.s);
       else if (m.seated) netPost({ ...lobbyMsg(), to: g });   // se durmió y lo dejé afuera: que se entere y vuelva a entrar
@@ -8415,6 +8601,7 @@ function onHostMsg(m){
 const cleanName = v => (v || '').trim().slice(0, 20) || 'Invitado';
 function takeSeat(p, who, realista){
   NET.seats[p] = who;
+  if (who.cid && NET.chat.length) netPost({ t: 'chatlog', to: who.cid, list: NET.chat.slice(-40) });
   if (who.cid) NET.alive[who.cid] = NET.pingSeq;
   if (realista !== undefined) NET.prefs[p] = !!realista;
   if (NET.started && GM) {
@@ -8460,15 +8647,16 @@ function publish(){
   });
   netRemember();
 }
-// Fin de mano: si alguien no toca "Siguiente mano", pasado el tiempo por decisión (y unos segundos
-// para leer el resumen) se sigue igual, así nadie deja la mesa esperando
+// Fin de mano: si alguien no toca "Siguiente mano", a los 15 segundos de aparecer el resumen se sigue
+// igual, así nadie deja la mesa esperando (con "sin límite" de tiempo, se espera a todos)
+const END_WAIT = 17000;   // 15 s con el cartel a la vista, más los 2 s que tarda en aparecer
 function netEndWait(){
   if (!GM || !NET.started || GM.phase === 'play' || GM.phase === 'matchEnd') { NET.endKey = null; return; }
   const lim = clockLimit(GM), k = roundKey(GM);
   if (!lim) return;
   if (NET.endKey !== k) { NET.endKey = k; NET.endAt = Date.now(); publish(); return; }   // los invitados ven la cuenta
   if (toolOpen()) { NET.endAt = Date.now(); return; }
-  if (Date.now() - NET.endAt > lim + 4000) { NET.seats.forEach((s, p) => { if (s.kind !== 'ai') NET.ready.add(p); }); checkReady(); }
+  if (Date.now() - NET.endAt > END_WAIT) { NET.seats.forEach((s, p) => { if (s.kind !== 'ai') NET.ready.add(p); }); checkReady(); }
 }
 // personas que todavía no tocaron "Siguiente mano"
 function waitingNames(){ return NET.seats.map((s, p) => s.kind !== 'ai' && !NET.ready.has(p) ? s.name : null).filter(Boolean); }
@@ -8529,6 +8717,9 @@ function onGuestMsg(m){
     case 'state': onState(m); return;
     case 'err': errMsg = m.msg; NET.legal = []; render(); return;
     case 'away': NET.hostLost = true; NET.hostPeer = null; netStatus(); return;   // el anfitrión recarga la página
+    case 'chat': chatAdd({ p: m.p, name: m.name, text: m.text }, false); return;
+    case 'chatlog': NET.chat = (m.list || []).slice(-80); renderChat(); return;
+    case 'talk': setTalking(m.p, !!m.on); return;
     case 'full': leaveNet(); netNote = 'La mesa está completa.'; homeView = 'join'; showHome('join'); return;
     case 'closed': leaveNet(); netNote = 'El anfitrión cerró la mesa.'; showHome(); return;
   }
@@ -8589,7 +8780,9 @@ function renderLobby(box){
     }
     h += `<div class="row">${G ? '<button class="act flor" id="hGo">Volver a la mesa</button>' : ''}<button class="act mazo" id="hClose">Salir de la mesa</button></div>`;
   }
+  h += `<section class="lchat"><h3>Chat de la mesa</h3>${chatUI('lc')}</section>`;
   box.innerHTML = h;
+  bindChat('lc'); renderChat();
   $('hBack').onclick = () => { homeView = 'main'; renderHome(); };
   if ($('hName')) $('hName').oninput = e => { setMyName(e.target.value); if (NET && NET.role === 'host' && !NET.started) { NET.seats[0].name = myName() || 'Anfitrión'; netPost(lobbyMsg()); } };
   box.querySelectorAll('[data-mode]').forEach(b => b.onclick = () => setTableMode(+b.dataset.mode));
@@ -8620,10 +8813,147 @@ function renderJoin(box){
   setTimeout(() => $(myName() && !joinCode ? 'hCode' : 'hName').focus(), 0);
 }
 
-// al abrir: si esta pestaña estaba en una mesa (se recargó la página), vuelve a ella
-const netBack = netOK() && netRestore();
 window.__trucoMute = v => { if (NET) NET.mute = !!v; };   // para las pruebas: la pestaña queda sorda y muda, como dormida
 
+// ---------- Chat de la mesa ----------
+// Cada mensaje va al anfitrión, que lo reparte a todos (así el orden es el mismo para todos).
+function chatSend(text){
+  text = String(text || '').replace(/\s+/g, ' ').trim().slice(0, 200);
+  if (!text || !NET) return;
+  if (NET.role === 'host') chatAdd({ p: 0, name: NET.seats[0].name, text }, true);
+  else netPost({ t: 'chat', text, name: NET.name });
+}
+function chatAdd(m, broadcast){
+  const msg = { p: typeof m.p === 'number' ? m.p : -1, name: String(m.name || '').slice(0, 20), text: String(m.text || '').slice(0, 200), at: Date.now() };
+  NET.chat.push(msg); if (NET.chat.length > 80) NET.chat.shift();
+  if (broadcast) netPost({ t: 'chat', p: msg.p, name: msg.name, text: msg.text });
+  const mine = msg.p === chatSeat();
+  if (!mine) { SND.play('chat'); chatToast(msg); }
+  renderChat();
+}
+const chatSeat = () => !NET ? 0 : NET.role === 'host' ? 0 : NET.seat;
+function chatLine(m){
+  const mine = m.p === chatSeat(), seat = chatSeat();
+  const cls = m.p < 0 || seat < 0 || seat === undefined ? '' : mine ? 'yo' : team(m.p) === team(seat) ? 'nos' : 'ellos';
+  return `<div class="cm ${cls}"><b>${esc(mine ? 'Vos' : m.name)}</b> ${esc(m.text)}</div>`;
+}
+function chatUI(k){
+  return `<div class="chatlog" id="${k}Log" aria-live="polite"></div>
+    <form class="chatf" id="${k}Form"><input id="${k}In" maxlength="200" autocomplete="off" placeholder="Escribí algo y apretá Enter" aria-label="Mensaje para la mesa"><button class="tool" type="submit">Enviar</button></form>
+    <div class="voz" data-voz></div>`;
+}
+function bindChat(k){
+  const f = $(k + 'Form'); if (!f) return;
+  f.onsubmit = e => { e.preventDefault(); const i = $(k + 'In'); chatSend(i.value); i.value = ''; };
+}
+function renderChat(){
+  document.querySelectorAll('.chatlog').forEach(box => {
+    const list = NET ? NET.chat : [];
+    box.innerHTML = list.length ? list.map(chatLine).join('') : '<div class="cm vacio">Todavía no hay mensajes.</div>';
+    box.scrollTop = box.scrollHeight;
+  });
+  const p = $('chatPanel'); if (p) p.hidden = !NET;
+  renderVoz();
+}
+// si el chat no está a la vista (en el celular queda abajo), el mensaje aparece un momento arriba
+function chatToast(m){
+  const shown = [...document.querySelectorAll('.chatlog')].some(b => { const r = b.getBoundingClientRect(); return r.width > 0 && r.top < innerHeight && r.bottom > 0; });
+  if (shown) return;
+  const t = $('chatToast'); if (!t) return;
+  t.innerHTML = `<b>${esc(m.name)}:</b> ${esc(m.text)}`; t.hidden = false; t.classList.remove('go'); void t.offsetWidth; t.classList.add('go');
+  clearTimeout(chatToast.tm); chatToast.tm = setTimeout(() => { t.hidden = true; }, 4200);
+}
+
+// ---------- Voz: pulsar para hablar ----------
+// Por la misma conexión directa entre navegadores (WebRTC). El micrófono se pide la primera vez que
+// se pulsa, y solo manda sonido mientras se mantiene apretado el botón (o la tecla V).
+const VOZ = { stream: null, on: false, audios: {}, mute: store.get('truco.voces') === '0', err: '' };
+const vozOK = () => online() && !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia) && !!(NET.tr.room && NET.tr.room.addStream);
+async function vozMic(){
+  if (VOZ.stream) return true;
+  try {
+    VOZ.stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
+  } catch (e) {
+    VOZ.err = e && e.name === 'NotAllowedError' ? 'No diste permiso para usar el micrófono. Se cambia en el candado de la barra de direcciones.' : 'No encontré un micrófono para usar.';
+    renderVoz(); return false;
+  }
+  VOZ.err = '';
+  VOZ.stream.getAudioTracks().forEach(t => { t.enabled = false; });
+  if (NET && NET.tr.room) try { NET.tr.room.addStream(VOZ.stream); } catch (e) {}
+  return true;
+}
+async function talk(on){
+  if (!NET || !vozOK()) return;
+  if (on === VOZ.on) return;
+  VOZ.on = on;
+  if (on && !(await vozMic())) { VOZ.on = false; return; }
+  if (!VOZ.stream || VOZ.on !== on) return;
+  VOZ.stream.getAudioTracks().forEach(t => { t.enabled = on; });
+  clearTimeout(VOZ.cut); if (on) VOZ.cut = setTimeout(() => talk(false), 60000);   // nadie queda hablando sin querer
+  if (NET.role === 'host') { setTalking(0, on); netPost({ t: 'talk', p: 0, on }); } else netPost({ t: 'talk', on });
+  renderVoz();
+}
+function vozStop(){
+  if (VOZ.stream) VOZ.stream.getTracks().forEach(t => t.stop());
+  VOZ.stream = null; VOZ.on = false;
+  for (const k in VOZ.audios) vozDetach(k);
+}
+function vozAttach(peer, stream){
+  vozDetach(peer);
+  const a = document.createElement('audio'); a.autoplay = true; a.srcObject = stream; a.muted = VOZ.mute; a.dataset.peer = peer;
+  document.body.appendChild(a); a.play().catch(() => {});
+  VOZ.audios[peer] = a;
+}
+function vozDetach(peer){ const a = VOZ.audios[peer]; if (a) { a.srcObject = null; a.remove(); delete VOZ.audios[peer]; } }
+function setVocesMute(m){ VOZ.mute = m; store.set('truco.voces', m ? '0' : '1'); for (const k in VOZ.audios) VOZ.audios[k].muted = m; renderVoz(); }
+function setTalking(p, on){
+  if (!NET || typeof p !== 'number') return;
+  NET.talking[p] = on;
+  if ($('home').hidden && G) render();
+  renderVoz();
+}
+function talkingNames(){ return NET ? Object.keys(NET.talking).filter(p => NET.talking[p] && +p !== chatSeat()).map(p => (G && G.names[p]) || ((NET.seats || (NET.lobby && NET.lobby.seats) || [])[p] || {}).name).filter(Boolean) : []; }
+function renderVoz(){
+  const ok = !!(NET && vozOK());
+  document.querySelectorAll('[data-voz]').forEach(box => {
+    if (!ok) { box.dataset.built = ''; box.innerHTML = NET && NET.tr && !online() ? '<p class="vozn">La voz funciona en las mesas por internet.</p>' : ''; return; }
+    // se arma una vez y después solo se actualiza (si se rehiciera, se perdería el botón apretado)
+    if (!box.dataset.built) {
+      box.dataset.built = '1';
+      box.innerHTML = '<button type="button" class="ptt"></button><button type="button" class="tool vmute"></button><p class="vozn"></p>';
+      bindPtt(box.querySelector('.ptt'));
+      box.querySelector('.vmute').onclick = () => setVocesMute(!VOZ.mute);
+    }
+    const b = box.querySelector('.ptt'), who = talkingNames();
+    b.classList.toggle('on', VOZ.on); b.setAttribute('aria-pressed', String(VOZ.on));
+    b.textContent = '🎙 ' + (VOZ.on ? 'Hablando…' : VOZ.prep ? 'Prendiendo el micrófono…' : VOZ.stream ? 'Mantené apretado para hablar' : 'Prender el micrófono');
+    const m = box.querySelector('.vmute'); m.setAttribute('aria-pressed', String(VOZ.mute)); m.textContent = VOZ.mute ? '🔇 Voces apagadas' : '🔈 Escuchando voces';
+    box.querySelector('.vozn').innerHTML = (who.length ? `🎙 Habla ${esc(joinY(who))}` : VOZ.stream ? 'También con la tecla V.' : 'Se prende una vez y después hablás manteniendo apretado el botón o la tecla V.') + (VOZ.err ? ` <span class="err">${esc(VOZ.err)}</span>` : '');
+  });
+  const fab = $('pttFab');
+  if (fab) { fab.hidden = !(ok && $('home').hidden); fab.classList.toggle('on', VOZ.on); fab.classList.toggle('off', !VOZ.stream); fab.setAttribute('aria-label', VOZ.stream ? 'Mantené apretado para hablar' : 'Prender el micrófono'); }
+}
+function bindPtt(b){
+  if (!b) return;
+  b.onpointerdown = e => {
+    e.preventDefault();
+    // la primera vez solo se prende el micrófono (pide permiso y conecta); después, apretar es hablar
+    if (!VOZ.stream) { VOZ.prep = true; renderVoz(); vozMic().then(() => { VOZ.prep = false; renderVoz(); }); return; }
+    try { b.setPointerCapture(e.pointerId); } catch (x) {} talk(true);
+  };
+  b.onpointerup = b.onpointercancel = b.onlostpointercapture = () => talk(false);
+  b.oncontextmenu = e => e.preventDefault();
+}
+document.addEventListener('keydown', e => { if ((e.key === 'v' || e.key === 'V') && !e.repeat && NET && !/INPUT|SELECT|TEXTAREA/.test((document.activeElement || {}).tagName || '')) talk(true); });
+document.addEventListener('keyup', e => { if (e.key === 'v' || e.key === 'V') talk(false); });
+addEventListener('blur', () => talk(false));
+document.addEventListener('visibilitychange', () => { if (document.hidden) talk(false); });
+
+// al abrir: si esta pestaña estaba en una mesa (se recargó la página), vuelve a ella
+const netBack = netOK() && netRestore();
+
+$('chatBox').innerHTML = chatUI('ch'); bindChat('ch'); bindPtt($('pttFab'));
+window.__trucoSnd = SND; window.__trucoVoz = VOZ; window.__trucoChat = t => chatSend(t);
 if (netBack && NET && NET.role === 'host' && NET.started) { showHome(); continueGame(); }
 else if (netBack) showHome('lobby');
 else if (netOK() && invitedCode()) { joinCode = invitedCode(); showHome('join'); }
