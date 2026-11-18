@@ -136,6 +136,16 @@ async function resumen() {
 }
 
 try {
-  if (modo === 'sondeo') await sondeo(); else await resumen();
+  if (modo === 'sondeo') await sondeo();
+  else if (modo === 'detalle') {
+    const mesa = [DE_GENTE[0]];
+    console.log('redes:', (await valores('$workers.event.request.cf.asOrganization', mesa)).join(' | '));
+    console.log('redes con el filtro:', (await valores('$workers.event.request.cf.asOrganization', DE_GENTE)).join(' | '));
+    const uas = await valores('$workers.event.request.headers.user-agent', DE_GENTE);
+    console.log('navegadores raros:', uas.filter(u => !/iPhone|iPad|Android|Windows|Macintosh|Linux|CrOS/.test(u)).map(u => u.slice(0, 50)).join(' | '));
+    for (const c of await valores('$workers.event.request.cf.country', DE_GENTE))
+      console.log('país', c, 'redes:', (await valores('$workers.event.request.cf.asOrganization', [...DE_GENTE, { kind: 'filter', key: '$workers.event.request.cf.country', operation: 'eq', type: 'string', value: c }])).join(' | '));
+  }
+  else await resumen();
   if (process.env.GITHUB_STEP_SUMMARY && salida.length) (await import('fs')).appendFileSync(process.env.GITHUB_STEP_SUMMARY, salida.join('\n') + '\n');
 } catch (e) { console.error('Error:', e.message); process.exit(1); }
