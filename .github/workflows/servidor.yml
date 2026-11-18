@@ -29,12 +29,16 @@ jobs:
           ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           set -o pipefail
-          API="https://api.cloudflare.com/client/v4/accounts/$ACCOUNT/workers/subdomain"
-          AUTH="Authorization: Bearer $CLOUDFLARE_API_TOKEN"
-          sub=$(curl -s -H "$AUTH" "$API" | jq -r '.result.subdomain // empty')
+          TOKEN=$(printf %s "$CLOUDFLARE_API_TOKEN" | tr -d '[:space:]')
+          CUENTA=$(printf %s "$ACCOUNT" | tr -d '[:space:]')
+          API="https://api.cloudflare.com/client/v4/accounts/$CUENTA/workers/subdomain"
+          r=$(curl -s -H "Authorization: Bearer $TOKEN" -H 'Accept: application/json' "$API")
+          sub=$(echo "$r" | jq -r '.result.subdomain // empty')
+          [ -n "$sub" ] || echo "Sin subdominio todavía: $(echo "$r" | jq -c '.errors')"
           if [ -z "$sub" ]; then
             for nombre in tomasaldaya truco-uruguayo truco-uy-juego; do
-              r=$(curl -s -X PUT -H "$AUTH" -H 'Content-Type: application/json' --data "{\"subdomain\":\"$nombre\"}" "$API")
+              jq -nc --arg s "$nombre" '{subdomain: $s}' > cuerpo.json
+              r=$(curl -s -X PUT -H "Authorization: Bearer $TOKEN" -H 'Accept: application/json' -H 'Content-Type: application/json' --data-binary @cuerpo.json "$API")
               if echo "$r" | jq -e '.success' >/dev/null; then sub=$nombre; echo "Subdominio registrado: $sub"; break; fi
               echo "No se pudo con $nombre: $(echo "$r" | jq -c '.errors')"
             done
@@ -47,7 +51,8 @@ jobs:
           ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           set -o pipefail
-          if [ -n "$ACCOUNT" ]; then export CLOUDFLARE_ACCOUNT_ID="$ACCOUNT"; fi
+          export CLOUDFLARE_API_TOKEN=$(printf %s "$CLOUDFLARE_API_TOKEN" | tr -d '[:space:]')
+          if [ -n "$ACCOUNT" ]; then export CLOUDFLARE_ACCOUNT_ID=$(printf %s "$ACCOUNT" | tr -d '[:space:]'); fi
           npx --yes wrangler@4 deploy 2>&1 | tee deploy.log
           url=$(grep -o 'https://[a-z0-9.-]*workers\.dev' deploy.log | head -1)
           [ -n "$url" ] || url="https://truco-uruguayo.$SUB.workers.dev"
