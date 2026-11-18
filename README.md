@@ -189,6 +189,13 @@ pestañas del mismo navegador con BroadcastChannel, que es como se prueba sin re
 conexión de verdad sin salir de una máquina: un relay Nostr local y
 `localStorage['truco.relays'] = 'ws://127.0.0.1:7777'`.
 
+## Pantalla de inicio (con el servidor)
+
+Lo primero es **Jugar con gente**: los tres modos de las mesas públicas, con quiénes esperan, el botón de Google
+para quien no entró y las tres primeras mesas que esperan gente. Arriba, con cuenta, la ficha (apodo, puntos,
+perfil, ranking, amigos). Después **Con amigos** (mesa privada con código) y abajo, más chico, **Contra la
+computadora**. Sin el servidor (sin internet) el inicio es el de antes, con la computadora primero.
+
 ## Cuentas y ranking
 
 Se puede jugar sin cuenta. Con cuenta (**Acceder con Google**, en "Tu cuenta" del inicio) cada uno
@@ -205,6 +212,12 @@ tiene un apodo, que es su nombre en las mesas, y además:
   en las que su equipo se llevó puntos de envido), flores cantadas, trucos ganados (manos ganadas con
   truco cantado), abandonos, lo del mes y los últimos 20 partidos. El perfil de cualquiera se abre
   desde el ranking, el historial o los amigos.
+- **Editar perfil** (desde "Mi perfil"): foto (se recorta cuadrada y se achica a 256×256 en el navegador antes
+  de subirla; el servidor acepta JPG, PNG o WebP de hasta 90 KB y revisa que sea una imagen de verdad), apodo,
+  nombre, "sobre vos" (hasta 200 letras), de dónde sos (los 19 departamentos o fuera de Uruguay), tu cuadro y,
+  sin foto, el color del círculo con la inicial. Las fotos se sirven en `/api/foto/<n.º>?v=<versión>` y el
+  navegador las guarda; salen en el perfil, el ranking, los amigos y la lista de cuentas. Quien administra
+  puede quitar la foto y los textos de una cuenta desde "Cuentas creadas".
 - **Amigos**: se buscan por apodo; la solicitud se acepta o se rechaza. Se ve quién está en línea y, desde
   una mesa del servidor, se lo invita: le aparece el aviso y entra con un toque.
 - **Mesas públicas** (en "Jugar con otros"): cualquiera con cuenta elige el modo y se sienta en la mesa

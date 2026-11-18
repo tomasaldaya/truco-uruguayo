@@ -10,6 +10,12 @@ export const ELO0 = 1000, K = 32;
 const SESION_MS = 120 * 864e5;           // una sesión dura cuatro meses (se renueva al usarla)
 const MAX_AMIGOS = 200;
 export const mesDe = t => new Date(t - 3 * 3600e3).toISOString().slice(0, 7);   // el mes en hora de Uruguay
+// de dónde sos (los 19 departamentos, o fuera de Uruguay)
+export const LUGARES = ['Artigas', 'Canelones', 'Cerro Largo', 'Colonia', 'Durazno', 'Flores', 'Florida', 'Lavalleja', 'Maldonado', 'Montevideo', 'Paysandú',
+  'Río Negro', 'Rivera', 'Rocha', 'Salto', 'San José', 'Soriano', 'Tacuarembó', 'Treinta y Tres', 'Fuera de Uruguay'];
+export const N_COLORES = 7;
+const FOTO_MAX = 90 * 1024;               // la foto ya llega recortada y achicada (256×256): con esto sobra
+const texto = (v, max) => String(v ?? '').normalize('NFC').replace(/[\u0000-\u001f\u007f<>]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max);
 const limpiarApodo = v => String(v || '').normalize('NFC').replace(/[^\p{L}\p{N} ._-]/gu, '').replace(/\s+/g, ' ').trim().slice(0, 20);
 const int = v => { const n = Number(v); return Number.isInteger(n) ? n : null; };
 const hex = buf => [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
@@ -49,6 +55,11 @@ export class Cuentas {
     this.q(`CREATE INDEX IF NOT EXISTS amigos_para ON amigos (para)`);
     this.q(`CREATE TABLE IF NOT EXISTS cambios (nombre TEXT PRIMARY KEY, fecha INTEGER, hecho INTEGER)`);
     this.q(`CREATE TABLE IF NOT EXISTS publicas (codigo TEXT PRIMARY KEY, n INTEGER, personas INTEGER, nombres TEXT, creada INTEGER, actualizada INTEGER)`);
+    // lo del perfil (columnas que se agregaron después: si ya están, no pasa nada)
+    for (const col of ['nombre TEXT', 'bio TEXT', 'lugar TEXT', 'cuadro TEXT', 'color INTEGER', 'foto_v INTEGER DEFAULT 0']) {
+      try { this.q(`ALTER TABLE usuarios ADD COLUMN ${col}`); } catch (e) {}
+    }
+    this.q(`CREATE TABLE IF NOT EXISTS fotos (usuario INTEGER PRIMARY KEY, tipo TEXT, datos TEXT)`);
   }
   // un arreglo que se hace una sola vez en la base (queda anotado aunque no haya habido nada que cambiar)
   unaVez(nombre, f) {
@@ -119,10 +130,13 @@ export class Cuentas {
     if (!u.partidos) return null;
     return this.q1(`SELECT COUNT(*) AS n FROM usuarios WHERE partidos > 0 AND (elo > ? OR (elo = ? AND id < ?))`, u.elo, u.elo, u.id).n + 1;
   }
+  // lo que hace falta para dibujar a alguien en una lista: foto (su versión, para que el navegador la guarde) o color
+  cara(r) { return { foto: r.foto_v || null, color: Number.isInteger(r.color) ? r.color : null }; }
   perfil(u, propio) {
     const mesActual = mesDe(this.now()), mes = u.mes === mesActual;
     return {
-      id: u.id, apodo: u.apodo, desde: u.creado,
+      id: u.id, apodo: u.apodo, desde: u.creado, ...this.cara(u),
+      nombre: u.nombre || '', bio: u.bio || '', lugar: u.lugar || '', cuadro: u.cuadro || '',
       puntos: Math.round(u.elo), posicion: this.posicion(u),
       partidos: u.partidos, ganados: u.ganados, abandonos: u.abandonos, racha: u.racha, mejorRacha: u.mejor_racha,
       manos: u.manos, manosGanadas: u.manos_ganadas, envidos: u.envidos, flores: u.flores, trucos: u.trucos,
@@ -156,6 +170,12 @@ export class Cuentas {
     const yo = token ? await this.sesionDe(token) : null;
     const conSesion = () => yo ? null : mal(401, 'Tenés que entrar con tu cuenta.');
     try {
+      const mf = /^foto\/(\d+)$/.exec(ruta);
+      if (mf && metodo === 'GET') {
+        const f = this.q1(`SELECT tipo, datos FROM fotos WHERE usuario = ?`, +mf[1]);
+        if (!f) return mal(404, 'Sin foto.');
+        return { s: 200, raw: Uint8Array.from(atob(f.datos), c => c.charCodeAt(0)), tipo: f.tipo };
+      }
       switch (metodo + ' ' + ruta) {
         case 'GET cuenta/config': return ok({ google: this.googleId || null, prueba: this.prueba });
         case 'POST cuenta/google': {
@@ -179,6 +199,46 @@ export class Cuentas {
           this.q(`UPDATE usuarios SET apodo = ?, apodo_min = ? WHERE id = ?`, a, a.toLowerCase(), yo.id);
           return ok({ yo: this.perfil(this.q1(`SELECT * FROM usuarios WHERE id = ?`, yo.id), true) });
         }
+        case 'POST cuenta/editar': {
+          if (!yo) return conSesion();
+          const c = cuerpo, set = {};
+          if (c.apodo !== undefined) {
+            const a = limpiarApodo(c.apodo);
+            if (a.length < 2) return mal(400, 'El apodo tiene que tener entre 2 y 20 letras o números.');
+            const r = this.q1(`SELECT id FROM usuarios WHERE apodo_min = ?`, a.toLowerCase());
+            if (r && r.id !== yo.id) return mal(409, `"${a}" ya lo usa otra persona.`);
+            set.apodo = a; set.apodo_min = a.toLowerCase();
+          }
+          if (c.nombre !== undefined) set.nombre = texto(c.nombre, 40);
+          if (c.bio !== undefined) set.bio = texto(c.bio, 200);
+          if (c.cuadro !== undefined) set.cuadro = texto(c.cuadro, 30);
+          if (c.lugar !== undefined) { const l = String(c.lugar || ''); if (l && !LUGARES.includes(l)) return mal(400, 'Elegí de la lista de dónde sos.'); set.lugar = l; }
+          if (c.color !== undefined) { const k = c.color === null ? null : int(c.color); if (k !== null && (k < 0 || k >= N_COLORES)) return mal(400, 'Color inválido.'); set.color = k; }
+          if (c.foto === null) { this.q(`DELETE FROM fotos WHERE usuario = ?`, yo.id); set.foto_v = 0; }
+          else if (c.foto !== undefined) {
+            const m = /^data:image\/(jpeg|png|webp);base64,([A-Za-z0-9+/]+={0,2})$/.exec(String(c.foto));
+            if (!m) return mal(400, 'La foto tiene que ser una imagen JPG, PNG o WebP.');
+            let bytes; try { bytes = Uint8Array.from(atob(m[2]), x => x.charCodeAt(0)); } catch (e) { return mal(400, 'La foto no se pudo leer.'); }
+            if (bytes.length > FOTO_MAX) return mal(413, 'La foto es muy pesada.');
+            const tipo = m[1], es = (a, i = 0) => a.every((b, k) => bytes[i + k] === b);
+            const ok = tipo === 'jpeg' ? es([0xff, 0xd8, 0xff]) : tipo === 'png' ? es([0x89, 0x50, 0x4e, 0x47]) : es([0x52, 0x49, 0x46, 0x46]) && es([0x57, 0x45, 0x42, 0x50], 8);
+            if (!ok) return mal(400, 'La foto no es una imagen válida.');
+            this.q(`INSERT INTO fotos (usuario, tipo, datos) VALUES (?, ?, ?) ON CONFLICT(usuario) DO UPDATE SET tipo = excluded.tipo, datos = excluded.datos`, yo.id, 'image/' + tipo, m[2]);
+            set.foto_v = Math.max(this.now(), (yo.foto_v || 0) + 1);
+          }
+          const cols = Object.keys(set);
+          if (cols.length) this.q(`UPDATE usuarios SET ${cols.map(k => k + ' = ?').join(', ')} WHERE id = ?`, ...cols.map(k => set[k]), yo.id);
+          return ok({ yo: this.perfil(this.q1(`SELECT * FROM usuarios WHERE id = ?`, yo.id), true) });
+        }
+        case 'POST admin/limpiar': {
+          if (!yo) return conSesion();
+          if (!this.admins.has(yo.id)) return mal(403, 'Solo quien administra el juego.');
+          const id = int(cuerpo.id);
+          if (!this.q1(`SELECT id FROM usuarios WHERE id = ?`, id)) return mal(404, 'No existe esa cuenta.');
+          this.q(`DELETE FROM fotos WHERE usuario = ?`, id);
+          this.q(`UPDATE usuarios SET foto_v = 0, bio = '', nombre = '', cuadro = '' WHERE id = ?`, id);
+          return ok({ ok: true });
+        }
         case 'POST cuenta/salir': if (token) this.q(`DELETE FROM sesiones WHERE token = ?`, await hash(token)); return ok({ ok: true });
         case 'POST cuenta/borrar': {
           if (!yo) return conSesion();
@@ -186,6 +246,7 @@ export class Cuentas {
           this.q(`DELETE FROM sesiones WHERE usuario = ?`, yo.id);
           this.q(`DELETE FROM amigos WHERE de = ? OR para = ?`, yo.id, yo.id);
           this.q(`DELETE FROM jugadas WHERE usuario = ?`, yo.id);
+          this.q(`DELETE FROM fotos WHERE usuario = ?`, yo.id);
           this.q(`DELETE FROM usuarios WHERE id = ?`, yo.id);
           amigos.forEach(a => this.avisar(a, { t: 'amigos' }));
           return ok({ ok: true });
@@ -198,15 +259,15 @@ export class Cuentas {
         case 'GET ranking': {
           const mes = url.searchParams.get('tipo') === 'mes', m = mesDe(this.now());
           const filas = mes
-            ? this.q(`SELECT id, apodo, elo_mes AS elo, partidos_mes AS partidos, ganados_mes AS ganados FROM usuarios WHERE mes = ? AND partidos_mes > 0 ORDER BY elo_mes DESC, id LIMIT 100`, m)
-            : this.q(`SELECT id, apodo, elo, partidos, ganados FROM usuarios WHERE partidos > 0 ORDER BY elo DESC, id LIMIT 100`);
-          const lista = filas.map((r, i) => ({ pos: i + 1, id: r.id, apodo: r.apodo, puntos: Math.round(r.elo), partidos: r.partidos, ganados: r.ganados }));
+            ? this.q(`SELECT id, apodo, foto_v, color, elo_mes AS elo, partidos_mes AS partidos, ganados_mes AS ganados FROM usuarios WHERE mes = ? AND partidos_mes > 0 ORDER BY elo_mes DESC, id LIMIT 100`, m)
+            : this.q(`SELECT id, apodo, foto_v, color, elo, partidos, ganados FROM usuarios WHERE partidos > 0 ORDER BY elo DESC, id LIMIT 100`);
+          const lista = filas.map((r, i) => ({ pos: i + 1, id: r.id, apodo: r.apodo, ...this.cara(r), puntos: Math.round(r.elo), partidos: r.partidos, ganados: r.ganados }));
           let mio = null;
           if (yo && !lista.some(r => r.id === yo.id)) {
             const elo = mes ? (yo.mes === m ? yo.elo_mes : ELO0) : yo.elo, jug = mes ? (yo.mes === m ? yo.partidos_mes : 0) : yo.partidos;
             if (jug > 0) {
               const pos = mes ? this.q1(`SELECT COUNT(*) AS n FROM usuarios WHERE mes = ? AND partidos_mes > 0 AND (elo_mes > ? OR (elo_mes = ? AND id < ?))`, m, elo, elo, yo.id).n + 1 : this.posicion(yo);
-              mio = { pos, id: yo.id, apodo: yo.apodo, puntos: Math.round(elo), partidos: jug, ganados: mes ? yo.ganados_mes : yo.ganados };
+              mio = { pos, id: yo.id, apodo: yo.apodo, ...this.cara(yo), puntos: Math.round(elo), partidos: jug, ganados: mes ? yo.ganados_mes : yo.ganados };
             }
           }
           const sinPartidos = mes ? null : this.q1(`SELECT COUNT(*) AS n FROM usuarios WHERE partidos = 0`).n;
@@ -217,21 +278,21 @@ export class Cuentas {
           if (!this.admins.has(yo.id)) return mal(403, 'Esta lista la ve solo quien administra el juego.');
           const ahora = this.now(), hoy0 = Date.parse(new Date(ahora - 3 * 3600e3).toISOString().slice(0, 10) + 'T03:00:00Z');
           const cuenta = desde => this.q1(`SELECT COUNT(*) AS n FROM usuarios WHERE creado >= ?`, desde).n;
-          const lista = this.q(`SELECT id, apodo, creado, visto, partidos, ganados, elo FROM usuarios ORDER BY creado DESC LIMIT 500`)
-            .map(r => ({ id: r.id, apodo: r.apodo, creado: r.creado, visto: r.visto, partidos: r.partidos, ganados: r.ganados, puntos: Math.round(r.elo) }));
+          const lista = this.q(`SELECT id, apodo, creado, visto, partidos, ganados, elo, foto_v, color, bio, nombre FROM usuarios ORDER BY creado DESC LIMIT 500`)
+            .map(r => ({ id: r.id, apodo: r.apodo, ...this.cara(r), creado: r.creado, visto: r.visto, partidos: r.partidos, ganados: r.ganados, puntos: Math.round(r.elo), textos: !!(r.bio || r.nombre) }));
           const en = this.enLinea();
           lista.forEach(r => { r.enLinea = en.has(r.id); });
           return ok({ total: this.q1(`SELECT COUNT(*) AS n FROM usuarios`).n, hoy: cuenta(hoy0), semana: cuenta(ahora - 7 * 864e5),
             conPartidos: this.q1(`SELECT COUNT(*) AS n FROM usuarios WHERE partidos > 0`).n, enLinea: en.size, lista });
         }
-        case 'GET publicas': return ok({ lista: this.publicas() });
+        case 'GET publicas': return ok({ lista: this.publicas(), conectados: this.enLinea().size });
         case 'GET amigos': {
           if (!yo) return conSesion();
           const en = this.enLinea();
-          const fila = r => ({ id: r.id, apodo: r.apodo, puntos: Math.round(r.elo), enLinea: en.has(r.id) });
-          const amigos = this.q(`SELECT u.id, u.apodo, u.elo FROM usuarios u WHERE u.id IN (SELECT para FROM amigos WHERE de = ? AND estado = 'si' UNION SELECT de FROM amigos WHERE para = ? AND estado = 'si') ORDER BY u.apodo_min`, yo.id, yo.id).map(fila);
-          const recibidas = this.q(`SELECT u.id, u.apodo, u.elo FROM amigos a JOIN usuarios u ON u.id = a.de WHERE a.para = ? AND a.estado = 'pendiente' ORDER BY a.desde DESC`, yo.id).map(fila);
-          const enviadas = this.q(`SELECT u.id, u.apodo, u.elo FROM amigos a JOIN usuarios u ON u.id = a.para WHERE a.de = ? AND a.estado = 'pendiente' ORDER BY a.desde DESC`, yo.id).map(fila);
+          const fila = r => ({ id: r.id, apodo: r.apodo, ...this.cara(r), puntos: Math.round(r.elo), enLinea: en.has(r.id) });
+          const amigos = this.q(`SELECT u.id, u.apodo, u.elo, u.foto_v, u.color FROM usuarios u WHERE u.id IN (SELECT para FROM amigos WHERE de = ? AND estado = 'si' UNION SELECT de FROM amigos WHERE para = ? AND estado = 'si') ORDER BY u.apodo_min`, yo.id, yo.id).map(fila);
+          const recibidas = this.q(`SELECT u.id, u.apodo, u.elo, u.foto_v, u.color FROM amigos a JOIN usuarios u ON u.id = a.de WHERE a.para = ? AND a.estado = 'pendiente' ORDER BY a.desde DESC`, yo.id).map(fila);
+          const enviadas = this.q(`SELECT u.id, u.apodo, u.elo, u.foto_v, u.color FROM amigos a JOIN usuarios u ON u.id = a.para WHERE a.de = ? AND a.estado = 'pendiente' ORDER BY a.desde DESC`, yo.id).map(fila);
           amigos.sort((a, b) => (b.enLinea - a.enLinea) || 0);
           return ok({ amigos, recibidas, enviadas });
         }
@@ -240,9 +301,9 @@ export class Cuentas {
           const t = limpiarApodo(url.searchParams.get('q')).toLowerCase();
           if (t.length < 2) return ok({ lista: [] });
           const like = t.replace(/[%_\\]/g, c => '\\' + c);
-          const lista = this.q(`SELECT id, apodo, elo FROM usuarios WHERE id != ? AND (apodo_min LIKE ? ESCAPE '\\' OR apodo_min LIKE ? ESCAPE '\\') ORDER BY (apodo_min = ?) DESC, (apodo_min LIKE ? ESCAPE '\\') DESC, apodo_min LIMIT 12`,
+          const lista = this.q(`SELECT id, apodo, elo, foto_v, color FROM usuarios WHERE id != ? AND (apodo_min LIKE ? ESCAPE '\\' OR apodo_min LIKE ? ESCAPE '\\') ORDER BY (apodo_min = ?) DESC, (apodo_min LIKE ? ESCAPE '\\') DESC, apodo_min LIMIT 12`,
             yo.id, like + '%', '% ' + like + '%', t, like + '%')
-            .map(r => ({ id: r.id, apodo: r.apodo, puntos: Math.round(r.elo), relacion: this.relacion(yo.id, r.id) }));
+            .map(r => ({ id: r.id, apodo: r.apodo, ...this.cara(r), puntos: Math.round(r.elo), relacion: this.relacion(yo.id, r.id) }));
           return ok({ lista });
         }
         case 'POST amigos/pedir': {

@@ -355,6 +355,47 @@ aside{display:flex;flex-direction:column;gap:14px;margin-top:13px}
 .hmain .hkey a{color:var(--gold)}
 .ctatoast span{flex:1 1 200px}
 .hmode:disabled{opacity:.45;cursor:not-allowed}
+/* inicio: primero jugar con gente */
+.hpub{position:relative;border-radius:22px;padding:18px 18px 14px;background:linear-gradient(160deg,rgba(232,177,58,.16),rgba(232,177,58,.04) 60%);border:1px solid rgba(232,177,58,.5);box-shadow:0 10px 30px rgba(0,0,0,.25)}
+.hpub h2{font-size:27px!important;margin:0 0 4px!important}
+.hpsub{margin:0 0 12px;font-size:15px;line-height:1.4}
+.hpcta{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:0 0 12px;padding:10px 12px;border-radius:14px;background:rgba(0,0,0,.22)}
+.hpcta .gsi{margin:0;min-height:40px}
+.hpcta span{flex:1 1 220px;font-size:14px;color:var(--muted)}
+.hmode.pub{background:rgba(0,0,0,.18)}
+.hmode.pub.hay{border-color:rgba(95,208,122,.6)}
+.hmode.pub span .dot{vertical-align:middle;margin-right:2px}
+.hpl{margin-top:10px}
+.hpub .hkey .lnk{font-size:13px;color:var(--gold);font-weight:600}
+.cficha.barra{flex-wrap:wrap;margin:0;padding:10px 12px;border-radius:16px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1)}
+.cficha.barra>div{flex:1 1 140px}
+.cficha.barra nav{flex:1 1 100%}
+.cficha.barra nav .tool{font-size:14px;padding:7px 13px}
+.hcompu h2{font-size:19px!important}
+.hmodes.chicos{gap:8px}
+.hmodes.chicos .hmode{flex-direction:row;justify-content:center;padding:8px 10px;gap:8px;text-align:left}
+.hmodes.chicos .hmode svg{width:40px;height:40px}
+.hmodes.chicos .hmode b{font-size:16px}
+/* perfil */
+img.avt{object-fit:cover;background:#2a1d13}
+.cnom{color:var(--ink)!important;font-size:15px!important}
+.cbio{margin:0 0 12px;font-size:15px;line-height:1.45;white-space:pre-wrap;overflow-wrap:anywhere}
+.eform .cfg input,.eform .cfg textarea,.eform .cfg select{font:inherit;font-size:15px;padding:8px 12px;border-radius:12px;border:1px solid rgba(255,255,255,.2);background:#2a1d13;color:var(--ink);width:100%;max-width:360px;box-sizing:border-box}
+.eform .cfg textarea{resize:vertical;min-height:72px}
+.efoto{display:flex;align-items:center;gap:16px;margin:4px 0 12px}
+.efoto>div{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.efoto .hkey{flex:1 1 100%;margin:0}
+.efoto label.tool{cursor:pointer}
+.ecolores{display:flex;gap:8px;margin:0 0 14px}
+.ecolores button{width:30px;height:30px;border-radius:50%;border:2px solid transparent;cursor:pointer}
+.ecolores button[aria-checked="true"]{border-color:var(--ink);box-shadow:0 0 0 2px var(--gold)}
+.tool.mini{font-size:12px;padding:3px 8px;margin-left:6px}
+@media (max-width:520px){
+  .hmodes.chicos{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .hmodes.chicos .hmode{flex-direction:column;padding:8px 4px;gap:4px;text-align:center}
+  .hmodes.chicos .hmode svg{width:34px;height:34px}
+  .hmodes.chicos .hmode b{font-size:14px}
+}
 .cuenta-atras{color:var(--gold);font-size:18px;animation:latido 1s ease-in-out infinite}
 @keyframes latido{50%{opacity:.55}}
 @media (prefers-reduced-motion: reduce){.cuenta-atras{animation:none}}
@@ -413,6 +454,16 @@ aside{display:flex;flex-direction:column;gap:14px;margin-top:13px}
   .hsub{font-size:15.5px}
 }
 @media (max-width:520px){
+  .home{padding:16px 14px}
+  .hero{padding:14px 14px 16px}
+  .fan{height:112px;width:200px;margin:0 auto 10px}
+  .fan .card{--cw:66px;--ch:100px;border-radius:8px}
+  .fan .f0{transform:translateX(-50%) translateX(-38px) rotate(-14deg)}
+  .fan .f1{transform:translateX(-50%) translateY(-8px)}
+  .fan .f2{transform:translateX(-50%) translateX(38px) rotate(14deg)}
+  .htitle{font-size:34px}
+  .hsub{font-size:14px;margin-bottom:0}
+  .hpub{padding:14px 12px 10px}
   .hmodes{grid-template-columns:1fr}
   .hmode{flex-direction:row;text-align:left;align-items:center;gap:12px;padding:10px 12px}
   .hmode svg{width:64px;height:64px;flex:none}
@@ -462,7 +513,7 @@ aside{display:flex;flex-direction:column;gap:14px;margin-top:13px}
     <div class="hero">
       <div class="fan" id="hfan" aria-hidden="true"></div>
       <h1 class="htitle">Truco Uruguayo</h1>
-      <p class="hsub">Contra la computadora, mano a mano, en parejas o en tercetos, con las reglas del Reglamento del Truco Uruguayo.</p>
+      <p class="hsub">Jugá con otras personas, mano a mano, en parejas o en tercetos, con las reglas del Reglamento del Truco Uruguayo. O practicá contra la computadora.</p>
     </div>
     <div class="hmain" id="hmain"></div>
   </div>

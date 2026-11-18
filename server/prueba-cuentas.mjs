@@ -239,5 +239,48 @@ await t('salón de mesas públicas: lista las que esperan gente y se olvida de l
   assert.equal((await W.pedir('GET', 'publicas', null)).lista.length, 0);
 });
 
+await t('perfil: editar nombre, apodo, biografía, lugar, cuadro, color y foto; el administrador puede limpiar', async () => {
+  const W = mundo({ admins: ['1'] });
+  const ADM = await W.alta('Admin'), A = await W.alta('Ana'), B = await W.alta('Beto');
+  let r = await W.pedir('POST', 'cuenta/editar', A.token, { nombre: '  Ana   María <b>', bio: 'Juego desde\nchica.  ', lugar: 'Montevideo', cuadro: 'Peñarol', color: 3 });
+  assert.equal(r.s, 200);
+  assert.deepEqual([r.yo.nombre, r.yo.bio, r.yo.lugar, r.yo.cuadro, r.yo.color, r.yo.foto], ['Ana María b', 'Juego desde chica.', 'Montevideo', 'Peñarol', 3, null]);
+  assert.equal((await W.pedir('POST', 'cuenta/editar', A.token, { lugar: 'Narnia' })).s, 400);
+  assert.equal((await W.pedir('POST', 'cuenta/editar', A.token, { color: 99 })).s, 400);
+  assert.equal((await W.pedir('POST', 'cuenta/editar', A.token, { apodo: 'beto' })).s, 409);
+  assert.equal((await W.pedir('POST', 'cuenta/editar', A.token, { bio: 'x'.repeat(500) })).yo.bio.length, 200);
+  // foto: tiene que ser una imagen de verdad y no muy pesada
+  const jpg = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(200, 7)]);
+  const webp = Buffer.concat([Buffer.from('RIFF'), Buffer.alloc(4), Buffer.from('WEBP'), Buffer.alloc(100, 1)]);
+  assert.equal((await W.pedir('POST', 'cuenta/editar', A.token, { foto: 'data:image/png;base64,' + jpg.toString('base64') })).s, 400, 'dice png y es jpg');
+  assert.equal((await W.pedir('POST', 'cuenta/editar', A.token, { foto: 'data:image/gif;base64,R0lGOD' })).s, 400);
+  assert.equal((await W.pedir('POST', 'cuenta/editar', A.token, { foto: 'data:image/jpeg;base64,' + Buffer.concat([jpg, Buffer.alloc(100000)]).toString('base64') })).s, 413);
+  r = await W.pedir('POST', 'cuenta/editar', A.token, { foto: 'data:image/jpeg;base64,' + jpg.toString('base64') });
+  const v1 = r.yo.foto; assert(v1 > 0);
+  const f = await W.c.http(new Request('https://x.dev/api/foto/' + A.yo.id));
+  assert.equal(f.tipo, 'image/jpeg'); assert.deepEqual(Buffer.from(f.raw), jpg);
+  W.avanzar(5);
+  r = await W.pedir('POST', 'cuenta/editar', A.token, { foto: 'data:image/webp;base64,' + webp.toString('base64') });
+  assert(r.yo.foto > v1, 'nueva versión');
+  assert.equal((await W.c.http(new Request('https://x.dev/api/foto/' + A.yo.id))).tipo, 'image/webp');
+  // la cara aparece en las listas y en el perfil público
+  await W.pedir('POST', 'amigos/pedir', B.token, { id: A.yo.id });
+  const am = await W.pedir('GET', 'amigos', A.token);
+  assert.equal(am.recibidas[0].color, null);
+  const busq = await W.pedir('GET', 'amigos/buscar?q=an', B.token);
+  assert.equal(busq.lista[0].foto, r.yo.foto);
+  const pub = (await W.pedir('GET', 'cuenta/perfil?id=' + A.yo.id, B.token)).perfil;
+  assert.deepEqual([pub.nombre, pub.lugar, pub.cuadro, pub.foto], ['Ana María b', 'Montevideo', 'Peñarol', r.yo.foto]);
+  // el administrador limpia foto y textos (no el apodo ni los puntos)
+  assert.equal((await W.pedir('POST', 'admin/limpiar', B.token, { id: A.yo.id })).s, 403);
+  assert.equal((await W.pedir('POST', 'admin/limpiar', ADM.token, { id: A.yo.id })).ok, true);
+  const limpio = (await W.pedir('GET', 'cuenta/perfil?id=' + A.yo.id, null)).perfil;
+  assert.deepEqual([limpio.foto, limpio.bio, limpio.nombre, limpio.apodo, limpio.lugar], [null, '', '', 'Ana', 'Montevideo']);
+  assert.equal((await W.c.http(new Request('https://x.dev/api/foto/' + A.yo.id))).s, 404);
+  // sacar la foto uno mismo
+  await W.pedir('POST', 'cuenta/editar', B.token, { foto: 'data:image/jpeg;base64,' + jpg.toString('base64') });
+  assert.equal((await W.pedir('POST', 'cuenta/editar', B.token, { foto: null })).yo.foto, null);
+});
+
 console.log(fails ? `\n${fails} pruebas fallaron` : '\nTodo OK');
 process.exit(fails ? 1 : 0);

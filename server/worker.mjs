@@ -20,11 +20,11 @@ export default {
       if ((req.headers.get('Upgrade') || '').toLowerCase() !== 'websocket') return new Response('Acá se entra por WebSocket.', { status: 426 });
       return env.MESAS.get(env.MESAS.idFromName(m[1])).fetch(req);
     }
-    if (/^\/api\/(cuenta|ranking|amigos|admin|publicas)(\/|$)/.test(url.pathname)) {
+    if (/^\/api\/(cuenta|ranking|amigos|admin|publicas|foto)(\/|$)/.test(url.pathname)) {
       if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
       const r = await cuentas(env).fetch(req);
       if (r.status === 101) return r;
-      const h = new Headers(r.headers); for (const k in CORS) h.set(k, CORS[k]); h.set('cache-control', 'no-store');
+      const h = new Headers(r.headers); for (const k in CORS) h.set(k, CORS[k]); if (!h.has('cache-control')) h.set('cache-control', 'no-store');
       return new Response(r.body, { status: r.status, headers: h });
     }
     if (url.pathname === '/api/salud') return new Response('ok', { headers: { 'access-control-allow-origin': '*', 'cache-control': 'no-store' } });
@@ -61,6 +61,8 @@ export class CuentasDO extends DurableObject {
       return new Response(null, { status: 101, webSocket: client });
     }
     const r = await this.c.http(req);
+    // las fotos llevan su versión en la dirección: el navegador las guarda para siempre
+    if (r.raw) return new Response(r.raw, { status: r.s, headers: { 'content-type': r.tipo, 'cache-control': 'public, max-age=31536000, immutable', 'x-content-type-options': 'nosniff' } });
     return Response.json(r.j, { status: r.s });
   }
   async webSocketMessage(ws, data) {

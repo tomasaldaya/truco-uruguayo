@@ -355,6 +355,47 @@ aside{display:flex;flex-direction:column;gap:14px;margin-top:13px}
 .hmain .hkey a{color:var(--gold)}
 .ctatoast span{flex:1 1 200px}
 .hmode:disabled{opacity:.45;cursor:not-allowed}
+/* inicio: primero jugar con gente */
+.hpub{position:relative;border-radius:22px;padding:18px 18px 14px;background:linear-gradient(160deg,rgba(232,177,58,.16),rgba(232,177,58,.04) 60%);border:1px solid rgba(232,177,58,.5);box-shadow:0 10px 30px rgba(0,0,0,.25)}
+.hpub h2{font-size:27px!important;margin:0 0 4px!important}
+.hpsub{margin:0 0 12px;font-size:15px;line-height:1.4}
+.hpcta{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:0 0 12px;padding:10px 12px;border-radius:14px;background:rgba(0,0,0,.22)}
+.hpcta .gsi{margin:0;min-height:40px}
+.hpcta span{flex:1 1 220px;font-size:14px;color:var(--muted)}
+.hmode.pub{background:rgba(0,0,0,.18)}
+.hmode.pub.hay{border-color:rgba(95,208,122,.6)}
+.hmode.pub span .dot{vertical-align:middle;margin-right:2px}
+.hpl{margin-top:10px}
+.hpub .hkey .lnk{font-size:13px;color:var(--gold);font-weight:600}
+.cficha.barra{flex-wrap:wrap;margin:0;padding:10px 12px;border-radius:16px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1)}
+.cficha.barra>div{flex:1 1 140px}
+.cficha.barra nav{flex:1 1 100%}
+.cficha.barra nav .tool{font-size:14px;padding:7px 13px}
+.hcompu h2{font-size:19px!important}
+.hmodes.chicos{gap:8px}
+.hmodes.chicos .hmode{flex-direction:row;justify-content:center;padding:8px 10px;gap:8px;text-align:left}
+.hmodes.chicos .hmode svg{width:40px;height:40px}
+.hmodes.chicos .hmode b{font-size:16px}
+/* perfil */
+img.avt{object-fit:cover;background:#2a1d13}
+.cnom{color:var(--ink)!important;font-size:15px!important}
+.cbio{margin:0 0 12px;font-size:15px;line-height:1.45;white-space:pre-wrap;overflow-wrap:anywhere}
+.eform .cfg input,.eform .cfg textarea,.eform .cfg select{font:inherit;font-size:15px;padding:8px 12px;border-radius:12px;border:1px solid rgba(255,255,255,.2);background:#2a1d13;color:var(--ink);width:100%;max-width:360px;box-sizing:border-box}
+.eform .cfg textarea{resize:vertical;min-height:72px}
+.efoto{display:flex;align-items:center;gap:16px;margin:4px 0 12px}
+.efoto>div{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.efoto .hkey{flex:1 1 100%;margin:0}
+.efoto label.tool{cursor:pointer}
+.ecolores{display:flex;gap:8px;margin:0 0 14px}
+.ecolores button{width:30px;height:30px;border-radius:50%;border:2px solid transparent;cursor:pointer}
+.ecolores button[aria-checked="true"]{border-color:var(--ink);box-shadow:0 0 0 2px var(--gold)}
+.tool.mini{font-size:12px;padding:3px 8px;margin-left:6px}
+@media (max-width:520px){
+  .hmodes.chicos{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .hmodes.chicos .hmode{flex-direction:column;padding:8px 4px;gap:4px;text-align:center}
+  .hmodes.chicos .hmode svg{width:34px;height:34px}
+  .hmodes.chicos .hmode b{font-size:14px}
+}
 .cuenta-atras{color:var(--gold);font-size:18px;animation:latido 1s ease-in-out infinite}
 @keyframes latido{50%{opacity:.55}}
 @media (prefers-reduced-motion: reduce){.cuenta-atras{animation:none}}
@@ -413,6 +454,16 @@ aside{display:flex;flex-direction:column;gap:14px;margin-top:13px}
   .hsub{font-size:15.5px}
 }
 @media (max-width:520px){
+  .home{padding:16px 14px}
+  .hero{padding:14px 14px 16px}
+  .fan{height:112px;width:200px;margin:0 auto 10px}
+  .fan .card{--cw:66px;--ch:100px;border-radius:8px}
+  .fan .f0{transform:translateX(-50%) translateX(-38px) rotate(-14deg)}
+  .fan .f1{transform:translateX(-50%) translateY(-8px)}
+  .fan .f2{transform:translateX(-50%) translateX(38px) rotate(14deg)}
+  .htitle{font-size:34px}
+  .hsub{font-size:14px;margin-bottom:0}
+  .hpub{padding:14px 12px 10px}
   .hmodes{grid-template-columns:1fr}
   .hmode{flex-direction:row;text-align:left;align-items:center;gap:12px;padding:10px 12px}
   .hmode svg{width:64px;height:64px;flex:none}
@@ -462,7 +513,7 @@ aside{display:flex;flex-direction:column;gap:14px;margin-top:13px}
     <div class="hero">
       <div class="fan" id="hfan" aria-hidden="true"></div>
       <h1 class="htitle">Truco Uruguayo</h1>
-      <p class="hsub">Contra la computadora, mano a mano, en parejas o en tercetos, con las reglas del Reglamento del Truco Uruguayo.</p>
+      <p class="hsub">Jugá con otras personas, mano a mano, en parejas o en tercetos, con las reglas del Reglamento del Truco Uruguayo. O practicá contra la computadora.</p>
     </div>
     <div class="hmain" id="hmain"></div>
   </div>
@@ -8308,6 +8359,7 @@ function renderHome(){
   if (homeView === 'amigos') return renderAmigos(box);
   if (homeView === 'admin') return renderAdmin(box);
   if (homeView === 'publicas') return renderPublicas(box);
+  if (homeView === 'editar') return renderEditar(box);
   const inGame = !!NET || (GM && GM.phase !== 'matchEnd');
   let h = netNote ? `<p class="hnote" role="alert">${esc(netNote)}</p>` : '';
   netNote = '';
@@ -8319,17 +8371,19 @@ function renderHome(){
     const ch = G.chicos[0] + G.chicos[1];
     h += `<button class="cont" id="hCont"><b>Continuar partido</b><span>${modeName(G.n)}: ${esc(G.teamNames[0])} ${G.scores[0]}, ${esc(G.teamNames[1])} ${G.scores[1]}${ch ? `. Chicos: ${G.chicos[0]} a ${G.chicos[1]}` : ''}.</span></button>`;
   }
-  h += `<section><h2>${NET ? 'Jugar solo' : inGame ? 'Partido nuevo' : 'Elegí cómo jugar'}</h2><div class="hmodes">`
-    + MODES.map(([n, nm, d]) => `<button class="hmode" data-n="${n}">${tableSVG(n)}<div><b>${nm}</b><span>${d}</span></div></button>`).join('')
-    + '</div><p class="hkey">En celeste tu equipo y en bordó los rivales; el lugar con borde dorado es el tuyo.</p>';
+  // con el servidor de cuentas, lo primero es jugar con gente (mesas públicas); la computadora queda abajo
+  const conGente = cuentaOK() && !!CUENTA.cfg;
+  if (conGente) h += cuentaFichaHTML();
+  if (conGente && !NET) h += publicasHomeHTML();
+  if (!NET) h += `<section><h2>${conGente ? 'Con amigos' : 'Jugar con otros'}</h2><div class="hlinks"><button class="tool" id="hHost">${conGente ? 'Crear una mesa privada' : 'Crear una mesa'}</button><button class="tool" id="hJoin">${conGente ? 'Unirme con un código' : 'Unirme a una mesa'}</button></div>
+    <p class="hkey">${netMode() === 'internet' ? 'Creá una mesa y pasale el link a quien quieras, o unite con el código que te pasaron.' : 'Sin internet: entre pestañas de este navegador, para probar cómo se ve el partido desde cada lugar.'}</p></section>`;
+  const chico = conGente && !NET;
+  h += `<section class="${chico ? 'hcompu' : ''}"><h2>${NET ? 'Jugar solo' : conGente ? 'Contra la computadora' : inGame ? 'Partido nuevo' : 'Elegí cómo jugar'}</h2><div class="hmodes${chico ? ' chicos' : ''}">`
+    + MODES.map(([n, nm, d]) => `<button class="hmode" data-n="${n}">${tableSVG(n)}<div><b>${nm}</b>${chico ? '' : `<span>${d}</span>`}</div></button>`).join('')
+    + `</div>${chico ? '<p class="hkey">Para practicar: la computadora juega los otros lugares, y el partido se guarda en este navegador.</p>' : '<p class="hkey">En celeste tu equipo y en bordó los rivales; el lugar con borde dorado es el tuyo.</p>'}`;
   if (confirmNew) h += `<div class="hconfirm" role="alert"><p>${NET ? `Vas a salir de la mesa ${esc(NET.code)} para jugar solo, de ${modeName(confirmNew).toLowerCase()}.` : `Tenés un partido sin terminar. Si empezás uno nuevo de ${modeName(confirmNew).toLowerCase()}, ese se pierde.`}</p>
     <div class="row"><button class="act flor" id="hYes">Empezar partido nuevo</button><button class="act mazo" id="hNo">Cancelar</button></div></div>`;
   h += '</section>';
-  const pubN = (CUENTA.publicas || []).reduce((a, m) => a + m.personas, 0);
-  const pubBtn = cuentaOK() && CUENTA.cfg ? `<button class="tool" id="hPub">Mesas públicas${pubN ? ` · <b class="cbadge">${pubN} ${pubN === 1 ? 'esperando' : 'esperando'}</b>` : ''}</button>` : '';
-  if (!NET) h += `<section><h2>Jugar con otros</h2><div class="hlinks">${pubBtn}<button class="tool" id="hHost">Crear una mesa</button><button class="tool" id="hJoin">Unirme a una mesa</button></div>
-    <p class="hkey">${netMode() === 'internet' ? (pubBtn ? 'En las mesas públicas jugás con cualquiera que tenga cuenta. Para jugar con conocidos, creá una mesa y pasales el link, o unite con el código que te pasaron.' : 'Por internet: creá una mesa y pasale el link a quien quieras, o unite con el código que te pasaron.') : 'Sin internet: entre pestañas de este navegador, para probar cómo se ve el partido desde cada lugar.'}</p></section>`;
-  h += cuentaHTML();
   h += `<nav class="hlinks" aria-label="Más opciones">
     <button class="tool" id="hCfg">Configuración</button><button class="tool" id="hDeck">Tu mazo</button>
     <button class="tool" id="hHow">Cómo se juega</button><button class="tool" id="hStats">Estadísticas</button></nav>
@@ -8342,8 +8396,7 @@ function renderHome(){
   if ($('hLeave')) $('hLeave').onclick = () => { leaveNet(); renderHome(); };
   if ($('hHost')) $('hHost').onclick = () => hostTable(GM && !NET ? GM.n : players);
   if ($('hJoin')) $('hJoin').onclick = () => { homeView = 'join'; renderHome(); };
-  if ($('hPub')) $('hPub').onclick = () => cuentaIr('publicas');
-  box.querySelectorAll('.hmode').forEach(b => b.onclick = () => {
+  box.querySelectorAll('.hmode[data-n]').forEach(b => b.onclick = () => {
     const n = +b.dataset.n;
     if (inGame) { confirmNew = n; renderHome(); $('hYes').focus(); } else startGame(n);
   });
@@ -8353,6 +8406,7 @@ function renderHome(){
   $('hHow').onclick = howToModal;
   $('hStats').onclick = statsModal;
   bindCuenta();
+  if (conGente && !NET) bindPublicasHome();
 }
 
 // ---------- Configuración ----------
@@ -9255,7 +9309,7 @@ function gsiBoton(el){
   gsiCargar().then(() => {
     if (!el.isConnected) return;
     el.innerHTML = '';
-    google.accounts.id.renderButton(el, { theme: 'filled_black', size: 'large', shape: 'pill', text: 'signin_with', locale: 'es-419', width: 250 });
+    google.accounts.id.renderButton(el, { theme: 'filled_black', size: 'large', shape: 'pill', text: 'signin_with', locale: 'es', width: 250 });
   }).catch(() => { el.innerHTML = '<p class="hkey">No se pudo cargar el botón de Google. Revisá la conexión.</p>'; });
 }
 
@@ -9354,30 +9408,54 @@ async function cuentaCargar(vista, ruta){
 }
 const iniciales = a => String(a || '?').split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase();
 const COLORES = ['#86b9e6', '#e8b13a', '#c9705c', '#7fbf8e', '#b48ad6', '#d98fb2', '#8fc7c4'];
-const avatar = (u, cls) => `<span class="avt ${cls || ''}" style="background:${COLORES[(u.id || 0) % COLORES.length]}" aria-hidden="true">${esc(iniciales(u.apodo))}</span>`;
+const fotoURL = (id, v) => `${serverURL()}/api/foto/${id}?v=${v}`;
+const colorDe = u => COLORES[Number.isInteger(u.color) ? u.color : (u.id || 0) % COLORES.length];
+const avatar = (u, cls) => u.foto
+  ? `<img class="avt ${cls || ''}" src="${esc(fotoURL(u.id, u.foto))}" alt="" loading="lazy" decoding="async">`
+  : `<span class="avt ${cls || ''}" style="background:${colorDe(u)}" aria-hidden="true">${esc(iniciales(u.apodo))}</span>`;
+const LUGARES = ['Artigas', 'Canelones', 'Cerro Largo', 'Colonia', 'Durazno', 'Flores', 'Florida', 'Lavalleja', 'Maldonado', 'Montevideo', 'Paysandú',
+  'Río Negro', 'Rivera', 'Rocha', 'Salto', 'San José', 'Soriano', 'Tacuarembó', 'Treinta y Tres', 'Fuera de Uruguay'];
 const pct = (a, b) => b ? Math.round(100 * a / b) + '%' : '—';
 const fechaCorta = t => new Date(t).toLocaleDateString('es-UY', { day: 'numeric', month: 'short' }) + ' ' + new Date(t).toLocaleTimeString('es-UY', { hour: '2-digit', minute: '2-digit' });
 const barra = titulo => `<div class="hbar"><button class="tool" id="hBack">Volver</button><h2>${titulo}</h2></div>`;
 function volverDeCuenta(){ homeView = cuentaVista.volver === 'lobby' && NET ? 'lobby' : 'main'; renderHome(); }
 function avisoHTML(){ const a = cuentaVista.aviso; cuentaVista.aviso = ''; return a ? `<p class="hnote ok" role="status">${esc(a)}</p>` : ''; }
 
-// en el inicio: entrar, o la ficha de la cuenta
-function cuentaHTML(){
-  if (!cuentaOK() || !CUENTA.cfg) return '';
-  let h = '<section class="hcuenta"><h2>Tu cuenta</h2>' + avisoHTML();
-  if (conCuenta()) {
-    const y = CUENTA.yo, A = CUENTA.amigos;
-    const en = A ? A.amigos.filter(a => a.enLinea).length : 0, sol = A ? A.recibidas.length : 0;
-    h += `<div class="cficha">${avatar(y)}<div><b>${esc(y.apodo)}</b><span>${y.partidos ? `${y.puntos} puntos${y.posicion ? ` · puesto ${y.posicion} del ranking` : ''}` : 'Todavía sin partidos en el ranking'}</span></div></div>
-      <div class="hlinks"><button class="tool" id="cPerfil">Mi perfil</button><button class="tool" id="cRank">Ranking</button>
-      <button class="tool" id="cAmigos">Amigos${en ? ` · ${en} en línea` : ''}${sol ? ` · <b class="cbadge">${sol} ${sol === 1 ? 'solicitud' : 'solicitudes'}</b>` : ''}</button>${y.admin ? '<button class="tool" id="cAdmin">Cuentas creadas</button>' : ''}</div>`;
-  } else {
-    h += `<p class="hkey cta">Entrá con tu cuenta para aparecer en el ranking, guardar tus estadísticas e historial y jugar con amigos. Sin cuenta se puede jugar igual.</p>`;
-    if (CUENTA.cfg.google) h += '<div id="hGsi" class="gsi"></div>';
+// en el inicio, arriba: la ficha de la cuenta (con cuenta)
+function cuentaFichaHTML(){
+  if (!conCuenta()) return avisoHTML();
+  const y = CUENTA.yo, A = CUENTA.amigos;
+  const en = A ? A.amigos.filter(a => a.enLinea).length : 0, sol = A ? A.recibidas.length : 0;
+  return avisoHTML() + `<section class="cficha barra">${avatar(y)}<div><b>${esc(y.apodo)}</b><span>${y.partidos ? `${y.puntos} puntos${y.posicion ? ` · puesto ${y.posicion}` : ''}` : 'Todavía sin partidos en el ranking'}</span></div>
+    <nav class="hlinks" aria-label="Tu cuenta"><button class="tool" id="cPerfil">Mi perfil</button><button class="tool" id="cRank">Ranking</button>
+    <button class="tool" id="cAmigos">Amigos${en ? ` · ${en} en línea` : ''}${sol ? ` · <b class="cbadge">${sol} ${sol === 1 ? 'solicitud' : 'solicitudes'}</b>` : ''}</button>${y.admin ? '<button class="tool" id="cAdmin">Cuentas creadas</button>' : ''}</nav></section>`;
+}
+// la tarjeta principal: jugar con gente en las mesas públicas
+function publicasHomeHTML(){
+  const lista = CUENTA.publicas || [], con = conCuenta(), gente = CUENTA.conectados || 0;
+  let h = `<section class="hpub"><h2>Jugar con gente</h2>
+    <p class="hpsub">Elegí el modo y te sentás con quien esté esperando. Si no hay nadie, armás la mesa y aparece para los demás.</p>`;
+  if (!con) {
+    h += `<div class="hpcta"><div id="hGsi" class="gsi"></div><span>Entrá con tu cuenta de Google para jugar con otras personas, aparecer en el ranking y sumar amigos.</span></div>`;
     if (CUENTA.cfg.prueba) h += `<form id="cPrueba" class="hlinks"><input id="cPruebaN" placeholder="Nombre de prueba" maxlength="20" aria-label="Nombre de prueba"><button class="tool" type="submit">Entrar de prueba</button></form>`;
-    h += '<div class="hlinks"><button class="tool" id="cRank">Ver el ranking</button></div>';
   }
-  return h + '</section>';
+  h += '<div class="hmodes">' + MODES.map(([n, nm]) => {
+    const e = esperandoEn(n), p = e.reduce((a, m) => a + m.personas, 0);
+    return `<button class="hmode pub${p ? ' hay' : ''}" data-pn="${n}">${tableSVG(n)}<div><b>${nm}</b><span>${p ? `<i class="dot on"></i> ${p} ${p === 1 ? 'esperando' : 'esperando'}` : 'Armá la mesa'}</span></div></button>`;
+  }).join('') + '</div>';
+  if (lista.length) h += '<ul class="amg hpl">' + lista.slice(0, 3).map(m => `<li><b>${esc(modeName(m.n))}</b><small>${esc(m.nombres.join(', '))} · ${m.personas} de ${m.n}</small><button class="tool" data-pc="${m.codigo}">Sentarme</button></li>`).join('') + '</ul>';
+  h += `<p class="hkey">A 30 puntos y un solo chico. Cuentan para el ranking.${gente >= 2 ? ` Ahora hay ${gente} personas con el juego abierto.` : ''} <button class="lnk" id="hPubVer">${lista.length > 3 ? `Ver las ${lista.length} mesas` : 'Ver las mesas'}</button> · <button class="lnk" id="hRankVer">Ranking</button></p></section>`;
+  return h;
+}
+function bindPublicasHome(){
+  const box = $('hmain');
+  box.querySelectorAll('[data-pn]').forEach(b => b.onclick = () => {
+    if (!conCuenta()) { cuentaVista.aviso = 'Primero entrá con tu cuenta: es con el botón de Google, acá arriba.'; renderHome(); const g = $('hGsi'); if (g) g.scrollIntoView({ block: 'center', behavior: 'smooth' }); return; }
+    buscarPublica(+b.dataset.pn);
+  });
+  box.querySelectorAll('[data-pc]').forEach(b => b.onclick = () => { if (conCuenta()) joinTable(b.dataset.pc, myName(), false, { publica: true }); });
+  if ($('hPubVer')) $('hPubVer').onclick = () => cuentaIr('publicas');
+  if ($('hRankVer')) $('hRankVer').onclick = () => cuentaIr('ranking');
 }
 function bindCuenta(){
   if ($('cPerfil')) $('cPerfil').onclick = () => cuentaIr('perfil');
@@ -9432,7 +9510,10 @@ function renderPerfil(box){
   const p = propio ? D.yo : D.perfil;
   if (propio) cuentaGuardar(undefined, p);
   let h = barra(propio ? 'Mi perfil' : 'Perfil') + avisoHTML();
-  h += `<div class="cficha grande">${avatar(p, 'g')}<div><b>${esc(p.apodo)}</b><span>${p.enLinea ? '<i class="dot on"></i> En línea · ' : ''}Juega desde ${new Date(p.desde).toLocaleDateString('es-UY', { month: 'long', year: 'numeric' })}${propio ? ` · cuenta n.º ${p.id}` : ''}</span></div></div>`;
+  const datos = [p.lugar ? (p.lugar === 'Fuera de Uruguay' ? 'Juega desde fuera de Uruguay' : 'De ' + esc(p.lugar)) : '', p.cuadro ? 'Hincha de ' + esc(p.cuadro) : ''].filter(Boolean).join(' · ');
+  h += `<div class="cficha grande">${avatar(p, 'g')}<div><b>${esc(p.apodo)}</b>${p.nombre ? `<span class="cnom">${esc(p.nombre)}</span>` : ''}<span>${p.enLinea ? '<i class="dot on"></i> En línea · ' : ''}Juega desde ${new Date(p.desde).toLocaleDateString('es-UY', { month: 'long', year: 'numeric' })}${propio ? ` · cuenta n.º ${p.id}` : ''}</span>${datos ? `<span>${datos}</span>` : ''}</div></div>`;
+  if (p.bio) h += `<p class="cbio">${esc(p.bio)}</p>`;
+  if (propio) h += `<div class="hlinks"><button class="act flor" id="pEditar">Editar perfil</button></div>`;
   h += statsHTML(p);
   if (!propio && D.relacion) {
     const r = D.relacion;
@@ -9443,9 +9524,7 @@ function renderPerfil(box){
   }
   h += `<section><h2 class="h3">Últimos partidos</h2>${historialHTML(D.historial, p.id)}</section>`;
   if (propio) {
-    h += `<section class="cfgsec"><h3>Apodo</h3><form class="hlinks" id="pApodoF"><input id="pApodo" maxlength="20" value="${esc(p.apodo)}" aria-label="Apodo"><button class="tool" type="submit">Cambiar</button></form>
-      <p class="hkey">Es el nombre que ven todos en las mesas y en el ranking.</p></section>
-      <div class="hlinks"><button class="tool" id="pSalir">Salir de la cuenta</button>${cuentaVista.borrar
+    h += `<div class="hlinks"><button class="tool" id="pSalir">Salir de la cuenta</button>${cuentaVista.borrar
         ? '<span class="hkey">Se borran tu cuenta, tus puntos, estadísticas, historial y amigos. No se puede deshacer.</span><button class="act mazo" id="pBorrarSi">Sí, borrar mi cuenta</button><button class="tool" id="pBorrarNo">Cancelar</button>'
         : '<button class="tool" id="pBorrar">Borrar mi cuenta</button>'}</div>
       <p class="hkey"><a href="https://tomasaldaya.github.io/truco-uruguayo/privacidad.html" target="_blank" rel="noopener">Qué se guarda de tu cuenta</a></p>`;
@@ -9457,12 +9536,7 @@ function renderPerfil(box){
     renderHome();
   };
   if ($('pInv')) $('pInv').onclick = () => invitar(p.id);
-  if ($('pApodoF')) $('pApodoF').onsubmit = async e => {
-    e.preventDefault();
-    try { const r = await api('cuenta/apodo', { apodo: $('pApodo').value }); D.yo = r.yo; cuentaGuardar(undefined, r.yo); cuentaVista.aviso = 'Listo, ahora sos ' + r.yo.apodo + '.'; if (NET && NET.tr && NET.tr.kind === 'server' && !NET.lobby?.started) { NET.name = myName(); netPost({ t: 'name', name: NET.name }); } }
-    catch (x) { cuentaVista.aviso = x.message; }
-    renderHome();
-  };
+  if ($('pEditar')) $('pEditar').onclick = () => { cuentaVista.edit = null; homeView = 'editar'; renderHome(); window.scrollTo(0, 0); };
   if ($('pSalir')) $('pSalir').onclick = async () => { await cuentaSalir(); homeView = 'main'; renderHome(); };
   if ($('pBorrar')) $('pBorrar').onclick = () => { cuentaVista.borrar = true; renderHome(); $('pBorrarNo').focus(); };
   if ($('pBorrarNo')) $('pBorrarNo').onclick = () => { cuentaVista.borrar = false; renderHome(); };
@@ -9557,19 +9631,96 @@ function renderAdmin(box){
   const cuando = t => t ? fechaCorta(t) : '—';
   h += `<div class="stiles">${tile(D.total, 'cuentas en total')}${tile(D.hoy, 'creadas hoy')}${tile(D.semana, 'en los últimos 7 días')}${tile(D.conPartidos, 'ya jugaron para el ranking')}${tile(D.enLinea, 'conectadas ahora')}</div>`;
   h += D.lista.length ? `<table class="rk adm"><thead><tr><th>#</th><th>Apodo</th><th>Se creó</th><th>Última vez</th><th>Partidos</th></tr></thead><tbody>${D.lista.map(r =>
-      `<tr data-id="${r.id}" tabindex="0"><td>${r.id}</td><td>${r.enLinea ? '<i class="dot on" title="En línea"></i> ' : ''}${esc(r.apodo)}</td><td>${cuando(r.creado)}</td><td>${r.enLinea ? 'ahora' : cuando(r.visto)}</td><td>${r.partidos}${r.partidos ? ` <small>(${r.puntos} pts)</small>` : ''}</td></tr>`).join('')}</tbody></table>`
+      `<tr data-id="${r.id}" tabindex="0"><td>${r.id}</td><td>${r.enLinea ? '<i class="dot on" title="En línea"></i> ' : ''}${avatar(r, 'c')} ${esc(r.apodo)}${r.foto || r.textos ? ` <button class="tool mini" data-limpiar="${r.id}" title="Quitar la foto, el nombre, la biografía y el cuadro">Quitar foto y textos</button>` : ''}</td><td>${cuando(r.creado)}</td><td>${r.enLinea ? 'ahora' : cuando(r.visto)}</td><td>${r.partidos}${r.partidos ? ` <small>(${r.puntos} pts)</small>` : ''}</td></tr>`).join('')}</tbody></table>`
     : '<p class="lob">Todavía no se creó ninguna cuenta.</p>';
   h += '<p class="hkey">De la más nueva a la más vieja. Solo vos ves esta lista; tocá una fila para ver el perfil. No se guarda el correo de nadie.</p><div class="hlinks"><button class="tool" id="aAct">Actualizar</button></div>';
   box.innerHTML = h;
   $('hBack').onclick = volverDeCuenta;
   $('aAct').onclick = () => { cuentaVista.datos = null; renderHome(); };
   box.querySelectorAll('tr[data-id]').forEach(tr => { const ir = () => cuentaIr('perfil', { id: +tr.dataset.id, volver: 'main' }); tr.onclick = ir; tr.onkeydown = e => { if (e.key === 'Enter') ir(); }; });
+  box.querySelectorAll('[data-limpiar]').forEach(b => b.onclick = async e => {
+    e.stopPropagation();
+    if (b.dataset.seguro !== '1') { b.dataset.seguro = '1'; b.textContent = '¿Seguro? Quitar'; return; }
+    try { await api('admin/limpiar', { id: +b.dataset.limpiar }); cuentaVista.datos = null; } catch (x) { cuentaVista.aviso = x.message; }
+    renderHome();
+  });
+}
+
+// ---------- editar el perfil ----------
+// La foto se recorta cuadrada y se achica acá (256×256) antes de mandarla: pesa poco y sale igual en todos lados.
+async function prepararFoto(file){
+  if (!file || !/^image\//.test(file.type || 'image/')) throw new Error('Elegí una imagen (JPG, PNG o similar).');
+  if (file.size > 25e6) throw new Error('Esa imagen es demasiado grande.');
+  let img;
+  try { img = await createImageBitmap(file); }
+  catch (e) {
+    img = await new Promise((res, rej) => { const u = URL.createObjectURL(file), i = new Image(); i.onload = () => { URL.revokeObjectURL(u); res(i); }; i.onerror = () => { URL.revokeObjectURL(u); rej(new Error('No pude abrir esa imagen.')); }; i.src = u; });
+  }
+  const S = 256, c = document.createElement('canvas'); c.width = c.height = S;
+  const w = img.width, h = img.height, k = Math.max(S / w, S / h);
+  const x = c.getContext('2d'); x.fillStyle = '#2a1d13'; x.fillRect(0, 0, S, S);
+  x.drawImage(img, (S - w * k) / 2, (S - h * k) / 2, w * k, h * k);
+  let d = c.toDataURL('image/webp', 0.82);
+  if (!/^data:image\/webp/.test(d) || d.length > 110000) d = c.toDataURL('image/jpeg', 0.82);
+  if (d.length > 110000) d = c.toDataURL('image/jpeg', 0.6);
+  return d;
+}
+function renderEditar(box){
+  if (!conCuenta()) { homeView = 'main'; return renderHome(); }
+  const y = CUENTA.yo;
+  const E = cuentaVista.edit || (cuentaVista.edit = { apodo: y.apodo, nombre: y.nombre || '', bio: y.bio || '', lugar: y.lugar || '', cuadro: y.cuadro || '', color: Number.isInteger(y.color) ? y.color : null, foto: undefined, preview: null, error: '' });
+  const verFoto = E.foto === null ? null : E.preview || (y.foto ? fotoURL(y.id, y.foto) : null);
+  const muestra = verFoto ? `<img class="avt g" src="${esc(verFoto)}" alt="Tu foto">` : `<span class="avt g" style="background:${COLORES[E.color ?? y.id % COLORES.length]}" aria-hidden="true">${esc(iniciales(E.apodo || y.apodo))}</span>`;
+  box.innerHTML = barra('Editar perfil') + (E.error ? `<p class="hnote" role="alert">${esc(E.error)}</p>` : '') + `
+    <form id="eForm" class="eform">
+      <div class="efoto">${muestra}<div>
+        <label class="tool" for="eFile">${verFoto ? 'Cambiar la foto' : 'Subir una foto'}</label><input type="file" id="eFile" accept="image/*" hidden>
+        ${verFoto ? '<button type="button" class="tool" id="eSinFoto">Quitar la foto</button>' : ''}
+        <p class="hkey">Se recorta cuadrada y la ven todos. ${verFoto ? '' : 'Sin foto, se usa tu inicial con el color que elijas.'}</p></div></div>
+      ${verFoto ? '' : `<div class="ecolores" role="radiogroup" aria-label="Color">${COLORES.map((c, i) => `<button type="button" role="radio" aria-checked="${(E.color ?? y.id % COLORES.length) === i}" data-col="${i}" style="background:${c}" aria-label="Color ${i + 1}"></button>`).join('')}</div>`}
+      <div class="cfg">
+        <label for="eApodo">Apodo</label><input id="eApodo" maxlength="20" value="${esc(E.apodo)}" required>
+        <div class="desc">El nombre que ven todos en las mesas y en el ranking. No puede repetirse.</div>
+        <label for="eNombre">Nombre</label><input id="eNombre" maxlength="40" value="${esc(E.nombre)}" placeholder="Opcional" autocomplete="name">
+        <div class="desc">Si querés que se vea en tu perfil.</div>
+        <label for="eBio">Sobre vos</label><textarea id="eBio" maxlength="200" rows="3" placeholder="Desde cuándo jugás, con quién, tu jugada favorita…">${esc(E.bio)}</textarea>
+        <div class="desc"><span id="eCuenta">${E.bio.length}</span> de 200</div>
+        <label for="eLugar">De dónde sos</label><select id="eLugar"><option value="">Prefiero no decir</option>${LUGARES.map(l => `<option ${l === E.lugar ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select>
+        <label for="eCuadro">Tu cuadro</label><input id="eCuadro" maxlength="30" value="${esc(E.cuadro)}" placeholder="Opcional">
+      </div>
+      <div class="row"><button class="act flor" type="submit" id="eGuardar">Guardar cambios</button><button class="act mazo" type="button" id="eCancelar">Cancelar</button></div>
+    </form>`;
+  const leer = () => { E.apodo = $('eApodo').value; E.nombre = $('eNombre').value; E.bio = $('eBio').value; E.lugar = $('eLugar').value; E.cuadro = $('eCuadro').value; };
+  const volver = () => { cuentaVista.edit = null; cuentaVista.datos = null; cuentaVista.perfil = null; homeView = 'perfil'; renderHome(); };
+  $('hBack').onclick = volver; $('eCancelar').onclick = volver;
+  $('eBio').oninput = () => { $('eCuenta').textContent = $('eBio').value.length; };
+  $('eFile').onchange = async () => {
+    leer();
+    try { const d = await prepararFoto($('eFile').files[0]); E.foto = d; E.preview = d; E.error = ''; }
+    catch (x) { E.error = x.message; }
+    renderHome();
+  };
+  if ($('eSinFoto')) $('eSinFoto').onclick = () => { leer(); E.foto = null; E.preview = null; renderHome(); };
+  box.querySelectorAll('[data-col]').forEach(b => b.onclick = () => { leer(); E.color = +b.dataset.col; renderHome(); });
+  $('eForm').onsubmit = async e => {
+    e.preventDefault(); leer();
+    $('eGuardar').disabled = true; $('eGuardar').textContent = 'Guardando…';
+    const cuerpo = { apodo: E.apodo, nombre: E.nombre, bio: E.bio, lugar: E.lugar, cuadro: E.cuadro, color: E.color };
+    if (E.foto !== undefined) cuerpo.foto = E.foto;
+    try {
+      const r = await api('cuenta/editar', cuerpo);
+      cuentaGuardar(undefined, r.yo);
+      if (NET && NET.tr && NET.tr.kind === 'server' && !(NET.lobby && NET.lobby.started)) { NET.name = myName(); if (NET.owner) netPost({ t: 'name', name: NET.name }); }
+      cuentaVista.aviso = 'Listo, tu perfil quedó guardado.';
+      volver();
+    } catch (x) { E.error = x.message; renderHome(); }
+  };
 }
 
 // ---------- mesas públicas: cualquiera con cuenta elige el modo y se sienta donde esperan gente ----------
 async function cuentaPublicas(){
   if (!cuentaOK()) return;
-  try { CUENTA.publicas = (await api('publicas')).lista; } catch (e) { return; }
+  try { const r = await api('publicas'); CUENTA.publicas = r.lista; CUENTA.conectados = r.conectados || 0; } catch (e) { return; }
   if (!$('home').hidden && (homeView === 'publicas' || homeView === 'main')) renderHome();
 }
 const esperandoEn = n => (CUENTA.publicas || []).filter(m => m.n === n && m.personas < m.n);

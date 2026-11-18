@@ -78,6 +78,7 @@ function renderHome(){
   if (homeView === 'amigos') return renderAmigos(box);
   if (homeView === 'admin') return renderAdmin(box);
   if (homeView === 'publicas') return renderPublicas(box);
+  if (homeView === 'editar') return renderEditar(box);
   const inGame = !!NET || (GM && GM.phase !== 'matchEnd');
   let h = netNote ? `<p class="hnote" role="alert">${esc(netNote)}</p>` : '';
   netNote = '';
@@ -89,17 +90,19 @@ function renderHome(){
     const ch = G.chicos[0] + G.chicos[1];
     h += `<button class="cont" id="hCont"><b>Continuar partido</b><span>${modeName(G.n)}: ${esc(G.teamNames[0])} ${G.scores[0]}, ${esc(G.teamNames[1])} ${G.scores[1]}${ch ? `. Chicos: ${G.chicos[0]} a ${G.chicos[1]}` : ''}.</span></button>`;
   }
-  h += `<section><h2>${NET ? 'Jugar solo' : inGame ? 'Partido nuevo' : 'Elegí cómo jugar'}</h2><div class="hmodes">`
-    + MODES.map(([n, nm, d]) => `<button class="hmode" data-n="${n}">${tableSVG(n)}<div><b>${nm}</b><span>${d}</span></div></button>`).join('')
-    + '</div><p class="hkey">En celeste tu equipo y en bordó los rivales; el lugar con borde dorado es el tuyo.</p>';
+  // con el servidor de cuentas, lo primero es jugar con gente (mesas públicas); la computadora queda abajo
+  const conGente = cuentaOK() && !!CUENTA.cfg;
+  if (conGente) h += cuentaFichaHTML();
+  if (conGente && !NET) h += publicasHomeHTML();
+  if (!NET) h += `<section><h2>${conGente ? 'Con amigos' : 'Jugar con otros'}</h2><div class="hlinks"><button class="tool" id="hHost">${conGente ? 'Crear una mesa privada' : 'Crear una mesa'}</button><button class="tool" id="hJoin">${conGente ? 'Unirme con un código' : 'Unirme a una mesa'}</button></div>
+    <p class="hkey">${netMode() === 'internet' ? 'Creá una mesa y pasale el link a quien quieras, o unite con el código que te pasaron.' : 'Sin internet: entre pestañas de este navegador, para probar cómo se ve el partido desde cada lugar.'}</p></section>`;
+  const chico = conGente && !NET;
+  h += `<section class="${chico ? 'hcompu' : ''}"><h2>${NET ? 'Jugar solo' : conGente ? 'Contra la computadora' : inGame ? 'Partido nuevo' : 'Elegí cómo jugar'}</h2><div class="hmodes${chico ? ' chicos' : ''}">`
+    + MODES.map(([n, nm, d]) => `<button class="hmode" data-n="${n}">${tableSVG(n)}<div><b>${nm}</b>${chico ? '' : `<span>${d}</span>`}</div></button>`).join('')
+    + `</div>${chico ? '<p class="hkey">Para practicar: la computadora juega los otros lugares, y el partido se guarda en este navegador.</p>' : '<p class="hkey">En celeste tu equipo y en bordó los rivales; el lugar con borde dorado es el tuyo.</p>'}`;
   if (confirmNew) h += `<div class="hconfirm" role="alert"><p>${NET ? `Vas a salir de la mesa ${esc(NET.code)} para jugar solo, de ${modeName(confirmNew).toLowerCase()}.` : `Tenés un partido sin terminar. Si empezás uno nuevo de ${modeName(confirmNew).toLowerCase()}, ese se pierde.`}</p>
     <div class="row"><button class="act flor" id="hYes">Empezar partido nuevo</button><button class="act mazo" id="hNo">Cancelar</button></div></div>`;
   h += '</section>';
-  const pubN = (CUENTA.publicas || []).reduce((a, m) => a + m.personas, 0);
-  const pubBtn = cuentaOK() && CUENTA.cfg ? `<button class="tool" id="hPub">Mesas públicas${pubN ? ` · <b class="cbadge">${pubN} ${pubN === 1 ? 'esperando' : 'esperando'}</b>` : ''}</button>` : '';
-  if (!NET) h += `<section><h2>Jugar con otros</h2><div class="hlinks">${pubBtn}<button class="tool" id="hHost">Crear una mesa</button><button class="tool" id="hJoin">Unirme a una mesa</button></div>
-    <p class="hkey">${netMode() === 'internet' ? (pubBtn ? 'En las mesas públicas jugás con cualquiera que tenga cuenta. Para jugar con conocidos, creá una mesa y pasales el link, o unite con el código que te pasaron.' : 'Por internet: creá una mesa y pasale el link a quien quieras, o unite con el código que te pasaron.') : 'Sin internet: entre pestañas de este navegador, para probar cómo se ve el partido desde cada lugar.'}</p></section>`;
-  h += cuentaHTML();
   h += `<nav class="hlinks" aria-label="Más opciones">
     <button class="tool" id="hCfg">Configuración</button><button class="tool" id="hDeck">Tu mazo</button>
     <button class="tool" id="hHow">Cómo se juega</button><button class="tool" id="hStats">Estadísticas</button></nav>
@@ -112,8 +115,7 @@ function renderHome(){
   if ($('hLeave')) $('hLeave').onclick = () => { leaveNet(); renderHome(); };
   if ($('hHost')) $('hHost').onclick = () => hostTable(GM && !NET ? GM.n : players);
   if ($('hJoin')) $('hJoin').onclick = () => { homeView = 'join'; renderHome(); };
-  if ($('hPub')) $('hPub').onclick = () => cuentaIr('publicas');
-  box.querySelectorAll('.hmode').forEach(b => b.onclick = () => {
+  box.querySelectorAll('.hmode[data-n]').forEach(b => b.onclick = () => {
     const n = +b.dataset.n;
     if (inGame) { confirmNew = n; renderHome(); $('hYes').focus(); } else startGame(n);
   });
@@ -123,6 +125,7 @@ function renderHome(){
   $('hHow').onclick = howToModal;
   $('hStats').onclick = statsModal;
   bindCuenta();
+  if (conGente && !NET) bindPublicasHome();
 }
 
 // ---------- Configuración ----------
