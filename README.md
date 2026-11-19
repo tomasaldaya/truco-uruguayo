@@ -398,3 +398,16 @@ suelto. Para jugar online hace falta internet, como siempre.
   rival de ese duelo, no toda la mesa (`vista.js`); el repaso de "Ver las cartas de todos" en esas rondas
   muestra solo lo que te tocó ver. Así tampoco se ven, entre un duelo y otro, las cartas de los que todavía
   no jugaron el suyo.
+
+## La computadora respeta las flores y los puntos que se cantaron (19/11)
+
+Para decidir, la computadora se imagina muchas veces las cartas posibles de los demás (`sampleWorlds` en
+`ai.js`). Antes las sacaba todas juntas al azar y descartaba las que no cumplían lo que se sabía; con dos o
+tres flores cantadas (o varios puntos cantados) casi ninguna servía y completaba con manos inventadas, sin
+flor. Así, en tercetos con los tres rivales con flor, un compañero con solo el 2 de la muestra creía tener
+chances: gritaba, quería el retruco y tiraba el 2 en la primera. Ahora cada mano se arma por separado hasta
+que cumple con lo que se sabe de ese jugador (flor cantada o no, puntos cantados, señas), y no queda ninguna
+mano imaginada imposible. Contra la versión anterior juega parejo en general (49 % mano a mano en 400
+partidos, 50 % en parejas en 200, 51 % en tercetos en 800) y deja de suicidarse en esas manos.
+Herramientas: `tools/ia/lalo.js` (esa mano, con lo que decide la computadora) y `tools/ia/relleno.js`
+(cuántas manos imaginadas contradicen lo cantado).

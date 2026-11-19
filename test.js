@@ -7,6 +7,32 @@ const C = (n, s) => ({ n, s, id: n + '-' + s });
 let fails = 0;
 function t(name, f) { try { f(); console.log('ok  ', name); } catch (e) { fails++; console.log('FAIL', name, '\n   ', e.message); } }
 
+t('la computadora se imagina a los rivales con la flor que cantaron (tres flores en tercetos)', () => {
+  const sem = seeded(4321); T.setRng(sem); AI.setRng(sem);
+  const hands = [
+    [C(3, 'espada'), C(2, 'oro'), C(1, 'copa')], [C(4, 'copa'), C(6, 'basto'), C(5, 'basto')], [C(7, 'oro'), C(11, 'espada'), C(12, 'basto')],
+    [C(5, 'copa'), C(11, 'copa'), C(3, 'oro')], [C(2, 'copa'), C(4, 'espada'), C(12, 'oro')], [C(1, 'basto'), C(7, 'basto'), C(4, 'basto')],
+  ];
+  const G = T.newMatch({ players: 6, humans: [0] });
+  G.dealer = 2; G.round = { dummy: true }; G.roundInChico = 0; G.scores = [10, 12];   // da 3: Lalo (4) es mano
+  const order = []; for (let r = 0; r < 3; r++) for (let i = 0; i < 6; i++) order.push(hands[(4 + i) % 6][r]); order.push(C(7, 'copa'));
+  T.startRound(G, T.makeDeck().filter(c => !order.some(o => o.id === c.id)).concat(order.reverse()));
+  // cantan las tres flores (Lalo es mano y no tiene: juega; Beto canta y detrás Tito y Nacho)
+  let k = 0;
+  while (G.phase === 'play' && !(T.actor(G) === 4 && G.round.flor.sung.filter(Boolean).length === 3) && k++ < 20) {
+    const q = T.actor(G), L = T.legal(G, q);
+    T.apply(G, q, L.find(a => a.type === 'flor') || L.filter(a => a.type === 'play').sort((a, b) => T.rank(a.card, G.round.muestra) - T.rank(b.card, G.round.muestra))[0] || L[0]);
+  }
+  const R = G.round, jugadas = q => R.tricks.map(t => t.cards[q]).filter(Boolean).concat(R.cur[q] ? [R.cur[q]] : []);
+  const ws = AI.sampleWorlds(G, 4, 45, 'normal');
+  assert(ws.length >= 40);
+  assert(ws.every(w => [1, 3, 5].every(q => !R.flor.sung[q] || T.hasFlor(jugadas(q).concat(w[q]), R.muestra))), 'todas las manos imaginadas respetan las flores cantadas');
+  if (T.actor(G) === 4 && G.phase === 'play') {
+    const elige = Array.from({ length: 12 }, () => AI.choose(G, 4, { samples: 45 }));
+    assert(!elige.some(a => a.type === 'truco'), 'con solo el 2 de la muestra contra tres flores no grita');
+  }
+  T.setRng(Math.random); AI.setRng(Math.random);
+});
 t('pico a pico: lo que se muestra al final del duelo lo ve solo el rival de ese duelo', () => {
   const TV = require('./vista.js');
   let probados = 0;

@@ -57,36 +57,59 @@
     return true;
   }
 
+  // Manos posibles de los demás. Cada mano se arma por separado hasta que cumpla con lo que se sabe de ese
+  // jugador: si cantó flor, la tiene; si no la cantó y ya jugó, no la tiene; los puntos que cantó; las señas
+  // que se le creen. Así, con dos o tres flores (o varios puntos) cantados, las manos imaginadas siguen
+  // siendo posibles: si se armaran todas juntas al azar y se descartaran las que no cumplen, casi ninguna
+  // serviría y la computadora terminaría imaginando rivales mucho más flojos de lo que son.
   function sampleWorlds(G, p, n, level) {
-    const R = G.round, N = G.n;
+    const R = G.round, N = G.n, m = R.muestra;
     const others = [];
     for (let q = 0; q < N; q++) if (q !== p) others.push(q);
-    const known = new Set(R.initial[p].map(c => c.id).concat([R.muestra.id]));
+    const known = new Set(R.initial[p].map(c => c.id).concat([m.id]));
     const played = {};
     for (const q of others) { played[q] = playedBy(R, q); played[q].forEach(c => known.add(c.id)); }
     const unseen = T.makeDeck().filter(c => !known.has(c.id));
-    const need = others.map(q => R.hands[q].length);
-    const total = need.reduce((a, b) => a + b, 0);
-    const out = [];
-    let tries = 0;
-    const draw = (check) => {
-      for (let i = 0; i < total; i++) {
-        const j = i + Math.floor(rng() * (unseen.length - i));
-        [unseen[i], unseen[j]] = [unseen[j], unseen[i]];
+    const need = {};
+    for (const q of others) need[q] = R.hands[q].length;
+    const er = R.envido.result;
+    const conFlor = q => G.rules.flor && R.active[q] && R.flor.sung[q];
+    const cantoPuntos = q => er && er.accepted && ((er.sung && er.sung[q] !== undefined) || (er.declined && er.declined[q]));
+    // primero los que tienen más que cumplir
+    const orden = others.slice().sort((a, b) => (conFlor(b) * 2 + !!cantoPuntos(b)) - (conFlor(a) * 2 + !!cantoPuntos(a)));
+    const mezclar = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+    // nivel 2: todo lo que se sabe; 1: solo las flores cantadas; 0: nada (último recurso)
+    const draw = (nivel) => {
+      const pool = mezclar(unseen.slice());
+      const w = {}, believe = {};
+      if (nivel >= 2) {
+        (R.seen[p] || []).forEach((v, i) => { believe[`s${i}`] = rng() < trust(G, p, v.p, level); });
+        for (const q of others) if (team(q) === team(p)) believe[`p${q}`] = rng() < trust(G, p, q, level);
       }
-      const believe = {};
-      (R.seen[p] || []).forEach((v, i) => { believe[`s${i}`] = rng() < trust(G, p, v.p, level); });
-      for (const q of others) if (team(q) === team(p)) believe[`p${q}`] = rng() < trust(G, p, q, level);
-      const w = {}; let k = 0;
-      for (let i = 0; i < others.length; i++) {
-        const q = others[i];
-        w[q] = unseen.slice(k, k + need[i]); k += need[i];
-        if (check && R.active[q] && !consistent(G, p, q, played[q].concat(w[q]), believe)) return null;
+      for (const q of orden) {
+        const cumple = !R.active[q] ? null
+          : nivel >= 2 ? (full => consistent(G, p, q, full, believe))
+          : nivel >= 1 && conFlor(q) ? (full => T.hasFlor(full, m)) : null;
+        if (!cumple) { w[q] = pool.splice(0, need[q]); continue; }
+        let mano = null;
+        for (let t = 0; t < 300 && !mano; t++) {
+          const idx = new Set();
+          while (idx.size < need[q]) idx.add(Math.floor(rng() * pool.length));
+          const cand = [...idx].map(i => pool[i]);
+          if (cumple(played[q].concat(cand))) mano = cand;
+        }
+        if (!mano) return null;
+        w[q] = mano;
+        const ids = new Set(mano.map(c => c.id));
+        for (let i = pool.length - 1; i >= 0; i--) if (ids.has(pool[i].id)) pool.splice(i, 1);
       }
       return w;
     };
-    while (out.length < n && tries < n * 40) { tries++; const w = draw(true); if (w) out.push(w); }
-    while (out.length < Math.min(n, 12)) out.push(draw(false));
+    const out = [];
+    let tries = 0;
+    while (out.length < n && tries < n * 4) { tries++; const w = draw(2); if (w) out.push(w); }
+    for (let t = 0; out.length < Math.min(n, 12) && t < 200; t++) { const w = draw(1); if (w) out.push(w); }
+    while (out.length < Math.min(n, 12)) out.push(draw(0));
     return out;
   }
 
