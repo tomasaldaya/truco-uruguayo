@@ -4,7 +4,8 @@
 // Jerga: tocar = envido, gritar = truco, cantar = flor (o los tantos).
 // Reglas de la mesa (G.rules): variantes que cambian según dónde se juegue.
 // Modo realista (G.manual[p]): el jugador canta sus puntos, puede negar la flor o
-// cantarla sin tenerla. Las faltas se descubren cuando se ven sus cartas.
+// cantarla sin tenerla. Las faltas se descubren cuando se ven sus cartas: la flor negada, en cuanto
+// las cartas jugadas la prueban (o al ganar un envite); los puntos mal cantados, al ganar o al jugar las tres.
 (function (global) {
   'use strict';
 
@@ -551,7 +552,7 @@
     info(G, `${G.teamNames[t]} +${pts} (${why}).`);
   }
   // Modo realista: el que ganó el envido o cantó flor y se va al mazo sin mostrar sus cartas pierde esos
-  // puntos (no los cobra nadie). Para salir de la mano sin perderlos está el paso.
+  // puntos, que van para el rival. Para salir de la mano sin perderlos está el paso.
   function sinMostrar(G, p) {
     const R = G.round, t = team(p), cobrado = cat => R.gained[t].filter(g => g.cat === cat).reduce((a, g) => a + g.pts, 0);
     const env = R.envido.result && R.envido.result.winner === p && R.envido.result.accepted ? Math.min(R.envido.result.pts, cobrado('envido')) : 0;
@@ -562,12 +563,13 @@
     R.sinMostrar[p] = env + flor;
     const quien = G.names[p] === 'Vos' ? 'Te fuiste' : G.names[p] + ' se fue';
     if (!env && !flor) return;
+    info(G, `${quien} al mazo sin mostrar las cartas: esos puntos (${[env && 'envido', flor && 'flor'].filter(Boolean).join(' y ')}) van para ${G.teamNames[1 - t]}. Para no perderlos se dice paso (Art. 45).`);
     for (const [pts, cat, que] of [[env, 'envido', 'del envido'], [flor, 'flor', 'de la flor']]) {
       if (!pts) continue;
       G.scores[t] -= pts;
-      R.gained[t].push({ pts: -pts, why: `se fue al mazo sin mostrar: pierde los puntos ${que}`, cat });
+      R.gained[t].push({ pts: -pts, why: `se fue al mazo sin mostrar: los puntos ${que} van para el rival`, cat });
+      addPoints(G, 1 - t, pts, `${cat}: el rival se fue al mazo sin mostrar`, cat);
     }
-    info(G, `${quien} al mazo sin mostrar las cartas: ${G.teamNames[t]} pierde ${env + flor} (${[env && 'envido', flor && 'flor'].filter(Boolean).join(' y ')}). Para no perderlos se dice paso (Art. 45).`);
   }
   function checkChico(G) {
     if (G.matchWinner !== null) return true;
@@ -644,22 +646,38 @@
     checkChico(G);
     endRound(G, 'penalty');
   }
-  function faltaGrave(G, off, reason) {
-    const R = G.round;
-    G.disq = { p: off, team: team(off), reason };
-    G.matchWinner = 1 - team(off);
+  // Flor negada (Art. 17), cuando se descubre: el rival cobra los 3 de la flor y el truco que se esté
+  // jugando (1 si no se gritó), y la mano se termina. El envido que haya cobrado en esta mano el equipo del
+  // que la negó no vale, porque la flor anula el envido; lo que cobró el rival, sí.
+  function florNegada(G, off) {
+    const R = G.round, t = team(off), ot = 1 - t;
+    const env = R.gained[t].filter(g => g.cat === 'envido').reduce((a, g) => a + g.pts, 0);
+    if (env > 0) {
+      G.scores[t] -= env;
+      R.gained[t].push({ pts: -env, why: 'el envido no vale: tenía flor y la negó', cat: 'envido' });
+    }
+    const truco = R.trucoLevel;
+    R.canto = null; R.pending = []; R.florQueue = []; if (R.ley) R.ley.afterCanto = null;
     R.mustShow[off] = true;
-    R.result = { winnerTeam: 1 - team(off), pts: 0, reason: 'disq' };
-    info(G, `Falta grave de ${G.names[off]}: ${reason} (Art. 100). Su equipo queda descalificado.`, 'falta');
-    endRound(G, 'disq');
+    R.penalty = { off, reason: 'flor negada', envStake: 0, flores: 1, truco, total: 3 + truco, negada: true, anulado: env };
+    info(G, `${G.names[off] === 'Vos' ? 'Tenías flor y la negaste' : G.names[off] + ' tenía flor y la negó'}: para ${G.teamNames[ot]} van los 3 de la flor y ${truco === 1 ? 'el punto' : 'los ' + truco} del truco, y se termina la mano.`, 'falta');
+    R.result = { winnerTeam: ot, pts: 3 + truco, reason: 'penalty' };
+    addPoints(G, ot, 3, 'flor negada del rival', 'flor');
+    addPoints(G, ot, truco, 'truco, por la flor negada del rival', 'truco');
+    checkChico(G);
+    endRound(G, 'penalty');
+  }
+  // ¿Las cartas que ya jugó prueban que tenía flor? Con dos piezas alcanza; si no, hacen falta las tres.
+  function florProbada(G, p) {
+    const R = G.round, vistas = R.initial[p].filter(c => !R.hands[p].some(h => h.id === c.id));
+    if (vistas.filter(c => isPieza(c, R.muestra)).length >= 2) return true;
+    return vistas.length === 3 && hasFlor(vistas, R.muestra);
   }
   function reveal(G, p) {
     const R = G.round, f = R.faults[p];
     if (!f.length) return false;
-    if (f.includes('negada')) {
-      if (R.wonEnvite[team(p)]) faltaGrave(G, p, 'ganó un envite teniendo flor y negándola');
-      else penalize(G, p, 'flor negada');
-    } else penalize(G, p, 'canto errado');
+    if (f.includes('negada')) florNegada(G, p);
+    else penalize(G, p, 'canto errado');
     return true;
   }
 
@@ -709,6 +727,27 @@
     c.lastIdx = c.order.indexOf(p);
     c.cur = cantoNext(G);
     if (c.cur === null) finishCanto(G);
+  }
+  // Modo realista: si al que tiene que cantar se le acaba el tiempo, ese canto lo gana el otro equipo
+  // (sin cantar ni mostrar nada); la mano sigue.
+  function cantoVencido(G, p) {
+    const R = G.round, c = R.canto, rt = 1 - team(p);
+    const w = c.best && team(c.best.p) === rt ? c.best.p : fromMano(G).find(q => team(q) === rt);
+    R.canto = null;
+    info(G, `${G.names[p] === 'Vos' ? 'Se te acabó' : 'A ' + G.names[p] + ' se le acabó'} el tiempo para cantar: los puntos son para ${G.teamNames[rt]}.`);
+    if (c.ctx.type === 'env') {
+      R.envido.result = { winner: w, team: rt, pts: c.stake, accepted: true, vencido: true, sung: Object.assign({}, c.sung), declined: Object.assign({}, c.declined) };
+      R.wonEnvite[rt] = true;
+      addPoints(G, rt, c.stake, 'envido: al rival se le acabó el tiempo para cantar', 'envido');
+    } else {
+      const F = florCount(G), contra = c.ctx.type === 'fenv' && c.ctx.bets.some(b => b.contra);
+      const pts = c.ctx.type === 'fenv' ? c.stake + 3 * F[rt] + (contra ? 3 * F[1 - rt] : 0) : 3 * F[rt];
+      R.florEnv.result = { winner: w, pts, stake: c.stake };
+      if (c.ctx.type === 'fenv') R.wonEnvite[rt] = true;
+      addPoints(G, rt, pts, 'flor: al rival se le acabó el tiempo para cantar', 'flor');
+    }
+    if (afterPoints(G)) return;
+    if (R.ley && R.ley.afterCanto) { const tr = R.ley.afterCanto; R.ley.afterCanto = null; leyTruco(G, tr.truco); }
   }
   function finishCanto(G) {
     const R = G.round, c = R.canto;
@@ -921,7 +960,10 @@
     }
     if (a.type === 'leyresp') { applyLeyResp(G, p, a); return; }
 
-    if (R.canto) { applyCanto(G, p, a); runAutoCanto(G); return; }
+    if (R.canto) {
+      if (a.type === 'vencido') { cantoVencido(G, p); return; }   // lo manda el reloj, no es una jugada
+      applyCanto(G, p, a); runAutoCanto(G); return;
+    }
 
     if (a.type !== 'flor' && R.flor.has[p] && !R.flor.sung[p] && !R.flor.negada[p] && !R.flor.lost[p]) {
       R.flor.negada[p] = true;           // Art. 17
@@ -1051,6 +1093,7 @@
         if (R.cur.every(x => x === null)) R.trickLeader = p;
         R.cur[p] = c;
         R.played[p]++;
+        if (R.faults[p].includes('negada') && florProbada(G, p)) { florNegada(G, p); return; }
         if (trickComplete(G)) resolveTrick(G);
         else R.turn = nextIn(G, p);
         return;

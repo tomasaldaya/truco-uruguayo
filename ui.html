@@ -958,13 +958,13 @@ function statusBox(act){
     t = R.flor.has[ME] ? `Tenés <b>flor</b> de <b>${R.flor.pts[ME]}</b>` : `Tu envido: <b>${R.envPts[ME]}</b>`;
     if (R.flor.has[ME] && G.manual[ME] && !R.flor.sung[ME] && !R.flor.negada[ME]) t += ' — cantala antes de jugar o decir otra cosa, si no la negás';
   }
-  if (R.flor.negada[ME]) t += (t?' — ':'') + '<b>negaste la flor</b>: si ven tus tres cartas, te penan';
+  if (R.flor.negada[ME]) t += (t?' — ':'') + '<b>negaste la flor</b>: si tus cartas jugadas la muestran, el rival cobra la flor y el truco';
   if (R.flor.lost[ME]) t += (t?' — ':'') + `tenías flor, pero <b>tu compañero ${R.flor.lostBy && R.flor.lostBy[ME] === 'grito' ? 'gritó' : 'tocó'}</b> antes de que la cantaras: quedó anulada`;
   if (R.leyPhase && act===ME) t = 'Todavía nadie ve sus cartas ni la muestra: se decide a ciegas (Art. 72).';
   else if (myCardsHidden() && R.ley) t = 'Ves tus cartas cuando el otro equipo conteste (Art. 79).';
   if (R.trucoLevel>1) t += (t?' · ':'') + `se juega por <b>${R.trucoLevel}</b>`;
   if (G.phase==='play' && showHelp && R.mustShow[ME] && G.manual[ME] && R.active[ME] && !R.out[ME])
-    t += (t?'<br>':'') + 'Al final mostrás tus cartas: si no querés seguir, decí <b>paso</b> (al mazo sin mostrar perdés esos puntos).';
+    t += (t?'<br>':'') + 'Al final mostrás tus cartas: si no querés seguir, decí <b>paso</b> (si te vas al mazo sin mostrar, esos puntos van para el rival).';
   if (G.n>=4 && !R.duel) {
     const vist = (R.seen[ME]||[]);
     if (vist.length) t += `<br><i>Se te escapó ver una seña de ${vist.map(v=>esc(G.names[v.p])).join(' y de ')}: la tenés anotada junto a su nombre.</i>`;
@@ -1458,8 +1458,8 @@ function clockInfo(){
 }
 function timeUp(p){
   clockS = null;
-  const a = AI.choose(GM, p, { samples: GM.n===6 ? 40 : GM.n===4 ? 60 : 160, level: 'normal' });
-  GM.log.push({ who: null, text: (GM.names[p] === 'Vos' ? 'Se te acabó el tiempo' : `A ${GM.names[p]} se le acabó el tiempo`) + ': decidió la computadora.', kind: 'info', round: GM.roundNo });
+  const a = AI.porTiempo(GM, p, { samples: GM.n===6 ? 40 : GM.n===4 ? 60 : 160, level: 'normal' });
+  if (a.type !== 'vencido') GM.log.push({ who: null, text: (GM.names[p] === 'Vos' ? 'Se te acabó el tiempo' : `A ${GM.names[p]} se le acabó el tiempo`) + ': decidió la computadora.', kind: 'info', round: GM.roundNo });
   try { T.apply(GM, p, a); } catch (e) { return; }
   if (p === ME) errMsg = '';
   step();
@@ -1571,6 +1571,12 @@ function showRoundEnd(){
   else if (res.winnerTeam !== undefined) title = res.winnerTeam===mt ? (we?'Ganaron la mano':'Ganaste la mano') : (we?'Ellos ganaron la mano':`${them} ganó la mano`);
   let pen = '';
   if (G.disq) pen = `<div class="pen"><b>Falta grave (Art. 100):</b> ${esc(G.names[G.disq.p])} ${esc(G.disq.reason)}. ${G.disq.team===mt?'Tu equipo queda descalificado.':'Su equipo queda descalificado.'}</div>`;
+  else if (R.penalty && R.penalty.negada) {
+    const P = R.penalty, quien = P.off===ME ? '' : ' de '+esc(G.names[P.off]), suma = `3 de la flor + ${P.truco} del truco = <b>${P.total}</b>`;
+    pen = team(P.off)===mt
+      ? `<div class="pen"><b>Flor negada${quien}.</b> Se vio que ${P.off===ME?'tenías':'tenía'} flor: ${we?'ellos cobran':'la computadora cobra'} ${suma}${P.anulado ? ` y el envido que ${we?'cobraron':'cobraste'} no vale` : ''}.</div>`
+      : `<div class="pen"><b>Flor negada${quien}.</b> Tenía flor y la negó: ${we?'cobran':'cobrás'} ${suma}.</div>`;
+  }
   else if (R.penalty) {
     const P = R.penalty, partes = [];
     if (P.envStake) partes.push(`envite ${P.envStake}`);
@@ -1585,7 +1591,7 @@ function showRoundEnd(){
   for (let p=0;p<G.n;p++) if (p !== ME && R.mustShow[p]) shown += cardsRow(G.names[p], R.initial[p]);
   if (shown) shown = `<p class="small">Cartas que se muestran (Art. 45):</p>${shown}`;
   if (R.mustShow[ME] || R.penalty || R.flor.negada[ME]) shown += `<p class="small">Tus cartas:</p>${cardsRow('Vos', R.initial[ME])}`;
-  if (R.flor.negada[ME] && !R.penalty && !G.disq) shown += `<p class="small">Negaste la flor y nadie vio tus tres cartas: no se descubrió.</p>`;
+  if (R.flor.negada[ME] && !R.penalty && !G.disq) shown += `<p class="small">Negaste la flor y no llegó a verse: no se descubrió.</p>`;
   const chicos = `<p class="small">Chicos: ${esc(tName(mt))} ${G.chicos[mt]} — ${esc(tName(1-mt))} ${G.chicos[1-mt]}. Tanteador: ${G.scores[mt]} a ${G.scores[1-mt]}.</p>`;
   const btn = G.phase==='matchEnd' ? (NET ? 'Volver al inicio' : 'Jugar otro partido') : G.phase==='chicoEnd' ? 'Empezar el siguiente chico' : G.phase==='duelEnd' ? 'Siguiente duelo' : 'Siguiente mano';
   const all = `<div id="mAll" hidden><p class="small">Repaso: ${NET ? 'las cartas que se vieron de cada uno' : 'las cartas que tenía cada uno'}.</p>${R.initial.map((h, q) => cardsRow(nameOf(q), h)).join('')}</div>`;
@@ -1677,7 +1683,7 @@ function howToModal(){
   <p><b>La muestra de cerca:</b> pasá el cursor por encima de la muestra (o tocala) y la cámara se acerca a mirarla; con el teclado, la tecla M.</p>
   <p><b>Tiempo:</b> tenés 30 segundos para cada decisión (se cambia en Reglas de la mesa). Si se te acaba, decide la computadora por vos. Con el menú abierto la cuenta se frena.</p>
   <p><b>Señas pescadas:</b> de cada 50 señas que se hacen, una la ve algún rival. Te puede pasar a vos con las señas de Tito y Nacho, y a ellos con las tuyas o las de Pocho. Lo que se ve es siempre verdad, y la computadora también lo usa.</p>
-  <p><b>Modo realista:</b> la flor no se canta sola y los puntos los cantás vos. Si jugás o cantás otra cosa sin cantar tu flor, la negás. Las faltas se descubren cuando se ven tus cartas: si ganás un envite (tenés que mostrarlas) o si jugás las tres. Cantar errado o negar la flor, si se descubre, te hace perder todo lo de la mano (Art. 46). Cantar flor sin tenerla se descubre enseguida. Si se descubre que ganaste un envite negando la flor, es falta grave (Art. 100). Si ganaste el envido o cantaste flor y te vas al mazo, tirás tus cartas sin mostrarlas y perdés esos puntos: para salir de la mano sin perderlos, decí <i>paso</i> y las mostrás al final.</p>
+  <p><b>Modo realista:</b> la flor no se canta sola y los puntos los cantás vos. Si jugás o cantás otra cosa sin cantar tu flor, la negás. Las faltas se descubren cuando se ven tus cartas. Cantar errado se descubre si ganás un envite (tenés que mostrarlas) o si jugás las tres, y te hace perder todo lo de la mano (Art. 46). La flor negada se descubre si ganás un envite o cuando las cartas que jugaste la muestran (con dos piezas alcanza; si no, hacen falta las tres): el rival cobra los 3 de la flor y el truco que se esté jugando, se termina la mano, y el envido que haya cobrado tu equipo no vale. Cantar flor sin tenerla se descubre enseguida. Si ganaste el envido o cantaste flor y te vas al mazo, tirás tus cartas sin mostrarlas y esos puntos van para el rival: para salir de la mano sin perderlos, decí <i>paso</i> y las mostrás al final. Si se te acaba el tiempo para cantar tus puntos, esos puntos son para el rival; si se te acaba en otra decisión, la computadora decide por vos sin hacer trampa (canta tu flor y dice la verdad).</p>
   <p><b>Mostrar las cartas:</b> al terminar la mano, el que ganó el envido o cantó flor da vuelta sus cartas sobre la mesa para que se vea que tenía lo que cantó (Art. 45).</p>
   <p><b>Paso y mazo:</b> en parejas y tercetos, si decís "paso" salís de la mano y no jugás más bazas, pero te quedás con tus cartas por si tenés que mostrarlas (Arts. 88 y 92). Si te vas al mazo sin ser el pie de tu equipo, te vas solo y tu equipo sigue; si se va el pie, pierde el equipo. En Reglas de la mesa podés elegir en cambio que irse al mazo saque a todo el equipo (Art. 90). Si un equipo se va en la primera baza sin que nadie haya tocado ni gritado, y al otro todavía le quedaba tocar, el otro cobra <b>dos</b> puntos.</p>
   <p><b>Atajos al compañero:</b> en parejas y tercetos, abajo tenés <i>¡Vení!</i> (que juegue su carta más baja, que la baza la hacés vos), <i>¡Jugá algo!</i> (que no tire la peor), <i>¡Gritá!</i> (que cante truco) y <i>Tengo algo para el tanto</i> (que toque o quiera el envido). Los oye toda la mesa, como si lo dijeras en voz alta; la computadora compañera te hace caso.</p>

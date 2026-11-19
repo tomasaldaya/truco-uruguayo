@@ -246,6 +246,7 @@ export class Mesa {
     this.ready.delete(p);
     if (this.started && this.GM) {
       this.GM.humans = this.GM.humans.filter(q => q !== p);
+      this.GM.manual[p] = false;   // la computadora juega su lugar sin el modo realista (canta lo que tiene)
       if (this.GM.phase === 'play' && T.actor(this.GM) === p) this.step(); else this.checkReady();
     }
   }
@@ -462,8 +463,8 @@ export class Mesa {
     const G = this.GM, c = this.clock;
     if (!G || !c || c.key !== key || G.phase !== 'play' || T.actor(G) !== c.p) return;
     this.clock = null;
-    const a = AI.choose(G, c.p, { samples: G.n === 6 ? 40 : G.n === 4 ? 60 : 160, level: 'normal' });
-    G.log.push({ who: null, text: `A ${G.names[c.p]} se le acabó el tiempo: decidió la computadora.`, kind: 'info', round: G.roundNo });
+    const a = AI.porTiempo(G, c.p, { samples: G.n === 6 ? 40 : G.n === 4 ? 60 : 160, level: 'normal' });
+    if (a.type !== 'vencido') G.log.push({ who: null, text: `A ${G.names[c.p]} se le acabó el tiempo: decidió la computadora.`, kind: 'info', round: G.roundNo });
     try { T.apply(G, c.p, a); } catch (e) { return; }
     this.step();
   }

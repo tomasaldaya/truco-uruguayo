@@ -281,6 +281,18 @@ await ta('con cuentas: se guarda y se recupera tras un reinicio', async () => {
 });
 
 // ---------- abandonar ----------
+t('si un jugador realista se va y la computadora sigue en su lugar, ese lugar deja de ser realista', () => {
+  const W = mundo(), m = new Mesa(W.io, null);
+  m.onOpen('a'); m.onMessage('a', { t: 'hello', name: 'Ana', pid: 'pa', crear: { n: 4, key: 'k' } });
+  for (const [c, n] of [['b', 'Beto'], ['c', 'Ceci'], ['d', 'Dani']]) { m.onOpen(c); m.onMessage(c, { t: 'hello', name: n, pid: 'p' + c, realista: c === 'b' }); }
+  m.onMessage('a', { t: 'start', speed: 'rápida' });
+  const sb = m.seats.findIndex(x => x.cid === 'b');
+  assert.equal(m.GM.manual[sb], true);
+  m.onMessage('b', { t: 'bye' });
+  assert.equal(m.seats[sb].kind, 'ai');
+  assert.equal(m.GM.manual[sb], false);
+});
+
 await ta('abandono: el que se va a propósito pierde enseguida (y en el ranking)', async () => {
   const W = mundo(), reg = conCuentas(W), m = new Mesa(W.io, null);
   m.onOpen('a'); m.onMessage('a', { t: 'hello', name: 'Ana', pid: 'pa', crear: { n: 2, key: 'k' }, token: 'tA' });

@@ -227,15 +227,16 @@ t('realista: el humano canta sus puntos; canto correcto gana', () => {
 });
 t('realista: el que ganó el envido y se va al mazo sin mostrar pierde esos puntos; con paso no', () => {
   const mano = () => [[C(6, 'oro'), C(7, 'oro'), C(3, 'basto')], [C(6, 'basto'), C(1, 'basto'), C(3, 'oro')]];
-  // realista: gana el envido (2), se va al mazo sin mostrar: pierde los 2 y el rival cobra la mano (1)
+  // realista: gana el envido (2), se va al mazo sin mostrar: los 2 van para el rival, que además cobra la mano (1)
   let G = setup(...mano(), C(4, 'espada'), null, true);
   act(G, 0, typ('envido', { kind: 'envido' })); act(G, 1, typ('quiero')); sing(G, 0, 33);
   assert.deepEqual(G.scores, [2, 0]);
   assert(T.legal(G, 0).some(a => a.type === 'paso'), 'el que tiene que mostrar puede pasar, aun mano a mano');
   act(G, 0, typ('mazo'));
-  assert.deepEqual(G.scores, [0, 1]);
+  assert.deepEqual(G.scores, [0, 3]);
   assert(!G.round.mustShow[0]);
   assert(G.round.gained[0].some(g => g.pts === -2 && g.cat === 'envido'));
+  assert(G.round.gained[1].some(g => g.pts === 2 && g.cat === 'envido'));
   // con paso: sale de la mano, el rival cobra la mano, pero el envido queda y muestra al final
   G = setup(...mano(), C(4, 'espada'), null, true);
   act(G, 0, typ('envido', { kind: 'envido' })); act(G, 1, typ('quiero')); sing(G, 0, 33);
@@ -284,7 +285,7 @@ t('realista: flor sin tenerla se pena', () => {
   act(G, 0, typ('flor'));
   assert.deepEqual(G.scores, [0, 4]); // flor cantada 3 + truco 1
 });
-t('realista: flor negada se descubre si se juegan las tres cartas', () => {
+t('realista: flor negada se descubre al jugar la tercera carta (sin piezas hacen falta las tres)', () => {
   // humano: as, 3 y 6 de oro (flor). Compu: 4 y 6 de basto y 6 de copa -> tres bazas
   const G = setup(conFlor, [C(1, 'espada'), C(6, 'basto'), C(4, 'copa')], C(4, 'espada'), null, true);
   T.apply(G, 0, { type: 'play', card: C(6, 'oro') });   // pierde con el as de espada
@@ -292,10 +293,38 @@ t('realista: flor negada se descubre si se juegan las tres cartas', () => {
   T.apply(G, 1, { type: 'play', card: C(1, 'espada') });
   T.apply(G, 1, { type: 'play', card: C(4, 'copa') });
   T.apply(G, 0, { type: 'play', card: C(3, 'oro') });
-  T.apply(G, 0, { type: 'play', card: C(1, 'oro') });
-  T.apply(G, 1, { type: 'play', card: C(6, 'basto') });
+  assert.equal(G.round.penalty, null, 'con dos cartas del mismo palo todavía no se sabe');
+  T.apply(G, 0, { type: 'play', card: C(1, 'oro') });   // la tercera: se ve la flor, ahí mismo
   assert.equal(G.round.penalty.off, 0);
+  assert.equal(G.phase, 'roundEnd');
   assert.deepEqual(G.scores, [0, 4]); // flor negada 3 + truco 1
+});
+t('realista: con dos piezas, jugar las dos ya muestra la flor negada', () => {
+  // muestra 4 de espada: el 2 y el 5 de espada son piezas; el humano juega las dos y se descubre
+  const G = setup([C(2, 'espada'), C(5, 'espada'), C(3, 'copa')], [C(1, 'basto'), C(6, 'basto'), C(4, 'copa')], C(4, 'espada'), null, true);
+  T.apply(G, 0, { type: 'play', card: C(5, 'espada') });
+  T.apply(G, 1, { type: 'play', card: C(6, 'basto') });
+  assert.equal(G.round.penalty, null);
+  T.apply(G, 0, { type: 'play', card: C(2, 'espada') });
+  assert.equal(G.round.penalty.off, 0); assert(G.round.penalty.negada);
+  assert.deepEqual(G.scores, [0, 4]);
+});
+t('realista: una pieza y dos del mismo palo: no alcanza con jugar la pieza y una más', () => {
+  const G = setup([C(2, 'espada'), C(6, 'oro'), C(7, 'oro')], [C(1, 'basto'), C(6, 'basto'), C(4, 'copa')], C(4, 'espada'), null, true);
+  T.apply(G, 0, { type: 'play', card: C(2, 'espada') });
+  T.apply(G, 1, { type: 'play', card: C(4, 'copa') });
+  T.apply(G, 0, { type: 'play', card: C(6, 'oro') });
+  assert.equal(G.round.penalty, null);
+});
+t('realista: negar la flor y ganar un envido no querido: al verse la flor, ese punto no vale y el rival cobra flor y truco', () => {
+  const G = setup([C(2, 'espada'), C(5, 'espada'), C(3, 'copa')], [C(1, 'basto'), C(6, 'basto'), C(4, 'copa')], C(4, 'espada'), null, true);
+  act(G, 0, typ('envido', { kind: 'envido' })); act(G, 1, typ('noquiero'));
+  assert.deepEqual(G.scores, [1, 0]);
+  T.apply(G, 0, { type: 'play', card: C(5, 'espada') }); T.apply(G, 1, { type: 'play', card: C(6, 'basto') });
+  T.apply(G, 0, { type: 'play', card: C(2, 'espada') });
+  assert.equal(G.matchWinner, null, 'ya no se pierde el partido');
+  assert.deepEqual(G.scores, [0, 4]);
+  assert(G.round.gained[0].some(g => g.pts === -1 && g.cat === 'envido'));
 });
 t('realista: flor negada no se descubre si te vas al mazo', () => {
   const G = setup(conFlor, [C(4, 'basto'), C(5, 'basto'), C(6, 'copa')], C(4, 'espada'), null, true);
@@ -312,13 +341,33 @@ t('realista: flor negada no se descubre si la mano termina en dos bazas', () => 
   assert.equal(G.round.penalty, null);
   assert.deepEqual(G.scores, [1, 0]);
 });
-t('realista: ganar un envido negando la flor es falta grave (Art. 100 a)', () => {
+t('realista: ganar un envido negando la flor: el envido no vale y el rival cobra la flor y el truco', () => {
   const G = setup([C(1, 'oro'), C(7, 'oro'), C(6, 'oro')], [C(4, 'basto'), C(5, 'basto'), C(12, 'copa')], C(4, 'espada'), null, true);
   act(G, 0, typ('envido', { kind: 'envido' })); act(G, 1, typ('quiero'));
   sing(G, 0, 33);
-  assert.equal(G.phase, 'matchEnd');
-  assert.equal(G.matchWinner, 1);
-  assert.equal(G.disq.p, 0);
+  assert.equal(G.phase, 'roundEnd');
+  assert.equal(G.matchWinner, null);
+  assert.equal(G.disq, null);
+  assert(G.round.penalty.negada);
+  assert.deepEqual(G.scores, [0, 4]);   // 3 de la flor + 1 del truco; los 2 del envido no los cobra nadie
+});
+t('realista: se acaba el tiempo para cantar los puntos: el envido es del rival y la mano sigue', () => {
+  const G = setup([C(6, 'oro'), C(7, 'oro'), C(3, 'basto')], [C(6, 'basto'), C(1, 'basto'), C(3, 'oro')], C(4, 'espada'), null, true);
+  act(G, 0, typ('envido', { kind: 'envido' })); act(G, 1, typ('quiero'));
+  const a = AI.porTiempo(G, 0, { samples: 10 });
+  assert.equal(a.type, 'vencido');
+  T.apply(G, 0, a);
+  assert.deepEqual(G.scores, [0, 2]);
+  assert.equal(G.phase, 'play'); assert.equal(G.round.canto, null);
+  assert(!G.round.mustShow[1], 'el rival no tiene que mostrar: no cantó');
+});
+t('realista: si se acaba el tiempo en otra cosa, la computadora no hace trampa por vos', () => {
+  // con flor sin cantar: la canta
+  for (let i = 0; i < 5; i++) {
+    const G = setup([C(2, 'espada'), C(6, 'oro'), C(7, 'oro')], [C(1, 'basto'), C(6, 'basto'), C(4, 'copa')], C(4, 'espada'), null, true);
+    assert.equal(AI.porTiempo(G, 0, { samples: 10 }).type, 'flor');
+    assert.equal(G.manual[0], true, 'sigue en modo realista');
+  }
 });
 t('realista: con flor puede seguir sin cantar cuando el otro cantó', () => {
   const G = setup(conFlor, [C(6, 'basto'), C(7, 'basto'), C(3, 'basto')], C(4, 'espada'), null, true, true);
@@ -597,6 +646,20 @@ const HL = () => [[C(6,'oro'),C(7,'oro'),C(3,'basto')],[C(6,'basto'),C(1,'basto'
 function setupLey(){ const G = setup4(HL(), C(4,'espada'), 3); G.scores = [5, 25]; G.round = { dummy: true }; G.dealer = 2; G.roundNo = 0;
   const order = []; const h = HL(); for (let r = 0; r < 3; r++) for (let i = 0; i < 4; i++) order.push(h[i][r]); order.push(C(4,'espada'));
   const rest = T.makeDeck().filter(c => !order.some(o => o.id === c.id)); T.startRound(G, rest.concat(order.reverse())); return G; }
+t('realista: si se acaba el tiempo en "con ley / a punto", la computadora dice la verdad', () => {
+  for (const [mia, esperado] of [[[C(2, 'copa'), C(1, 'oro'), C(7, 'oro')], true], [[C(3, 'basto'), C(4, 'espada'), C(12, 'oro')], false]]) {
+    const hands = [mia, [C(6, 'basto'), C(7, 'basto'), C(1, 'copa')], [C(6, 'espada'), C(7, 'espada'), C(1, 'basto')], [C(5, 'oro'), C(6, 'oro'), C(10, 'espada')]];
+    const G = setup4(hands, C(5, 'copa'), 0, true); G.scores = [22, 10];
+    G.round = { dummy: true }; G.dealer = 2; G.roundNo = 0;   // startRound pasa a dar el 3: es mano el 0
+    const order = []; for (let r = 0; r < 3; r++) for (let i = 0; i < 4; i++) order.push(hands[i][r]); order.push(C(5, 'copa'));
+    T.startRound(G, T.makeDeck().filter(c => !order.some(o => o.id === c.id)).concat(order.reverse()));
+    let k = 0;
+    while (G.phase === 'play' && T.actor(G) !== 0 && k++ < 20) { const q = T.actor(G), L = T.legal(G, q); T.apply(G, q, L.find(a => a.type === 'ley' && a.form === 'todo') || AI.choose(G, q, { samples: 10 })); }
+    if (!T.legal(G, 0).some(a => a.type === 'leyest')) continue;
+    const a = AI.porTiempo(G, 0, { samples: 10 });
+    assert.equal(a.type, 'leyest'); assert.equal(a.ley, esperado);
+  }
+});
 t('ley de juego: el que va perdiendo la impone antes de la muestra; falta y truco', () => {
   const G = setupLey();
   assert.equal(G.round.mano, 0);

@@ -344,6 +344,7 @@ function takeSeat(p, who, realista){
 function freeSeat(p){
   const prev = NET.seats[p];
   NET.seats[p] = NET.started ? { kind: 'ai', name: prev.name, left: prev.kind === 'guest', pj: prev.pj || null } : { kind: 'ai', name: AI_NAMES[NET.n][p] };
+  if (NET.started && GM && GM.manual) GM.manual[p] = false;   // la computadora juega su lugar sin el modo realista
   NET.ready.delete(p);
   if (NET.started && GM) {
     GM.humans = GM.humans.filter(q => q !== p);

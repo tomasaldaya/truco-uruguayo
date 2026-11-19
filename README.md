@@ -378,3 +378,19 @@ sin internet para jugar contra la computadora. Lo hacen tres archivos al lado de
 
 Se instala desde la dirección publicada (GitHub Pages o el servidor de Cloudflare), no abriendo el archivo
 suelto. Para jugar online hace falta internet, como siempre.
+
+## Modo realista: flor negada, mazo sin mostrar y reloj (19/11)
+
+- **Flor negada** (ya no es falta grave ni se pierde el partido): cuando se descubre, el rival cobra los 3 de
+  la flor y el truco que se esté jugando (1 si no se gritó), y se termina la mano. El envido que haya cobrado
+  en esa mano el equipo del que la negó no vale (la flor anula el envido); lo que cobró el rival, sí
+  (`florNegada` en `engine.js`). Se descubre al ganar un envite (se muestran las cartas) o en cuanto las
+  cartas jugadas prueban la flor: con dos piezas alcanza; si no, hacen falta las tres (`florProbada`).
+- **Mazo sin mostrar**: si ganaste el envido o cantaste flor y te vas al mazo, esos puntos van para el rival
+  (`sinMostrar`). Con paso no se pierden.
+- **Reloj**: si a un jugador realista se le acaba el tiempo para cantar sus puntos, ese canto es para el rival
+  y la mano sigue (acción `vencido`, `cantoVencido`). En cualquier otra decisión, la computadora decide como
+  sin el modo realista: canta su flor y dice la verdad en la ley (`AI.porTiempo`).
+- **Abandono**: si un jugador realista se va y la computadora sigue en su lugar, ese lugar deja de ser
+  realista (servidor y mesas entre navegadores).
+- `tools/realista/casos.js` arma a mano los casos borde del modo realista y muestra qué decide el juego.

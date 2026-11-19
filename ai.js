@@ -348,7 +348,17 @@
     return best || acts[0];
   }
 
-  const AI = { choose, setRng, sampleWorlds, winProb, simulate };
+  // Cuando a una persona se le acaba el tiempo, decide la computadora por ella. Si juega en modo realista:
+  // en el canto de los puntos pierde ese canto (los puntos van para el rival); en todo lo demás se decide
+  // como sin el modo realista (canta su flor si la tiene, dice la verdad en la ley), así la computadora no
+  // comete faltas en su nombre.
+  function porTiempo(G, p, opts) {
+    if (!G.manual[p]) return choose(G, p, opts);
+    if (G.round && G.round.canto) return { type: 'vencido' };
+    G.manual[p] = false;
+    try { return choose(G, p, opts); } finally { G.manual[p] = true; }
+  }
+  const AI = { choose, porTiempo, setRng, sampleWorlds, winProb, simulate };
   if (typeof module !== 'undefined' && module.exports) module.exports = AI;
   else global.TrucoAI = AI;
 })(typeof window !== 'undefined' ? window : globalThis);
