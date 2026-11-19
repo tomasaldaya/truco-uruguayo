@@ -273,6 +273,9 @@ aside{display:flex;flex-direction:column;gap:14px;margin-top:13px}
 .rgtxt{max-height:56vh;overflow:auto;padding-right:6px}
 .rgtxt h4{font-family:'Alegreya',serif;margin:16px 0 2px}.rgtxt h5{margin:0 0 6px;font-size:13px;opacity:.8}
 .rgtxt p{margin:0 0 8px;line-height:1.45}
+.sigla{display:inline-block;font-size:11px;letter-spacing:.04em;background:rgba(243,210,122,.18);color:var(--gold);border-radius:6px;padding:1px 5px;margin-right:4px}
+.avt.gsig{display:inline-flex;align-items:center;justify-content:center;background:#3b2a1d;color:var(--gold);font:800 22px/1 'Alegreya',serif;border:2px solid var(--gold)}
+.gform{display:grid;gap:8px;max-width:420px}.gform label{display:grid;gap:3px;font-size:13px}
 .clogt{font-family:'Alegreya',serif;margin:14px 0 6px}.clogt small{font-size:13px;opacity:.7;font-weight:400}
 .logros{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:6px}
 .logro{position:relative;display:flex;flex-direction:column;align-items:center;gap:2px;text-align:center;padding:8px 6px 10px;border-radius:12px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);opacity:.5;filter:grayscale(1);overflow:hidden}
@@ -9379,6 +9382,8 @@ function pintarInicio(){
   if (homeView === 'crear') return renderCrear(box);
   if (homeView === 'perfil') return renderPerfil(box);
   if (homeView === 'ranking') return renderRanking(box);
+  if (homeView === 'gremios') return renderGremios(box);
+  if (homeView === 'gremio') return renderGremio(box);
   if (homeView === 'amigos') return renderAmigos(box);
   if (homeView === 'admin') return renderAdmin(box);
   if (homeView === 'publicas') return renderPublicas(box);
@@ -10540,7 +10545,7 @@ function cuentaOlvidar(){
   try { if (window.google && google.accounts) google.accounts.id.disableAutoSelect(); } catch (e) {}
   cuentaRepintar();
 }
-function cuentaRepintar(){ if (!$('home').hidden && ['main', 'perfil', 'ranking', 'amigos', 'admin', 'publicas', 'lobby', 'join'].includes(homeView)) renderHome(); }
+function cuentaRepintar(){ if (!$('home').hidden && ['main', 'perfil', 'ranking', 'amigos', 'admin', 'publicas', 'lobby', 'join', 'gremios', 'gremio'].includes(homeView)) renderHome(); }
 // avisos de fondo (quién espera, quién se conectó): en el inicio se cambia solo lo que cambió, sin rehacer
 // la pantalla (así no se mueve nada ni se recarga el botón de Google)
 function cuentaRefrescar(){
@@ -10642,7 +10647,10 @@ async function cuentaAmigos(){
 function cuentaRanking(m){
   if (!conCuenta()) return;
   const d = m.delta > 0 ? `+${m.delta}` : String(m.delta);
-  avisoCuenta(`Ranking: ${d} puntos. Ahora tenés ${m.puntos}.`);
+  // ¿se consiguió algún logro con este partido? (el servidor manda lo de antes y lo de después)
+  const nuevos = m.antes && m.despues ? LOGROS.filter(([, meta, f]) => (f(m.antes) | 0) < meta && (f(m.despues) | 0) >= meta) : [];
+  if (nuevos.length) SND.mesa('tada');
+  avisoCuenta(`Ranking: ${d} puntos. Ahora tenés ${m.puntos}.` + (nuevos.length ? ` ¡${nuevos.length > 1 ? 'Logros nuevos' : 'Logro nuevo'}: ${nuevos.map(x => x[3] + ' ' + x[0]).join(', ')}!` : ''), nuevos.length ? 'perfil' : undefined);
   api('cuenta/yo').then(r => { cuentaGuardar(undefined, r.yo); }).catch(() => {});
 }
 
@@ -10687,6 +10695,7 @@ function cuentaIr(vista, o){
   if (o.volver) cuentaVista.volver = o.volver;
   else if (homeView === 'main' || homeView === 'lobby') cuentaVista.volver = homeView;
   if (vista === 'perfil') cuentaVista.perfil = o.id || null;
+  if (vista === 'gremio') cuentaVista.gremio = o.id || null;
   cuentaVista.datos = null; cuentaVista.error = ''; cuentaVista.quitar = null; cuentaVista.borrar = false;
   homeView = vista; renderHome();
   window.scrollTo(0, 0);
@@ -10719,7 +10728,7 @@ function fichaHTML(){
   const y = CUENTA.yo, A = CUENTA.amigos;
   const en = A ? A.amigos.filter(a => a.enLinea).length : 0, sol = A ? A.recibidas.length : 0;
   return `<section class="cficha barra">${avatar(y)}<div><b>${esc(y.apodo)}</b><span>${y.partidos ? `${y.puntos} puntos${y.posicion ? ` · puesto ${y.posicion}` : ''}` : 'Todavía sin partidos en el ranking'}</span></div>
-    <nav class="hlinks" aria-label="Tu cuenta"><button class="tool" id="cPerfil">Mi perfil</button><button class="tool" id="cRank">Ranking</button>
+    <nav class="hlinks" aria-label="Tu cuenta"><button class="tool" id="cPerfil">Mi perfil</button><button class="tool" id="cRank">Ranking</button><button class="tool" id="cGremios">${y.gremio ? 'Gremio ' + esc(y.gremio.sigla) : 'Gremios'}</button>
     <button class="tool" id="cAmigos">Amigos${en ? ` · ${en} en línea` : ''}${sol ? ` · <b class="cbadge">${sol} ${sol === 1 ? 'solicitud' : 'solicitudes'}</b>` : ''}</button>${y.admin ? '<button class="tool" id="cAdmin">Cuentas creadas</button>' : ''}</nav></section>`;
 }
 function cuentaFichaHTML(){ return avisoHTML() + (conCuenta() ? fichaHTML() : ''); }
@@ -10757,6 +10766,7 @@ function bindPublicasHome(){
 function bindCuentaBotones(){
   if ($('cPerfil')) $('cPerfil').onclick = () => cuentaIr('perfil');
   if ($('cRank')) $('cRank').onclick = () => cuentaIr('ranking');
+  if ($('cGremios')) $('cGremios').onclick = () => cuentaIr('gremios');
   if ($('cAmigos')) $('cAmigos').onclick = () => cuentaIr('amigos');
   if ($('cAdmin')) $('cAdmin').onclick = () => cuentaIr('admin');
 }
@@ -10812,6 +10822,7 @@ function renderPerfil(box){
   let h = barra(propio ? 'Mi perfil' : 'Perfil') + avisoHTML();
   const datos = [p.lugar ? (p.lugar === 'Fuera de Uruguay' ? 'Juega desde fuera de Uruguay' : 'De ' + esc(p.lugar)) : '', p.cuadro ? 'Hincha de ' + esc(p.cuadro) : ''].filter(Boolean).join(' · ');
   h += `<div class="cficha grande">${avatar(p, 'g')}<div><b>${esc(p.apodo)}</b>${p.nombre ? `<span class="cnom">${esc(p.nombre)}</span>` : ''}<span>${p.enLinea ? '<i class="dot on"></i> En línea · ' : ''}Juega desde ${new Date(p.desde).toLocaleDateString('es-UY', { month: 'long', year: 'numeric' })}${propio ? ` · cuenta n.º ${p.id}` : ''}</span>${datos ? `<span>${datos}</span>` : ''}</div></div>`;
+  if (p.gremio) h += `<p class="cbio">Gremio: <button class="lnk" id="pGremio">[${esc(p.gremio.sigla)}] ${esc(p.gremio.nombre)}</button></p>`;
   if (p.bio) h += `<p class="cbio">${esc(p.bio)}</p>`;
   if (propio) h += `<div class="hlinks"><button class="act flor" id="pEditar">Editar perfil</button><button class="act sec" id="pPj">Tu personaje</button></div>`;
   h += statsHTML(p) + logrosHTML(p);
@@ -10836,6 +10847,7 @@ function renderPerfil(box){
     renderHome();
   };
   if ($('pInv')) $('pInv').onclick = () => invitar(p.id);
+  if ($('pGremio')) $('pGremio').onclick = () => cuentaIr('gremio', { id: p.gremio.id, volver: cuentaVista.volver });
   if ($('pEditar')) $('pEditar').onclick = () => { cuentaVista.edit = null; homeView = 'editar'; renderHome(); window.scrollTo(0, 0); };
   if ($('pPj')) $('pPj').onclick = pjModal;
   if ($('pSalir')) $('pSalir').onclick = async () => { await cuentaSalir(); homeView = 'main'; renderHome(); };
@@ -10915,6 +10927,90 @@ function renderAmigos(box){
     } catch (x) { cuentaVista.aviso = x.message; }
     renderHome();
   });
+}
+
+// ---------- Gremios ----------
+// Un gremio junta hasta 30 cuentas. Suma los partidos que juegan sus integrantes mientras están en él (para el
+// ranking, como siempre: mesas del servidor con cuenta en los dos equipos) y compite en el ranking de gremios,
+// general y del mes. Cualquiera con cuenta entra a uno o arma el suyo; quien lo armó está a cargo (puede sacar
+// a alguien y cambiar el lema), y si se va, queda a cargo el que hace más que está.
+function renderGremios(box){
+  const D = cuentaVista.datos, tipo = cuentaVista.tipo === 'mes' ? 'mes' : 'general';
+  let h = barra('Gremios') + avisoHTML();
+  if (conCuenta()) h += CUENTA.yo.gremio
+    ? `<div class="hlinks"><button class="act flor" id="gMio">Mi gremio: [${esc(CUENTA.yo.gremio.sigla)}] ${esc(CUENTA.yo.gremio.nombre)}</button></div>`
+    : cuentaVista.crear
+      ? `<form id="gCrear" class="eform gform"><label>Nombre<input id="gNom" maxlength="24" required placeholder="Los Pardos"></label><label>Sigla<input id="gSig" maxlength="4" required placeholder="LP"></label>
+          <label>Lema (si querés)<input id="gLema" maxlength="80" placeholder="A la carga"></label><div class="hlinks"><button class="act flor" type="submit">Armar el gremio</button><button class="tool" type="button" id="gNo">Cancelar</button></div></form>`
+      : `<div class="hlinks"><button class="act flor" id="gArmar">Armar un gremio</button><span class="hkey">o entrá a uno de la lista.</span></div>`;
+  h += `<div class="seg" role="group" aria-label="Qué ranking"><button type="button" data-t="general" aria-pressed="${tipo === 'general'}">General</button><button type="button" data-t="mes" aria-pressed="${tipo === 'mes'}">Este mes</button></div>`;
+  if (!D || D.tipo !== tipo) {
+    h += cuentaVista.error ? `<p class="hnote">${esc(cuentaVista.error)}</p>` : '<p class="lob">Cargando…</p>';
+    if (!cuentaVista.error) setTimeout(() => cuentaCargar('gremios', 'gremios' + (tipo === 'mes' ? '?tipo=mes' : '')), 0);
+  } else {
+    const mio = CUENTA.yo && CUENTA.yo.gremio && CUENTA.yo.gremio.id;
+    const fila = g => { const x = tipo === 'mes' ? g.mes : g; return `<tr class="${g.id === mio ? 'me' : ''}" data-g="${g.id}" tabindex="0"><td>${g.pos}</td><td><b class="sigla">${esc(g.sigla)}</b> ${esc(g.nombre)}</td><td>${x.ganados}</td><td>${x.partidos}</td><td>${pct(x.ganados, x.partidos)}</td><td>${g.miembros}</td></tr>`; };
+    h += D.lista.length
+      ? `<table class="rk"><thead><tr><th>#</th><th>Gremio</th><th>Ganados</th><th>Jugados</th><th>%</th><th>Gente</th></tr></thead><tbody>${D.lista.map(fila).join('')}</tbody></table>`
+      : `<p class="lob">${tipo === 'mes' ? 'Este mes todavía ningún gremio jugó un partido para el ranking.' : 'Todavía no hay gremios. ¡Armá el primero!'}</p>`;
+    h += `<p class="hkey">Cada partido para el ranking que gana alguien de un gremio le suma uno a su gremio (si son dos del mismo gremio en el mismo equipo, suman los dos). Solo cuenta lo que se juega mientras se está en el gremio. Gana el que más partidos ganó; si empatan, el que jugó menos. El del mes arranca de cero el primer día.</p>`;
+  }
+  box.innerHTML = h;
+  $('hBack').onclick = volverDeCuenta;
+  if ($('gMio')) $('gMio').onclick = () => cuentaIr('gremio', { id: CUENTA.yo.gremio.id, volver: cuentaVista.volver });
+  if ($('gArmar')) $('gArmar').onclick = () => { cuentaVista.crear = true; renderHome(); $('gNom').focus(); };
+  if ($('gNo')) $('gNo').onclick = () => { cuentaVista.crear = false; renderHome(); };
+  if ($('gCrear')) $('gCrear').onsubmit = async e => {
+    e.preventDefault();
+    try {
+      const r = await api('gremio/crear', { nombre: $('gNom').value, sigla: $('gSig').value, lema: $('gLema').value });
+      cuentaVista.crear = false; await gremioRefrescarYo(); cuentaIr('gremio', { id: r.id, volver: cuentaVista.volver });
+    } catch (x) { cuentaVista.aviso = x.message; renderHome(); }
+  };
+  box.querySelectorAll('[data-t]').forEach(b => b.onclick = () => { cuentaVista.tipo = b.dataset.t; cuentaVista.datos = null; cuentaVista.error = ''; renderHome(); });
+  box.querySelectorAll('tr[data-g]').forEach(tr => { const ir = () => cuentaIr('gremio', { id: +tr.dataset.g, volver: cuentaVista.volver }); tr.onclick = ir; tr.onkeydown = e => { if (e.key === 'Enter') ir(); }; });
+}
+async function gremioRefrescarYo(){ try { cuentaGuardar(undefined, (await api('cuenta/yo')).yo); } catch (e) {} }
+function renderGremio(box){
+  const D = cuentaVista.datos;
+  if (!D) {
+    box.innerHTML = barra('Gremio') + (cuentaVista.error ? `<p class="hnote">${esc(cuentaVista.error)}</p>` : '<p class="lob">Cargando…</p>');
+    $('hBack').onclick = () => cuentaIr('gremios', { volver: cuentaVista.volver });
+    if (!cuentaVista.error) cuentaCargar('gremio', 'gremio?id=' + cuentaVista.gremio);
+    return;
+  }
+  const g = D.gremio, yo = CUENTA.yo && CUENTA.yo.id, aCargo = yo && g.dueno === yo;
+  let h = barra('Gremio') + avisoHTML();
+  h += `<div class="cficha grande"><span class="avt g gsig">${esc(g.sigla)}</span><div><b>${esc(g.nombre)}</b><span>Puesto ${g.posicion} · ${g.miembros} de ${D.max} · desde ${new Date(g.creado).toLocaleDateString('es-UY', { month: 'long', year: 'numeric' })}</span>${g.lema ? `<span><i>«${esc(g.lema)}»</i></span>` : ''}</div></div>`;
+  const tile = (n, l) => `<div class="stile"><b>${n}</b><span>${l}</span></div>`;
+  h += `<div class="stiles">${tile(g.ganados, `partidos ganados (${pct(g.ganados, g.partidos)})`)}${tile(g.partidos, 'partidos jugados')}${tile(g.mes.ganados, `ganados este mes (de ${g.mes.partidos})`)}</div>`;
+  h += '<div class="hlinks">';
+  if (D.mio) h += cuentaVista.borrar ? `<button class="act mazo" id="gSalirSi">Sí, salir del gremio</button><button class="tool" id="gSalirNo">No</button>` : `<button class="tool sec" id="gSalir">Salir del gremio</button>`;
+  else if (conCuenta() && !D.enOtro && g.miembros < D.max) h += `<button class="act flor" id="gUnirme">Entrar al gremio</button>`;
+  else if (D.enOtro) h += `<span class="hkey">Ya estás en otro gremio: para entrar a este, primero salí de ese.</span>`;
+  else if (!conCuenta()) h += `<span class="hkey">Entrá con tu cuenta para sumarte.</span>`;
+  h += '</div>';
+  if (aCargo) h += `<form class="hlinks" id="gLemaF"><input id="gLemaN" maxlength="80" value="${esc(g.lema)}" placeholder="Lema del gremio" aria-label="Lema del gremio"><button class="tool" type="submit">Cambiar el lema</button></form>`;
+  h += '<section><h2 class="h3">Integrantes</h2><ul class="amg">' + D.miembros.map(r => `<li><i class="dot ${r.enLinea ? 'on' : ''}" title="${r.enLinea ? 'En línea' : 'Desconectado'}"></i>${avatar(r, 'c')}<button class="lnk" data-p="${r.id}">${esc(r.apodo)}</button><small>${r.id === g.dueno ? 'a cargo · ' : ''}${r.puntos} pts · ${r.ganados}/${r.partidos}</small>${
+      aCargo && r.id !== yo ? (cuentaVista.quitar === r.id ? `<button class="act mazo" data-echar="${r.id}">Sí, sacar</button><button class="tool" data-q="">No</button>` : `<button class="tool sec" data-q="${r.id}">Sacar</button>`) : ''}</li>`).join('') + '</ul></section>';
+  box.innerHTML = h;
+  $('hBack').onclick = () => cuentaIr('gremios', { volver: cuentaVista.volver });
+  const hacer = async (ruta, cuerpo, aviso) => {
+    try { await api(ruta, cuerpo); if (aviso) cuentaVista.aviso = aviso; } catch (x) { cuentaVista.aviso = x.message; }
+    cuentaVista.borrar = false; cuentaVista.quitar = null; await gremioRefrescarYo();
+    cuentaVista.datos = null; renderHome();
+  };
+  if ($('gUnirme')) $('gUnirme').onclick = () => hacer('gremio/unirme', { id: g.id }, `Entraste a ${g.nombre}.`);
+  if ($('gSalir')) $('gSalir').onclick = () => { cuentaVista.borrar = true; renderHome(); };
+  if ($('gSalirNo')) $('gSalirNo').onclick = () => { cuentaVista.borrar = false; renderHome(); };
+  if ($('gSalirSi')) $('gSalirSi').onclick = async () => {
+    try { await api('gremio/salir', {}); cuentaVista.aviso = `Saliste de ${g.nombre}.`; } catch (x) { cuentaVista.aviso = x.message; }
+    cuentaVista.borrar = false; await gremioRefrescarYo(); cuentaIr('gremios', { volver: cuentaVista.volver });
+  };
+  if ($('gLemaF')) $('gLemaF').onsubmit = e => { e.preventDefault(); hacer('gremio/editar', { lema: $('gLemaN').value }, 'Listo, cambió el lema.'); };
+  box.querySelectorAll('[data-q]').forEach(b => b.onclick = () => { cuentaVista.quitar = b.dataset.q ? +b.dataset.q : null; renderHome(); });
+  box.querySelectorAll('[data-echar]').forEach(b => b.onclick = () => hacer('gremio/echar', { id: +b.dataset.echar }));
+  box.querySelectorAll('[data-p]').forEach(b => b.onclick = () => cuentaIr('perfil', { id: +b.dataset.p, volver: cuentaVista.volver }));
 }
 
 // solo para quien administra el juego (ADMINS en wrangler.jsonc): quiénes se van creando una cuenta

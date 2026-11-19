@@ -1,7 +1,7 @@
 // Servidor del Truco Uruguayo en Cloudflare: sirve la página (index.html), las mesas compartidas y las cuentas.
 // Cada mesa es un Durable Object (una instancia por código, siempre la misma para todos los que entran
 // con ese código) y cada jugador se conecta por WebSocket a /api/mesa/<CÓDIGO>.
-// Las cuentas (ranking, estadísticas, historial, amigos) viven en otro Durable Object, uno solo para todos.
+// Las cuentas (ranking, estadísticas, historial, amigos, gremios) viven en otro Durable Object, uno solo para todos.
 import { DurableObject } from 'cloudflare:workers';
 import { Mesa } from './mesa.mjs';
 import { Cuentas } from './cuentas.mjs';
@@ -20,7 +20,7 @@ export default {
       if ((req.headers.get('Upgrade') || '').toLowerCase() !== 'websocket') return new Response('Acá se entra por WebSocket.', { status: 426 });
       return env.MESAS.get(env.MESAS.idFromName(m[1])).fetch(req);
     }
-    if (/^\/api\/(cuenta|ranking|amigos|admin|publicas|foto)(\/|$)/.test(url.pathname)) {
+    if (/^\/api\/(cuenta|ranking|amigos|admin|publicas|foto|gremios?)(\/|$)/.test(url.pathname)) {
       if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
       const r = await cuentas(env).fetch(req);
       if (r.status === 101) return r;

@@ -18,6 +18,10 @@ export const PJ_RE = /^[a-z][a-z0-9-]{0,23}$/;   // código de personaje 3D
 const FOTO_MAX = 90 * 1024;               // la foto ya llega recortada y achicada (256×256): con esto sobra
 const texto = (v, max) => String(v ?? '').normalize('NFC').replace(/[\u0000-\u001f\u007f<>]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max);
 const limpiarApodo = v => String(v || '').normalize('NFC').replace(/[^\p{L}\p{N} ._-]/gu, '').replace(/\s+/g, ' ').trim().slice(0, 20);
+// gremios: nombre de 3 a 24 letras o números, sigla de 2 a 4 (en mayúsculas), hasta 30 integrantes
+const limpiarGremio = v => String(v || '').normalize('NFC').replace(/[^\p{L}\p{N} ._-]/gu, '').replace(/\s+/g, ' ').trim().slice(0, 24);
+const limpiarSigla = v => String(v || '').normalize('NFC').replace(/[^\p{L}\p{N}]/gu, '').toUpperCase().slice(0, 4);
+const MAX_GREMIO = 30;
 const int = v => { const n = Number(v); return Number.isInteger(n) ? n : null; };
 const hex = buf => [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
 const b64u = bytes => btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
@@ -62,10 +66,15 @@ export class Cuentas {
     try { this.q(`ALTER TABLE publicas ADD COLUMN tanto TEXT`); } catch (e) {}
     try { this.q(`ALTER TABLE publicas ADD COLUMN mirando INTEGER DEFAULT 0`); } catch (e) {}
     // lo del perfil (columnas que se agregaron después: si ya están, no pasa nada)
-    for (const col of ['nombre TEXT', 'bio TEXT', 'lugar TEXT', 'cuadro TEXT', 'color INTEGER', 'foto_v INTEGER DEFAULT 0', 'pj TEXT', 'faltas INTEGER DEFAULT 0', 'falta37 INTEGER DEFAULT 0']) {
+    for (const col of ['nombre TEXT', 'bio TEXT', 'lugar TEXT', 'cuadro TEXT', 'color INTEGER', 'foto_v INTEGER DEFAULT 0', 'pj TEXT', 'faltas INTEGER DEFAULT 0', 'falta37 INTEGER DEFAULT 0', 'gremio INTEGER', 'gremio_desde INTEGER']) {
       try { this.q(`ALTER TABLE usuarios ADD COLUMN ${col}`); } catch (e) {}
     }
     this.q(`CREATE TABLE IF NOT EXISTS fotos (usuario INTEGER PRIMARY KEY, tipo TEXT, datos TEXT)`);
+    // gremios: cada cuenta está en uno como mucho (usuarios.gremio). Suman los partidos que juegan sus integrantes
+    // mientras están en el gremio (en total y en el mes), y por eso compiten en su propio ranking
+    this.q(`CREATE TABLE IF NOT EXISTS gremios (id INTEGER PRIMARY KEY, nombre TEXT NOT NULL, nombre_min TEXT UNIQUE, sigla TEXT, lema TEXT,
+      creado INTEGER, dueno INTEGER, partidos INTEGER DEFAULT 0, ganados INTEGER DEFAULT 0, mes TEXT, partidos_mes INTEGER DEFAULT 0, ganados_mes INTEGER DEFAULT 0)`);
+    this.q(`CREATE INDEX IF NOT EXISTS usuarios_gremio ON usuarios (gremio)`);
   }
   // un arreglo que se hace una sola vez en la base (queda anotado aunque no haya habido nada que cambiar)
   unaVez(nombre, f) {
@@ -137,6 +146,23 @@ export class Cuentas {
     return this.q1(`SELECT COUNT(*) AS n FROM usuarios WHERE partidos > 0 AND (elo > ? OR (elo = ? AND id < ?))`, u.elo, u.elo, u.id).n + 1;
   }
   // lo que hace falta para dibujar a alguien en una lista: foto (su versión, para que el navegador la guarde) o color
+  gremioCorto(id) { const g = id && this.q1(`SELECT id, nombre, sigla FROM gremios WHERE id = ?`, id); return g ? { id: g.id, nombre: g.nombre, sigla: g.sigla } : null; }
+  // sale del gremio; si era el dueño, queda el que hace más que está; si no queda nadie, el gremio se borra
+  salirDeGremio(u) {
+    if (!u.gremio) return;
+    this.q(`UPDATE usuarios SET gremio = NULL, gremio_desde = NULL WHERE id = ?`, u.id);
+    const g = this.q1(`SELECT dueno FROM gremios WHERE id = ?`, u.gremio);
+    if (!g) return;
+    const otro = this.q1(`SELECT id FROM usuarios WHERE gremio = ? ORDER BY gremio_desde, id LIMIT 1`, u.gremio);
+    if (!otro) this.q(`DELETE FROM gremios WHERE id = ?`, u.gremio);
+    else if (g.dueno === u.id) this.q(`UPDATE gremios SET dueno = ? WHERE id = ?`, otro.id, u.gremio);
+  }
+  gremioFicha(g, mes) {
+    const m = g.mes === mes;
+    return { id: g.id, nombre: g.nombre, sigla: g.sigla, lema: g.lema || '', creado: g.creado, dueno: g.dueno,
+      miembros: this.q1(`SELECT COUNT(*) AS n FROM usuarios WHERE gremio = ?`, g.id).n,
+      partidos: g.partidos, ganados: g.ganados, mes: { partidos: m ? g.partidos_mes : 0, ganados: m ? g.ganados_mes : 0 } };
+  }
   cara(r) { return { foto: r.foto_v || null, color: Number.isInteger(r.color) ? r.color : null }; }
   perfil(u, propio) {
     const mesActual = mesDe(this.now()), mes = u.mes === mesActual;
@@ -147,6 +173,7 @@ export class Cuentas {
       partidos: u.partidos, ganados: u.ganados, abandonos: u.abandonos, racha: u.racha, mejorRacha: u.mejor_racha,
       manos: u.manos, manosGanadas: u.manos_ganadas, envidos: u.envidos, flores: u.flores, trucos: u.trucos, faltas: u.faltas || 0, falta37: u.falta37 || 0,
       mes: { mes: mesActual, puntos: Math.round(mes ? u.elo_mes : ELO0), partidos: mes ? u.partidos_mes : 0, ganados: mes ? u.ganados_mes : 0 },
+      gremio: this.gremioCorto(u.gremio),
       enLinea: !propio && this.enLinea().has(u.id) || undefined,
       admin: propio && this.admins.has(u.id) || undefined,
     };
@@ -255,6 +282,7 @@ export class Cuentas {
           this.q(`DELETE FROM amigos WHERE de = ? OR para = ?`, yo.id, yo.id);
           this.q(`DELETE FROM jugadas WHERE usuario = ?`, yo.id);
           this.q(`DELETE FROM fotos WHERE usuario = ?`, yo.id);
+          this.salirDeGremio(yo);
           this.q(`DELETE FROM usuarios WHERE id = ?`, yo.id);
           amigos.forEach(a => this.avisar(a, { t: 'amigos' }));
           return ok({ ok: true });
@@ -280,6 +308,64 @@ export class Cuentas {
           }
           const sinPartidos = mes ? null : this.q1(`SELECT COUNT(*) AS n FROM usuarios WHERE partidos = 0`).n;
           return ok({ tipo: mes ? 'mes' : 'general', mes: m, lista, mio, sinPartidos });
+        }
+        // ---------- gremios ----------
+        case 'GET gremios': {
+          const mes = url.searchParams.get('tipo') === 'mes', m = mesDe(this.now());
+          const filas = mes
+            ? this.q(`SELECT * FROM gremios WHERE mes = ? AND partidos_mes > 0 ORDER BY ganados_mes DESC, partidos_mes, id LIMIT 100`, m)
+            : this.q(`SELECT * FROM gremios ORDER BY ganados DESC, partidos, id LIMIT 100`);
+          const lista = filas.map((g, i) => ({ pos: i + 1, ...this.gremioFicha(g, m) }));
+          return ok({ tipo: mes ? 'mes' : 'general', mes: m, lista, mio: yo && yo.gremio ? this.gremioCorto(yo.gremio) : null });
+        }
+        case 'GET gremio': {
+          const g = this.q1(`SELECT * FROM gremios WHERE id = ?`, int(url.searchParams.get('id')));
+          if (!g) return mal(404, 'Ese gremio ya no existe.');
+          const mes = mesDe(this.now()), en = this.enLinea();
+          const miembros = this.q(`SELECT id, apodo, foto_v, color, elo, partidos, ganados, gremio_desde FROM usuarios WHERE gremio = ? ORDER BY elo DESC, id`, g.id)
+            .map(r => ({ id: r.id, apodo: r.apodo, ...this.cara(r), puntos: Math.round(r.elo), partidos: r.partidos, ganados: r.ganados, desde: r.gremio_desde, enLinea: en.has(r.id) }));
+          const pos = this.q1(`SELECT COUNT(*) AS n FROM gremios WHERE ganados > ? OR (ganados = ? AND (partidos < ? OR (partidos = ? AND id < ?)))`, g.ganados, g.ganados, g.partidos, g.partidos, g.id).n + 1;
+          return ok({ gremio: { ...this.gremioFicha(g, mes), posicion: pos }, miembros, mio: !!yo && yo.gremio === g.id, enOtro: !!yo && !!yo.gremio && yo.gremio !== g.id, max: MAX_GREMIO });
+        }
+        case 'POST gremio/crear': {
+          if (!yo) return conSesion();
+          if (yo.gremio) return mal(409, 'Ya estás en un gremio: primero salí de ese.');
+          const nombre = limpiarGremio(cuerpo.nombre), sigla = limpiarSigla(cuerpo.sigla);
+          if (nombre.length < 3) return mal(400, 'El nombre tiene que tener entre 3 y 24 letras o números.');
+          if (sigla.length < 2) return mal(400, 'La sigla tiene que tener entre 2 y 4 letras o números.');
+          if (this.q1(`SELECT id FROM gremios WHERE nombre_min = ?`, nombre.toLowerCase())) return mal(409, `Ya hay un gremio que se llama "${nombre}".`);
+          const ahora = this.now();
+          this.q(`INSERT INTO gremios (nombre, nombre_min, sigla, lema, creado, dueno, mes) VALUES (?, ?, ?, ?, ?, ?, ?)`, nombre, nombre.toLowerCase(), sigla, texto(cuerpo.lema, 80), ahora, yo.id, mesDe(ahora));
+          const g = this.q1(`SELECT id FROM gremios WHERE nombre_min = ?`, nombre.toLowerCase());
+          this.q(`UPDATE usuarios SET gremio = ?, gremio_desde = ? WHERE id = ?`, g.id, ahora, yo.id);
+          return ok({ id: g.id });
+        }
+        case 'POST gremio/unirme': {
+          if (!yo) return conSesion();
+          const g = this.q1(`SELECT id FROM gremios WHERE id = ?`, int(cuerpo.id));
+          if (!g) return mal(404, 'Ese gremio ya no existe.');
+          if (yo.gremio === g.id) return ok({ id: g.id });
+          if (yo.gremio) return mal(409, 'Ya estás en un gremio: primero salí de ese.');
+          if (this.q1(`SELECT COUNT(*) AS n FROM usuarios WHERE gremio = ?`, g.id).n >= MAX_GREMIO) return mal(409, `Ese gremio está completo (${MAX_GREMIO}).`);
+          this.q(`UPDATE usuarios SET gremio = ?, gremio_desde = ? WHERE id = ?`, g.id, this.now(), yo.id);
+          return ok({ id: g.id });
+        }
+        case 'POST gremio/salir': if (!yo) return conSesion(); this.salirDeGremio(yo); return ok({ ok: true });
+        case 'POST gremio/echar': {
+          if (!yo) return conSesion();
+          const g = yo.gremio && this.q1(`SELECT dueno FROM gremios WHERE id = ?`, yo.gremio);
+          if (!g || g.dueno !== yo.id) return mal(403, 'Solo quien está a cargo del gremio puede sacar a alguien.');
+          const u = this.q1(`SELECT * FROM usuarios WHERE id = ?`, int(cuerpo.id));
+          if (!u || u.gremio !== yo.gremio || u.id === yo.id) return mal(400, 'Esa persona no está en tu gremio.');
+          this.salirDeGremio(u);
+          return ok({ ok: true });
+        }
+        case 'POST gremio/editar': {
+          if (!yo) return conSesion();
+          const g = yo.gremio && this.q1(`SELECT dueno FROM gremios WHERE id = ?`, yo.gremio);
+          if (!g || g.dueno !== yo.id) return mal(403, 'Solo quien está a cargo del gremio puede cambiarlo.');
+          this.q(`UPDATE gremios SET lema = ? WHERE id = ?`, texto(cuerpo.lema, 80), yo.gremio);
+          return ok({ ok: true });
         }
         case 'GET admin/cuentas': {
           if (!yo) return conSesion();
@@ -433,7 +519,12 @@ export class Cuentas {
         n0(st.manos), n0(st.manosGanadas), n0(st.envidos), n0(st.flores), n0(st.trucos), n0(st.faltas), n0(st.falta37),
         mes, eloMes(u) + dm, (u.mes === mes ? u.partidos_mes : 0) + 1, (u.mes === mes ? u.ganados_mes : 0) + gano, u.id);
       this.q(`INSERT INTO jugadas (partido, usuario, equipo, gano, abandono, delta, elo, fecha) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, r.id, u.id, t, gano, j.abandono ? 1 : 0, d, u.elo + d, fecha);
-      res.push({ uid: u.id, gano: !!gano, delta: Math.round(d), puntos: Math.round(u.elo + d), racha });
+      if (u.gremio) this.q(`UPDATE gremios SET partidos = partidos + 1, ganados = ganados + ?,
+          partidos_mes = CASE WHEN mes = ? THEN partidos_mes + 1 ELSE 1 END, ganados_mes = CASE WHEN mes = ? THEN ganados_mes + ? ELSE ? END, mes = ? WHERE id = ?`,
+        gano, mes, mes, gano, gano, mes, u.gremio);
+      // lo que cuentan los logros, antes y después (la pantalla avisa si se consiguió uno nuevo)
+      const lg = x => ({ partidos: x.partidos, ganados: x.ganados, mejorRacha: x.mejor_racha, flores: x.flores, trucos: x.trucos, envidos: x.envidos, faltas: x.faltas || 0, falta37: x.falta37 || 0 });
+      res.push({ uid: u.id, gano: !!gano, delta: Math.round(d), puntos: Math.round(u.elo + d), racha, antes: lg(u), despues: lg(this.q1(`SELECT * FROM usuarios WHERE id = ?`, u.id)) });
     }
     return { anotado: true, jugadores: res };
   }

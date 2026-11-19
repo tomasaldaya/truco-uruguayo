@@ -301,5 +301,45 @@ await t('perfil: editar nombre, apodo, biografía, lugar, cuadro, color y foto; 
   assert.equal((await W.pedir('POST', 'cuenta/editar', B.token, { foto: null })).yo.foto, null);
 });
 
+await t('gremios: crear, unirse, ranking con lo que juegan sus integrantes, echar y salir', async () => {
+  const W = mundo();
+  const A = await W.alta('Ana'), B = await W.alta('Beto'), C = await W.alta('Ceci');
+  assert.equal((await W.pedir('POST', 'gremio/crear', A.token, { nombre: 'Lo', sigla: 'LP' })).s, 400);
+  const g = (await W.pedir('POST', 'gremio/crear', A.token, { nombre: 'Los Pardos', sigla: 'lp!', lema: 'A la carga' })).id;
+  assert(g);
+  assert.equal((await W.pedir('POST', 'gremio/crear', B.token, { nombre: 'los pardos', sigla: 'XX' })).s, 409);   // nombre repetido
+  assert.equal((await W.pedir('POST', 'gremio/crear', A.token, { nombre: 'Otro', sigla: 'OT' })).s, 409);        // ya está en uno
+  const h = (await W.pedir('POST', 'gremio/crear', C.token, { nombre: 'Flor y Truco', sigla: 'FyT' })).id;
+  assert.equal((await W.pedir('POST', 'gremio/unirme', B.token, { id: g })).id, g);
+  // Ana y Beto (Los Pardos) le ganan a Ceci (Flor y Truco); el partido de antes de unirse no cuenta para el gremio
+  W.c.registrar({ ...partido('g1', 0, [{ uid: A.yo.id, equipo: 0 }, { uid: B.yo.id, equipo: 0 }, { uid: C.yo.id, equipo: 1 }]), n: 4 });
+  const rk = await W.pedir('GET', 'gremios', null);
+  assert.deepEqual(rk.lista.map(x => [x.sigla, x.miembros, x.partidos, x.ganados]), [['LP', 2, 2, 2], ['FYT', 1, 1, 0]]);
+  assert.deepEqual((await W.pedir('GET', 'gremios?tipo=mes', null)).lista.map(x => x.mes.ganados), [2, 0]);
+  const d = await W.pedir('GET', 'gremio?id=' + g, B.token);
+  assert(d.mio); assert.equal(d.gremio.posicion, 1); assert.equal(d.gremio.lema, 'A la carga'); assert.equal(d.miembros.length, 2);
+  assert.equal((await W.pedir('GET', 'cuenta/perfil?id=' + B.yo.id, null)).perfil.gremio.sigla, 'LP');
+  assert.equal((await W.pedir('POST', 'gremio/echar', B.token, { id: A.yo.id })).s, 403);   // Beto no está a cargo
+  assert((await W.pedir('POST', 'gremio/echar', A.token, { id: B.yo.id })).ok);
+  assert.equal((await W.pedir('GET', 'gremio?id=' + g, null)).miembros.length, 1);
+  // si sale el último, el gremio se borra; si sale el dueño, queda otro a cargo
+  await W.pedir('POST', 'gremio/unirme', B.token, { id: g });
+  await W.pedir('POST', 'gremio/salir', A.token, {});
+  assert.equal((await W.pedir('GET', 'gremio?id=' + g, null)).gremio.dueno, B.yo.id);
+  await W.pedir('POST', 'gremio/salir', B.token, {});
+  assert.equal((await W.pedir('GET', 'gremio?id=' + g, null)).s, 404);
+  // al borrar la cuenta, sale del gremio
+  await W.pedir('POST', 'cuenta/borrar', C.token, {});
+  assert.equal((await W.pedir('GET', 'gremio?id=' + h, null)).s, 404);
+});
+
+await t('logros: el resultado trae lo de antes y lo de después', async () => {
+  const W = mundo();
+  const a = (await W.alta('Ana')).yo.id, b = (await W.alta('Beto')).yo.id;
+  const r = W.c.registrar(partido('l1', 0, [{ uid: a, equipo: 0, stats }, { uid: b, equipo: 1 }]));
+  const j = r.jugadores[0];
+  assert.equal(j.antes.ganados, 0); assert.equal(j.despues.ganados, 1); assert.equal(j.despues.falta37, 1); assert.equal(j.despues.mejorRacha, 1);
+});
+
 console.log(fails ? `\n${fails} pruebas fallaron` : '\nTodo OK');
 process.exit(fails ? 1 : 0);

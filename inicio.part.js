@@ -121,6 +121,8 @@ function pintarInicio(){
   if (homeView === 'crear') return renderCrear(box);
   if (homeView === 'perfil') return renderPerfil(box);
   if (homeView === 'ranking') return renderRanking(box);
+  if (homeView === 'gremios') return renderGremios(box);
+  if (homeView === 'gremio') return renderGremio(box);
   if (homeView === 'amigos') return renderAmigos(box);
   if (homeView === 'admin') return renderAdmin(box);
   if (homeView === 'publicas') return renderPublicas(box);

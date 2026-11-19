@@ -23,7 +23,7 @@ Juego de truco uruguayo para el navegador, según el *Reglamento del Truco Urugu
 - `tally.part.js` — tanteador de fósforos.
 - `server/mesa.mjs` — una mesa compartida en el servidor: lugares, partido, computadora, tiempo, chat.
 - `server/worker.mjs` — el servidor en Cloudflare: sirve la página, una sala (Durable Object) por mesa y el objeto de las cuentas.
-- `server/cuentas.mjs` — cuentas, ranking (general y del mes), estadísticas, historial y amigos, en SQLite.
+- `server/cuentas.mjs` — cuentas, ranking (general y del mes), estadísticas, historial, amigos y gremios, en SQLite.
 - `server/google.mjs` — verifica el token del botón "Acceder con Google" (firma, app y vencimiento).
 - `server/prueba-cuentas.mjs` — pruebas de las cuentas con SQLite de Node: `node server/prueba-cuentas.mjs`.
 - `cuentas.part.js` — las pantallas de la cuenta: entrar, perfil, ranking, amigos e invitaciones.
@@ -520,5 +520,24 @@ Herramientas: `tools/ia/lalo.js` (esa mano, con lo que decide la computadora) y 
 - Pruebas: `server/prueba-mesa.mjs` (gestos: solo códigos válidos, de quien juega, de a uno; la racha llega en la
   vista y se actualiza al final; las faltas en las estadísticas) y `server/prueba-cuentas.mjs` (faltas, falta37 y
   racha en el resultado).
-- **Pendiente** (lo más pesado, para otra tanda): **gremios** con su ranking; sonidos propios del usuario; aviso
-  de logro nuevo al terminar un partido.
+- **Pendiente**: los sonidos propios del usuario (los va a pasar él).
+
+## Gremios y aviso de logros (19/11, segunda tanda)
+
+- **Gremios**: botón "Gremios" en la ficha de la cuenta (dice "Gremio LP" si ya estás en uno). Cualquiera con
+  cuenta arma uno (nombre de 3 a 24, sigla de 2 a 4 en mayúsculas, lema opcional) o entra a uno de la lista, sin
+  invitación. Hasta 30 integrantes (`MAX_GREMIO`); cada cuenta en un gremio como mucho. Quien lo armó queda a cargo:
+  puede sacar a alguien (con confirmación) y cambiar el lema. Si se va, queda a cargo el integrante más antiguo, y
+  si no queda nadie el gremio se borra. Al borrar la cuenta, se sale del gremio. El perfil muestra el gremio.
+- **Ranking de gremios**, general y del mes: cada partido para el ranking que gana un integrante le suma uno a su
+  gremio (si hay dos del mismo gremio en el equipo, suman los dos); manda el que más ganó y, si empatan, el que jugó
+  menos. Solo cuenta lo que se juega mientras se está en el gremio: los contadores están en la tabla `gremios`
+  (`partidos`, `ganados` y los del mes) y los suma `registrar`.
+- Rutas nuevas (el Worker las pasa a las cuentas): `GET gremios[?tipo=mes]`, `GET gremio?id=`, `POST gremio/crear`,
+  `gremio/unirme`, `gremio/salir`, `gremio/echar`, `gremio/editar`. Columnas nuevas en `usuarios`: `gremio`,
+  `gremio_desde`.
+- **Aviso de logro nuevo**: al terminar un partido que cuenta, `registrar` manda lo que usan los logros antes y
+  después (`antes`, `despues`), y el aviso del ranking dice "¡Logro nuevo: …!" con un ta-dá y un botón al perfil.
+- Pruebas: `server/prueba-cuentas.mjs` (crear, nombres repetidos, unirse, ranking con lo jugado, el del mes, echar,
+  dueño que se va, gremio que se borra, borrar la cuenta; logros antes y después). Las pantallas se probaron con
+  `wrangler dev` y dos cuentas de prueba.
