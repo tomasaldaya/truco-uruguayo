@@ -457,10 +457,17 @@ Herramientas: `tools/ia/lalo.js` (esa mano, con lo que decide la computadora) y 
   sala con el código sin estar en la mesa, no se lo oye y no oye a nadie.
 - Mensajes nuevos: `mirar`, `echar`, `vozid` (al servidor); `mirando`, `expulsado`, `vetado`, `echado` (al
   jugador). Las mesas entre navegadores (sin servidor) no tienen espectadores.
-- **Cámara 3D del que juega**: queda en su silla. Arrastrando se inclina un poco hacia los costados (±15°)
-  y hacia adelante o atrás, y la rueda o el pellizco acercan o alejan poco (`limitarCam` en
-  `mesa3d.part.js`). "Tu lugar" (o doble clic) vuelve a la posición de siempre; "Desde arriba" y mirar la
-  muestra de cerca siguen igual.
+- **Cámara 3D del que juega**: son los ojos de su personaje, sentado en su lugar y a la altura de la cabeza
+  de los demás (`ojosCam` en `mesa3d.part.js`, con un campo de visión un poco más abierto). Arrastrando gira
+  la cabeza hasta 30° para cada lado y mira un poco más arriba o abajo; la rueda o el pellizco lo inclinan
+  hacia la mesa o hacia atrás, con el mismo margen que antes tenía para acercarse o alejarse. Tu fila de
+  cartas jugadas va un poco más hacia el centro (`ojoFila`) para que tu mano no la tape. "Tu lugar" (o doble
+  clic) vuelve a sentarte derecho; "Desde arriba" (que gira hasta 30°) y mirar la muestra de cerca siguen.
+- **Los demás ven tu mirada**: tu pantalla avisa hacia dónde mira tu personaje (giro, inclinación y si
+  estás mirando la muestra de cerca), como mucho cinco veces por segundo y solo si cambió (`avisarMirada`,
+  mensaje `mirada`; el servidor o el anfitrión recortan los valores y lo reparten). En la mesa 3D de los
+  demás, tu personaje gira la cabeza, se inclina o se agacha hacia la muestra (`miradaDe` en
+  `updateChars`); las señas siguen teniendo prioridad.
 - Pruebas: `test.js` (la vista -1 nunca tiene una carta sin jugar ni una seña, en partidos al azar de 2, 4 y
   6), `server/prueba-mesa.mjs` (mirar, chat y voz de quien mira, echar por mayoría, vetado por identificador
   y por cuenta, votos de quien se va, lista de voces) y `server/prueba-cuentas.mjs` (partidos en juego en la

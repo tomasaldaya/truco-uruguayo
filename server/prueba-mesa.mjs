@@ -241,7 +241,7 @@ await ta('con cuentas: si en un equipo no hay nadie con cuenta, no se anota', as
 
 await ta('con cuentas: el que se va y no vuelve queda con abandono; el que vuelve, no', async () => {
   const W = mundo(), reg = conCuentas(W), m = new Mesa(W.io, null);
-  m.onOpen('a'); m.onMessage('a', { t: 'hello', name: 'Ana', pid: 'pa', crear: { n: 4, key: 'k', cfg: { target: 40 } }, token: 'tA' });
+  m.onOpen('a'); m.onMessage('a', { t: 'hello', name: 'Ana', pid: 'pa', crear: { n: 4, key: 'k', cfg: { target: 40, chicos: 2 } }, token: 'tA' });   // largo: que una falta envido no lo termine
   m.onOpen('b'); m.onMessage('b', { t: 'hello', name: 'Beto', pid: 'pb', token: 'tB' });
   await pausa();
   m.onOpen('c'); m.onMessage('c', { t: 'hello', name: 'Ceci', pid: 'pc', token: 'tC' });
@@ -389,6 +389,17 @@ t('mirar: los votos de quien se va no cuentan, y con menos gente sentada puede a
   assert(!last(W.inbox, 'x', 'expulsado'));
   m.onMessage('b', { t: 'echar', id });
   assert(last(W.inbox, 'x', 'expulsado'));
+});
+
+t('mirada: hacia dónde mira cada uno llega a todos (y a los que miran), con valores razonables', () => {
+  const { W, m } = mesaEmpezada();
+  m.onOpen('x'); m.onMessage('x', { t: 'hello', name: 'Mirón', pid: 'px', mirar: true });
+  m.onMessage('b', { t: 'mirada', y: .3, pi: .25, z: .9, mu: false });
+  for (const c of ['a', 'x']) { const r = last(W.inbox, c, 'mirada'); assert.deepEqual([r.p, r.y, r.pi, r.z, r.mu], [m.seatOf('b'), .3, .25, .9, false]); }
+  m.onMessage('b', { t: 'mirada', y: 9, pi: 'x', z: -3, mu: 1 });               // fuera de rango: se recorta
+  const r = last(W.inbox, 'a', 'mirada'); assert.deepEqual([r.y, r.pi, r.z, r.mu], [.6, .3, .8, true]);
+  W.inbox.a = []; m.onMessage('x', { t: 'mirada', y: .1 });                    // el que mira no tiene cabeza en la mesa
+  assert(!last(W.inbox, 'a', 'mirada'));
 });
 
 t('voz: la mesa dice quiénes pueden estar en la sala de voz (los de la mesa, no los echados)', () => {

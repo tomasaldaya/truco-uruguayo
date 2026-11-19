@@ -251,7 +251,8 @@ const V3 = (function(){
     if (!w || !h) return;
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
-    camera.fov = camera.aspect < 1 ? Math.min(74, 2 * Math.atan(Math.tan(25 * PI/180) / Math.pow(camera.aspect, .8)) * 180/PI) : 50;
+    fovBase = camera.aspect < 1 ? Math.min(74, 2 * Math.atan(Math.tan(25 * PI/180) / Math.pow(camera.aspect, .8)) * 180/PI) : 50;
+    camera.fov = fovCam();
     camera.updateProjectionMatrix();
     if (Lay) { const d = defaultCam(); if (!CAM.user) CAM.g = d; }
   }
@@ -289,12 +290,13 @@ const V3 = (function(){
   // dk: dónde va el mazo, a la derecha del que dio: [distancia al centro, corrimiento hacia su derecha].
   // Están calculados para que el mazo no pise ninguna fila ni las cartas boca abajo, dé quien dé.
   // dk0: lo mismo cuando das vos, elegido además para que tu mano no tape la muestra.
+  // ojoFila: cuánto más hacia el centro va tu fila, para que sentado (con los ojos de tu personaje) tu mano no la tape.
   const PARAMS = {
-    2: { TR: 4.8, rr: .9, rrS: .9, hs: .22, opp: .22, sp: 1.3, inact: 2.4, dk: [1.5, 2.6], dk0: [0.6, 3.2],
+    2: { TR: 4.8, ojoFila: .2, rr: .9, rrS: .9, hs: .22, opp: .22, sp: 1.3, inact: 2.4, dk: [1.5, 2.6], dk0: [0.6, 3.2],
          cam: { beta: .8, rho: 14.2, tx: .35, ty: 2.0, tz: -1.9 } },
-    4: { TR: 5.8, rr: 2.15, rrS: 2.65, hs: .25, opp: 0, sp: 1.18, inact: 1.65, dk: [3.3, 3.0], dk0: [3.6, 2.6],
+    4: { TR: 5.8, ojoFila: 1.1, rr: 2.15, rrS: 2.65, hs: .25, opp: 0, sp: 1.18, inact: 1.65, dk: [3.3, 3.0], dk0: [3.6, 2.6],
          cam: { beta: .84, rho: 18.6, tx: 0, ty: 1.7, tz: -1.7 } },
-    6: { TR: 6.4, rr: 2.6, rrS: 3.1, hs: .25, opp: 0, sp: .8, inact: 1.45, dk: [4.7, 2.1], dk0: [4.1, 2.6],
+    6: { TR: 6.4, ojoFila: .9, rr: 2.6, rrS: 3.1, hs: .25, opp: 0, sp: .8, inact: 1.45, dk: [4.7, 2.1], dk0: [4.1, 2.6],
          cam: { beta: .86, rho: 20.5, tx: 0, ty: 1.8, tz: -1.9 } },
   };
   const ang = p => -PI/2 + ((p - ME + Lay.n) % Lay.n) * 2*PI / Lay.n; // vos abajo, y sigue hacia la derecha
@@ -534,15 +536,21 @@ const V3 = (function(){
       for (const k in tgt) c.F[k] += (tgt[k] - c.F[k]) * Math.min(1, dt*18);
       if (!c.gest && t > c.blinkAt) { c.blinkTo = t + .13; c.blinkAt = t + 2.5 + Math.random()*4; }
       applyFace(c, t);
-      // mirada
-      let look;
-      if (c.gest) look = c.gest.look;
-      else if (c.lookUntil > t && c.lookTo) look = c.lookTo;
-      else if (R && G.phase === 'play' && lastAct === c.p) look = c.g.localToWorld(tmpW.set(0, 1.4, 1.5)).clone();
-      else look = v3(Math.sin(t*.31 + c.phase)*1.6, 0, Math.cos(t*.23 + c.phase)*1.2);
-      c.g.worldToLocal(tmpV.copy(look));
-      const dx = tmpV.x, dy = tmpV.y - 4.2, dz = tmpV.z + .08;
-      let yaw = clamp(Math.atan2(dx, dz), -1.15, 1.15), pitch = clamp(Math.atan2(-dy, Math.hypot(dx, dz)), -.35, .6);
+      // mirada: la de la persona que juega ese lugar (si avisó hacia dónde mira), si no, la de siempre
+      const mi = !c.gest ? miradaDe(c.p) : null;
+      let look, yaw, pitch, lean = 0;
+      if (mi && !mi.mu) { yaw = clamp(mi.y, -1.15, 1.15); pitch = clamp(mi.pi, -.35, .6); lean = clamp((1 - mi.z) * 4, -.45, .6); }
+      else {
+        if (c.gest) look = c.gest.look;
+        else if (mi && mi.mu) { look = muePose(true).pos.clone(); lean = .6; }   // se acerca a ver la muestra
+        else if (c.lookUntil > t && c.lookTo) look = c.lookTo;
+        else if (R && G.phase === 'play' && lastAct === c.p) look = c.g.localToWorld(tmpW.set(0, 1.4, 1.5)).clone();
+        else look = v3(Math.sin(t*.31 + c.phase)*1.6, 0, Math.cos(t*.23 + c.phase)*1.2);
+        c.g.worldToLocal(tmpV.copy(look));
+        const dx = tmpV.x, dy = tmpV.y - 4.2, dz = tmpV.z + .08;
+        yaw = clamp(Math.atan2(dx, dz), -1.15, 1.15); pitch = clamp(Math.atan2(-dy, Math.hypot(dx, dz)), -.35, .6);
+      }
+      c.lean = (c.lean || 0) + (lean - (c.lean || 0)) * Math.min(1, dt*4);
       c.yaw += (yaw - c.yaw) * Math.min(1, dt*5); c.pitch += (pitch - c.pitch) * Math.min(1, dt*5);
       let ry = 0, rx = 0, bz = 0;
       if (c.react) {
@@ -557,7 +565,7 @@ const V3 = (function(){
         }
       }
       c.pivot.rotation.set(c.pitch + rx, c.yaw + ry, 0);
-      c.body.position.z = bz;
+      c.body.position.z = bz + c.lean;
       c.body.scale.y = 1 + .008*Math.sin(t*1.7 + c.phase);
       c.body.rotation.z = .012*Math.sin(t*.7 + c.phase);
       const inact = R && (!R.active[c.p] || R.out[c.p]);
@@ -603,7 +611,8 @@ const V3 = (function(){
   // ---------- dónde va cada carta ----------
   function flat(x, y, z, up, yaw){ return { pos: v3(x, y, z), quat: qA(UP, yaw).multiply((up ? Q_UP : Q_DOWN).clone()), scale: 1 }; }
   // tu fila va un poco más hacia el centro, para que tu mano no la tape
-  function rowRad(p){ return p === ME ? Lay.rr - Lay.hs : Math.abs(Math.cos(ang(p))) < .3 ? Lay.rr + Lay.opp : Lay.rrS; }
+  // tu fila va más hacia el centro (sentado, mirás la mesa desde cerca y tu mano tapa lo que tenés adelante)
+  function rowRad(p){ return p === ME ? Lay.rr - Lay.hs - (mirando() ? 0 : Lay.ojoFila || 0) : Math.abs(Math.cos(ang(p))) < .3 ? Lay.rr + Lay.opp : Lay.rrS; }
   function rowCenter(p){ return onCircle(ang(p), rowRad(p)); }
   function tablePose(p, b, id){
     const c = rowCenter(p), d = rowDir(p), sp = d.z ? 1.25 : Lay.sp;
@@ -760,7 +769,7 @@ const V3 = (function(){
     if (!Lay || Lay.n !== G.n || Lay.names !== claveMesa()) { build(); fresh = true; }
     if (S.mid !== G.id) {   // empezó otro partido (G es una copia nueva en cada dibujo: se compara la marca)
       S.mid = G.id; S.roundNo = null; S.jobs = []; S.job = null; S.said = {}; S.cnt.partido++;
-      CAM.user = false; const d = defaultCam();
+      CAM.user = false; CAM.ojo = ojo0(); const d = defaultCam();
       Object.assign(CAM, { phi: -.9, beta: 1.0, rho: d.rho*1.9, tx: d.tx, ty: d.ty, tz: d.tz }); CAM.g = d; CAM.k = 1.6;
       fresh = true;
     }
@@ -928,35 +937,69 @@ const V3 = (function(){
   }
 
   // ---------- cámara ----------
-  function defaultCam(){
+  // La vista general: desde atrás y arriba del lugar de abajo. Es la de quien mira el partido (un poco más
+  // alta y más atrás, porque está parado) y la base de "Desde arriba".
+  function vistaGeneral(){
     const c = (Lay || { cam: PARAMS[2].cam }).cam, a = camera.aspect || 1.6;
     const wide = a < 1.25 ? Math.pow(1.25 / a, .5) : 1;
-    // quien mira está parado detrás del lugar de abajo: un poco más alto y más atrás
-    const m = mirando() ? { beta: .14, rho: 1.12 } : { beta: 0, rho: 1 };
-    return { phi: 0, beta: c.beta + m.beta, rho: c.rho * wide * m.rho, tx: c.tx * (a < 1 ? 0 : 1), ty: c.ty, tz: c.tz };
+    return { phi: 0, beta: c.beta, rho: c.rho * wide, tx: c.tx * (a < 1 ? 0 : 1), ty: c.ty, tz: c.tz };
   }
-  // El que juega mira desde su silla: puede inclinarse un poco hacia los costados, hacia adelante o atrás,
-  // y acercarse o alejarse un poco, como una persona en la mesa, pero no dar la vuelta a la mesa.
-  // Quien mira el partido sí la rodea.
-  const LIM = { phi: .26, abajo: .1, arriba: .16, cerca: .86, lejos: 1.1 };
+  // El que juega mira con los ojos de su personaje: sentado en su lugar, a la altura de la cabeza de los
+  // demás. Arrastrando gira la cabeza hasta 30° para cada lado y mira un poco más arriba o más abajo; la
+  // rueda o el pellizco lo inclinan hacia la mesa o hacia atrás (el mismo margen que tenía la cámara de
+  // antes para acercarse o alejarse). Así no da la vuelta a la mesa ni ve la espalda de nadie.
+  // ojo: { yaw (hacia la izquierda), pitch (hacia abajo), z (1 = sentado derecho; menos, inclinado hacia la mesa) }
+  const OJOS = { y: 4.5, afuera: 1.4, mira: 9, pitch: .3, fov: 1.18 };
+  const LIM = { giro: PI/6, arriba: .14, abajo: .2, cerca: .86, lejos: 1.1 };
+  const ojo0 = () => ({ yaw: 0, pitch: OJOS.pitch, z: 1 });
+  function ojosCam(o){
+    const TR = Lay ? Lay.TR : PARAMS[2].TR, base = vistaGeneral().rho, cp = Math.cos(o.pitch);
+    const f = v3(-Math.sin(o.yaw)*cp, -Math.sin(o.pitch), -Math.cos(o.yaw)*cp);    // hacia dónde mira
+    const E = v3(0, OJOS.y, TR + OJOS.afuera).addScaledVector(f, (1 - o.z) * base);   // los ojos
+    const T = E.clone().addScaledVector(f, OJOS.mira);
+    return { phi: o.yaw, beta: o.pitch, rho: OJOS.mira, tx: T.x, ty: T.y, tz: T.z };
+  }
+  function limitarOjo(o){
+    o.yaw = clamp(o.yaw, -LIM.giro, LIM.giro);
+    o.pitch = clamp(o.pitch, OJOS.pitch - LIM.arriba, OJOS.pitch + LIM.abajo);
+    o.z = clamp(o.z, LIM.cerca, LIM.lejos);
+  }
+  const enOjos = () => !mirando() && CAM.vista !== 'top';
+  // lo que ven los demás de tu cámara: tu cabeza girada, inclinado, o mirando la muestra de cerca
+  function miradaPropia(){
+    if (S.mz) return { y: 0, pi: .5, z: 1, mu: true };
+    if (!enOjos() || !CAM.ojo) return { y: 0, pi: OJOS.pitch, z: 1, mu: false };
+    return { y: CAM.ojo.yaw, pi: CAM.ojo.pitch, z: CAM.ojo.z, mu: false };
+  }
+  function defaultCam(){
+    if (!mirando()) return ojosCam(ojo0());
+    const d = vistaGeneral();
+    return { ...d, beta: d.beta + .14, rho: d.rho * 1.12 };
+  }
+  // "Desde arriba" (y quien mira): la cámara gira alrededor de la mesa; el que juega, hasta 30°
   function limitarCam(g){
     if (mirando()) { g.beta = clamp(g.beta, .2, 1.5); g.rho = clamp(g.rho, 7, 34); return; }
-    const b = CAM.vista === 'top' ? topCam() : defaultCam();
-    g.phi = clamp(g.phi, b.phi - LIM.phi, b.phi + LIM.phi);
-    g.beta = clamp(g.beta, b.beta - LIM.abajo, Math.min(1.5, b.beta + LIM.arriba));
+    const b = topCam();
+    g.phi = clamp(g.phi, b.phi - LIM.giro, b.phi + LIM.giro);
+    g.beta = clamp(g.beta, b.beta - .1, Math.min(1.5, b.beta + .16));
     g.rho = clamp(g.rho, b.rho * LIM.cerca, b.rho * LIM.lejos);
   }
-  function topCam(){ const d = defaultCam(); return { phi: 0, beta: 1.45, rho: d.rho * 1.05, tx: d.tx, ty: 0, tz: 1.2 }; }
+  function topCam(){ const d = vistaGeneral(); return { phi: 0, beta: 1.45, rho: d.rho * 1.05, tx: d.tx, ty: 0, tz: 1.2 }; }
+  // sentado (con los ojos) se ve un poco más abierto, como ve una persona sin mover la cabeza
+  let fovBase = 50;
+  const fovCam = () => enOjos() && !S.mz ? Math.min(80, fovBase * OJOS.fov) : fovBase;
   function updateCamera(dt){
     if (CAM.g) {
       const f = Math.min(1, dt*CAM.k);
       for (const k of ['phi', 'beta', 'rho', 'tx', 'ty', 'tz']) CAM[k] += (CAM.g[k] - CAM[k]) * f;
     }
+    const fv = fovCam();
+    if (Math.abs(camera.fov - fv) > .05) { camera.fov += (fv - camera.fov) * Math.min(1, dt*4); camera.updateProjectionMatrix(); }
     const cb = Math.cos(CAM.beta);
     camera.position.set(CAM.tx + CAM.rho*Math.sin(CAM.phi)*cb, CAM.ty + CAM.rho*Math.sin(CAM.beta), CAM.tz + CAM.rho*Math.cos(CAM.phi)*cb);
     camera.lookAt(CAM.tx, CAM.ty, CAM.tz);
   }
-  function setView(v){ if (S.mz) { S.mz = null; muLbl.classList.remove('on'); } CAM.vista = v; CAM.user = v !== 'mine'; CAM.g = v === 'top' ? topCam() : defaultCam(); CAM.k = 3; }
+  function setView(v){ if (S.mz) { S.mz = null; muLbl.classList.remove('on'); } CAM.vista = v; CAM.ojo = ojo0(); CAM.user = v !== 'mine'; CAM.g = v === 'top' ? topCam() : defaultCam(); CAM.k = 3; }
 
   // ---------- puntero: girar, acercar, jugar cartas ----------
   const ptrs = new Map();
@@ -999,7 +1042,7 @@ const V3 = (function(){
       canvas.setPointerCapture(ev.pointerId);
       ptrs.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
       if (ptrs.size === 1) drag = { x: ev.clientX, y: ev.clientY, moved: false, pinch: null };
-      else if (ptrs.size === 2 && drag) { const [a, b] = [...ptrs.values()]; drag.pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), rho: CAM.g ? CAM.g.rho : CAM.rho }; drag.moved = true; }
+      else if (ptrs.size === 2 && drag) { const [a, b] = [...ptrs.values()]; drag.pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), rho: CAM.g ? CAM.g.rho : CAM.rho, z: CAM.ojo ? CAM.ojo.z : 1 }; drag.moved = true; }
     });
     canvas.addEventListener('pointermove', ev => { ultimoToque = clock();
       const pt = ptrs.get(ev.pointerId);
@@ -1019,13 +1062,17 @@ const V3 = (function(){
       if (!drag) return;
       if (drag.pinch && ptrs.size >= 2) {
         const [a, b] = [...ptrs.values()], d = Math.hypot(a.x - b.x, a.y - b.y);
-        startUserCam(); CAM.g.rho = clamp(drag.pinch.rho * drag.pinch.d / Math.max(20, d), 7, 34); limitarCam(CAM.g);
+        startUserCam();
+        if (enOjos()) { CAM.ojo.z = drag.pinch.z * drag.pinch.d / Math.max(20, d); limitarOjo(CAM.ojo); CAM.g = ojosCam(CAM.ojo); }
+        else { CAM.g.rho = clamp(drag.pinch.rho * drag.pinch.d / Math.max(20, d), 7, 34); limitarCam(CAM.g); }
         return;
       }
       if (!drag.moved && Math.hypot(ev.clientX - drag.x, ev.clientY - drag.y) > 6) { drag.moved = true; canvas.style.cursor = 'grabbing'; }
       if (drag.moved) {
         startUserCam();
-        CAM.g.phi -= dx * (mirando() ? .0065 : .0032); CAM.g.beta = clamp(CAM.g.beta + dy * (mirando() ? .005 : .0028), .2, 1.5); limitarCam(CAM.g);
+        // con los ojos: la mesa sigue al dedo (arrastrar a la derecha es girar la cabeza a la izquierda)
+        if (enOjos()) { CAM.ojo.yaw += dx * .0035; CAM.ojo.pitch -= dy * .003; limitarOjo(CAM.ojo); CAM.g = ojosCam(CAM.ojo); }
+        else { CAM.g.phi -= dx * (mirando() ? .0065 : .0032); CAM.g.beta = clamp(CAM.g.beta + dy * (mirando() ? .005 : .0028), .2, 1.5); limitarCam(CAM.g); }
         if (hintEl) hintEl.classList.add('gone');
       }
     });
@@ -1044,7 +1091,11 @@ const V3 = (function(){
     canvas.addEventListener('pointerup', up);
     canvas.addEventListener('pointercancel', up);
     canvas.addEventListener('pointerleave', ev => { if (ev.pointerType === 'mouse' && !ptrs.size) { S.hover = null; clearTimeout(S.mzT); if (S.mz && !S.mz.sticky) muestraZoom(false); } });
-    canvas.addEventListener('wheel', ev => { ultimoToque = clock(); ev.preventDefault(); startUserCam(); CAM.g.rho = clamp(CAM.g.rho * Math.exp(ev.deltaY * .0011), 7, 34); limitarCam(CAM.g); }, { passive: false });
+    canvas.addEventListener('wheel', ev => {
+      ultimoToque = clock(); ev.preventDefault(); startUserCam();
+      if (enOjos()) { CAM.ojo.z *= Math.exp(ev.deltaY * .0011); limitarOjo(CAM.ojo); CAM.g = ojosCam(CAM.ojo); }
+      else { CAM.g.rho = clamp(CAM.g.rho * Math.exp(ev.deltaY * .0011), 7, 34); limitarCam(CAM.g); }
+    }, { passive: false });
     canvas.addEventListener('dblclick', () => setView('mine'));
     document.addEventListener('keydown', ev => {
       if (!running || document.querySelector('.overlay') || /INPUT|SELECT|TEXTAREA/.test((document.activeElement || {}).tagName || '')) return;
@@ -1056,7 +1107,7 @@ const V3 = (function(){
     $('cam3dMine').onclick = () => setView('mine');
     $('cam3dTop').onclick = () => setView('top');
   }
-  function startUserCam(){ if (S.mz) { S.mz = null; muLbl.classList.remove('on'); } if (!CAM.g) CAM.g = defaultCam(); CAM.user = true; CAM.k = 9; }
+  function startUserCam(){ if (S.mz) { S.mz = null; muLbl.classList.remove('on'); } if (!CAM.ojo) CAM.ojo = ojo0(); if (!CAM.g) CAM.g = defaultCam(); CAM.user = true; CAM.k = 9; }
 
   // ---------- cuadro con la cara del que hace señas ----------
   function renderPip(){
@@ -1130,6 +1181,7 @@ const V3 = (function(){
     ultimoCuadro = t;
     const dt = Math.min(.05, t - last || .016); last = t; now = t;
     updateCamera(dt);
+    if (NET) avisarMirada(miradaPropia());
     camera.updateMatrixWorld(true);
     runJobs();
     for (const id in CARDS) stepCard(CARDS[id], t, dt);

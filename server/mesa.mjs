@@ -1,10 +1,12 @@
 // Una mesa compartida en el servidor (una por código). Hace lo que hacía el navegador del anfitrión
 // en las mesas por internet (red.part.js), pero acá: nadie tiene que dejar una pestaña abierta y nadie
 // tiene en su navegador las cartas ajenas. Habla el mismo idioma de mensajes que el juego:
-//   del jugador: hello, sit, bye, act, senas, pedido, ready, chat, talk, pong, empezar (mesa pública), mirar, echar, vozid;
+//   del jugador: hello, sit, bye, act, senas, pedido, ready, chat, talk, pong, empezar (mesa pública), mirar, echar, vozid, mirada;
 //                y el dueño: mode, name, cfg, start, close
 //   al jugador:  hola, lobby, state, err, full, closed, nomesa, ocupada, nocuenta, chat, chatlog, talk, ping, ranking,
-//                mirando, expulsado, vetado, echado
+//                mirando, expulsado, vetado, echado, mirada
+// Mirada: hacia dónde mira cada uno en la mesa 3D (girar la cabeza, inclinarse, mirar la muestra de cerca);
+// se reparte tal cual a los demás para que lo vean en su personaje. No dice nada de las cartas.
 // Mirar: quien no tiene lugar puede mirar el partido. Ve lo que vería alguien parado al lado de la mesa (las
 // cartas jugadas, lo que se muestra, el tanteador), nunca las cartas sin jugar ni las señas, y puede usar el
 // chat y la voz. Si la mayoría de las personas sentadas vota echarlo, se va y no vuelve a entrar a esa mesa
@@ -134,6 +136,12 @@ export class Mesa {
         return;
       case 'vozid': if (typeof m.id === 'string' && VOZ_RE.test(m.id) && c.vozId !== m.id) { c.vozId = m.id; if (this.seats) this.broadcast(this.lobbyMsg()); } return;
       case 'mirar': return this.mirar(cid);
+      case 'mirada': {
+        if (s < 0 || !this.started) return;
+        const num = (v, a, b, d) => typeof v === 'number' && Number.isFinite(v) ? Math.max(a, Math.min(b, Math.round(v * 100) / 100)) : d;
+        this.broadcast({ t: 'mirada', p: s, y: num(m.y, -.6, .6, 0), pi: num(m.pi, -.3, .8, .3), z: num(m.z, .8, 1.2, 1), mu: !!m.mu });
+        return;
+      }
       case 'echar': return this.echar(s, m);
       // lo que puede hacer el dueño de la mesa
       case 'mode': if (this.isOwner(cid) && !this.started && [2, 4, 6].includes(m.n)) this.setMode(m.n); return;

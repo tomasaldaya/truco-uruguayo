@@ -357,6 +357,11 @@ function onHostMsg(m){
       chatAdd({ p: s, name, text: m.text }, true);
       return;
     }
+    case 'mirada': if (s >= 0 && NET.started) {   // como el servidor: se recorta y se reparte
+      const n = (v, a, b, d) => typeof v === 'number' && isFinite(v) ? Math.max(a, Math.min(b, v)) : d;
+      const r = { t: 'mirada', p: s, y: n(m.y, -.6, .6, 0), pi: n(m.pi, -.3, .8, .3), z: n(m.z, .8, 1.2, 1), mu: !!m.mu };
+      recibirMirada(r); netPost(r);
+    } return;
     case 'talk': if (s >= 0 && mesaCfg().voz) { setTalking(s, !!m.on); netPost({ t: 'talk', p: s, on: !!m.on }); } return;
     case 'pong':
       if (s >= 0) NET.alive[g] = Math.max(NET.alive[g] || 0, m.s);
@@ -520,6 +525,7 @@ function onGuestMsg(m){
     case 'ranking': cuentaRanking(m); return;
     case 'chatlog': NET.chat = (m.list || []).slice(-80); renderChat(); return;
     case 'talk': if (typeof m.m === 'string') { NET.talkingM[m.m] = !!m.on; renderVoz(); renderMirones(); } else setTalking(m.p, !!m.on); return;
+    case 'mirada': recibirMirada(m); return;
     case 'mirando': NET.mira = true; NET.miraId = m.id; NET.quiereMirar = false; renderMirones(); return;
     case 'expulsado': case 'vetado': {
       const code = NET.code;
@@ -799,6 +805,33 @@ function chatSeccion(k){
   if (!c.chat && !c.voz) return '<p class="hkey">En esta mesa no hay chat de texto ni de voz.</p><div class="miran" data-miran></div>';
   return `<section class="lchat"><h3>${chatTitulo(c)}</h3>${chatUI(k)}</section>`;
 }
+// ---------- Hacia dónde mira cada uno (mesa 3D) ----------
+// Tu pantalla avisa hacia dónde mira tu personaje (cuánto girás la cabeza, si te inclinás, si te acercás a
+// ver la muestra) cuando cambia, como mucho cinco veces por segundo; los demás lo ven en su mesa 3D.
+const MIRADA = { ultima: '', at: 0, t: null, pend: null };
+function avisarMirada(m){
+  if (!NET || !NET.tr || mirando() || !G || G.phase === 'matchEnd' || (NET.role === 'guest' && NET.seat < 0)) return;
+  const q = { y: Math.round(m.y * 50) / 50, pi: Math.round(m.pi * 50) / 50, z: Math.round(m.z * 100) / 100, mu: !!m.mu };
+  const k = JSON.stringify(q);
+  if (k === MIRADA.ultima || k === JSON.stringify(MIRADA.pend)) return;
+  MIRADA.pend = q;
+  const ir = () => {
+    MIRADA.t = null;
+    const x = MIRADA.pend; MIRADA.pend = null;
+    if (!NET || !x) return;
+    MIRADA.ultima = JSON.stringify(x); MIRADA.at = Date.now();
+    netPost(NET.role === 'host' ? { t: 'mirada', p: 0, ...x } : { t: 'mirada', ...x });
+  };
+  const espera = 200 - (Date.now() - MIRADA.at);
+  if (espera <= 0) ir(); else if (!MIRADA.t) MIRADA.t = setTimeout(ir, espera);
+}
+function recibirMirada(m){
+  if (!NET || typeof m.p !== 'number' || m.p === (NET.role === 'host' ? 0 : NET.mira ? -1 : NET.seat)) return;
+  (NET.miradas = NET.miradas || {})[m.p] = { y: +m.y || 0, pi: +m.pi || 0, z: +m.z || 1, mu: !!m.mu };
+}
+// la mirada de un jugador (si es una persona y avisó alguna)
+const miradaDe = p => NET && NET.miradas && G && G.humans && G.humans.includes(p) ? NET.miradas[p] || null : null;
+
 // ---------- Los que miran ----------
 // La lista de quienes miran el partido. Quien juega puede votar echar a alguno (por ejemplo, si molesta en
 // la voz); con la mayoría de las personas sentadas se va y no puede volver a esta mesa.
