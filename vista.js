@@ -5,6 +5,8 @@
 // ({ id: 'x<lugar>-<n>', hidden: true }). El anfitrión le manda a cada invitado su vista, y cada
 // pantalla dibuja la suya, así que nadie tiene en sus datos lo que no le corresponde ver.
 // opts.revealEnd: al terminar la mano se ven las cartas de todos (jugando solo contra la computadora).
+// En el pico a pico, lo que se muestra al final (las cartas del envite o de la flor) lo ve solo el rival
+// de ese duelo, no toda la mesa.
 (function (global) {
   'use strict';
   const T = global.Truco || (typeof require !== 'undefined' ? require('./engine.js') : null);
@@ -18,6 +20,7 @@
     const R = V.round;
     if (!R) return V;
     const n = V.n, mine = q => team(q) === team(s), ended = V.phase !== 'play';
+    const rivalDeDuelo = q => !R.duel || (R.duel.pairs.find(pr => pr.includes(q)) || []).includes(s);
 
     // Mientras se decide a ley de juego no se ven la muestra ni las cartas, ni las propias (Art. 72);
     // impuesta, los desafiantes no ven las suyas hasta que el otro equipo contesta (Arts. 75 y 79)
@@ -31,7 +34,7 @@
     }
     for (let q = 0; q < n; q++) {
       if (q === s) continue;
-      const show = ended && (opts.revealEnd || R.mustShow[q]);
+      const show = ended && (opts.revealEnd || R.mustShow[q]) && rivalDeDuelo(q);
       if (!show) {
         const inHand = new Set(R.hands[q].map(c => c.id));
         R.initial[q] = R.initial[q].map((c, i) => inHand.has(c.id) ? tapada('y', q, i) : c);

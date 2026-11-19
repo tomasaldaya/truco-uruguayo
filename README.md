@@ -394,3 +394,7 @@ suelto. Para jugar online hace falta internet, como siempre.
 - **Abandono**: si un jugador realista se va y la computadora sigue en su lugar, ese lugar deja de ser
   realista (servidor y mesas entre navegadores).
 - `tools/realista/casos.js` arma a mano los casos borde del modo realista y muestra qué decide el juego.
+- **Pico a pico**: lo que se muestra al terminar un duelo (las cartas del envite o de la flor) lo ve solo el
+  rival de ese duelo, no toda la mesa (`vista.js`); el repaso de "Ver las cartas de todos" en esas rondas
+  muestra solo lo que te tocó ver. Así tampoco se ven, entre un duelo y otro, las cartas de los que todavía
+  no jugaron el suyo.

@@ -984,6 +984,7 @@ function mySeat(act){
   sm.appendChild(el('div','err', esc(errMsg)));
   const muestro = G.phase !== 'play' && R.mustShow[ME];
   const mh = muestro ? mostradasEl(ME, 'hand me') : el('div','hand me');
+  if (muestro && R.duel) { const pr = R.duel.pairs.find(x => x.includes(ME)) || []; const riv = pr.find(q => q !== ME); if (riv !== undefined) mh.title = 'Pico a pico: se las mostrás solo a ' + G.names[riv]; }
   if (!muestro) R.hands[ME].forEach(c => {
     const can = playable.has(c.id);
     const e = cardEl(c, {button: can, cls: can?'play':(act===ME?'dim':''), badge: showHelp && !R.leyPhase});
@@ -1049,6 +1050,11 @@ function myTagsEl(){
   if (R.mano===ME) tags.push('<span class="tag mano">sos mano</span>');
   if (G.dealer===ME) tags.push('<span class="tag">das vos</span>');
   if (R.flor.sung[ME]) tags.push('<span class="tag flor">cantaste flor</span>');
+  // pico a pico: lo que mostrás al final lo ve solo tu rival del duelo
+  if (G.phase !== 'play' && R.mustShow[ME] && R.duel) {
+    const riv = (R.duel.pairs.find(x => x.includes(ME)) || []).find(q => q !== ME);
+    if (riv !== undefined) tags.push(`<span class="tag">se las mostrás solo a ${esc(G.names[riv])}</span>`);
+  }
   return el('div','tags', tags.join(''));
 }
 function actionsEl(myLegal){
@@ -1588,8 +1594,15 @@ function showRoundEnd(){
       : `<div class="pen"><b>${esc(r)} de ${esc(G.names[P.off])}.</b> Por el Art. 46 ${we?'cobran':'cobrás'} ${partes.join(' + ')} = <b>${P.total}</b>.</div>`;
   }
   let shown = '';
-  for (let p=0;p<G.n;p++) if (p !== ME && R.mustShow[p]) shown += cardsRow(G.names[p], R.initial[p]);
-  if (shown) shown = `<p class="small">Cartas que se muestran (Art. 45):</p>${shown}`;
+  const rivalDuelo = p => R.duel && (R.duel.pairs.find(pr => pr.includes(p)) || []).find(q => q !== p);
+  const ajenas = [];
+  for (let p=0;p<G.n;p++) if (p !== ME && R.mustShow[p]) {
+    if (R.initial[p].some(c => c.hidden)) ajenas.push(`${esc(G.names[p])} se las mostró a ${esc(G.names[rivalDuelo(p)])}`);
+    else shown += cardsRow(G.names[p], R.initial[p]);
+  }
+  if (shown) shown = `<p class="small">Cartas que se muestran (Art. 45)${R.duel ? ', solo al rival del duelo' : ''}:</p>${shown}`;
+  if (ajenas.length) shown += `<p class="small">Pico a pico: ${ajenas.join('; ')}.</p>`;
+  if (R.duel && R.mustShow[ME] && rivalDuelo(ME) !== undefined) shown += `<p class="small">Pico a pico: tus cartas las ve solo ${esc(G.names[rivalDuelo(ME)])}.</p>`;
   if (R.mustShow[ME] || R.penalty || R.flor.negada[ME]) shown += `<p class="small">Tus cartas:</p>${cardsRow('Vos', R.initial[ME])}`;
   if (R.flor.negada[ME] && !R.penalty && !G.disq) shown += `<p class="small">Negaste la flor y no llegó a verse: no se descubrió.</p>`;
   const chicos = `<p class="small">Chicos: ${esc(tName(mt))} ${G.chicos[mt]} — ${esc(tName(1-mt))} ${G.chicos[1-mt]}. Tanteador: ${G.scores[mt]} a ${G.scores[1-mt]}.</p>`;
@@ -1687,7 +1700,7 @@ function howToModal(){
   <p><b>Mostrar las cartas:</b> al terminar la mano, el que ganó el envido o cantó flor da vuelta sus cartas sobre la mesa para que se vea que tenía lo que cantó (Art. 45).</p>
   <p><b>Paso y mazo:</b> en parejas y tercetos, si decís "paso" salís de la mano y no jugás más bazas, pero te quedás con tus cartas por si tenés que mostrarlas (Arts. 88 y 92). Si te vas al mazo sin ser el pie de tu equipo, te vas solo y tu equipo sigue; si se va el pie, pierde el equipo. En Reglas de la mesa podés elegir en cambio que irse al mazo saque a todo el equipo (Art. 90). Si un equipo se va en la primera baza sin que nadie haya tocado ni gritado, y al otro todavía le quedaba tocar, el otro cobra <b>dos</b> puntos.</p>
   <p><b>Atajos al compañero:</b> en parejas y tercetos, abajo tenés <i>¡Vení!</i> (que juegue su carta más baja, que la baza la hacés vos), <i>¡Jugá algo!</i> (que no tire la peor), <i>¡Gritá!</i> (que cante truco) y <i>Tengo algo para el tanto</i> (que toque o quiera el envido). Los oye toda la mesa, como si lo dijeras en voz alta; la computadora compañera te hace caso.</p>
-  <p><b>Tercetos:</b> hasta que un equipo llega a la mitad del chico se alternan rondas generales y rondas mano a mano, en las que cada uno juega contra el rival de enfrente; ahí la falta tiene tope de 10 (Arts. 83 a 87). En esos duelos (el pico a pico) las piezas se juegan dadas vuelta: solo las ven los dos que juegan ese duelo.</p>
+  <p><b>Tercetos:</b> hasta que un equipo llega a la mitad del chico se alternan rondas generales y rondas mano a mano, en las que cada uno juega contra el rival de enfrente; ahí la falta tiene tope de 10 (Arts. 83 a 87). En esos duelos (el pico a pico) las piezas se juegan dadas vuelta: solo las ven los dos que juegan ese duelo. Lo mismo al final: si alguien ganó el envite o cantó flor, sus cartas se las muestra solo a su rival del duelo.</p>
   <p><b>A ley de juego:</b> en parejas y tercetos, cuando algún equipo ya entró en buenas, el equipo que va perdiendo (o el del mano, si van iguales) puede imponerla en cada mano antes de ver las cartas y la muestra (nadie ve sus cartas mientras se decide), o jugar normal. Los rivales, ya con sus cartas a la vista, dicen cada uno en su turno "con ley" si tienen flor o "a punto" si no, y después el pie de su equipo contesta todo de una vez. Los que la impusieron ven sus cartas cuando llega la respuesta. Si hay flor y no se quiere el envite, se cobra la flor y el envite no querido no suma para nadie. Es una versión simplificada del Cap. 7: no incluye los reenvites del Art. 76 ni el Art. 79.</p>
   <p><b>Reglas de la mesa:</b> en Configuración, desde el menú: puntos por chico, cantidad de chicos, tiempo para decidir, con o sin flor, qué pasa con tu flor si tu compañero toca o grita, cartas iguales, señas y dificultad.</p>
   <p class="small">Tocar es envido, gritar es truco, cantar es flor. Reglas según el Reglamento del Truco Uruguayo.</p>
