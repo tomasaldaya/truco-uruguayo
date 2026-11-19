@@ -223,7 +223,7 @@ function modosPublicosHTML(){
 function clavePublicasHTML(){
   const lista = CUENTA.publicas || [], gente = CUENTA.conectados || 0;
   return `<span class="hpg"><i class="dot${gente ? ' on' : ''}"></i> ${gente ? `${gente} ${gente === 1 ? 'persona conectada' : 'personas conectadas'} ahora` : 'Todavía no hay nadie más conectado'}</span>
-    <span>Cada mesa tiene sus reglas: las elige quien la arma. Cuentan para el ranking. <button class="lnk" id="hPubVer">Ver las mesas${lista.length ? ` (${lista.length})` : ''}</button> · <button class="lnk" id="hRankVer">Ranking</button></span>`;
+    <span>Cada mesa tiene sus reglas: las elige quien la arma. Cuentan para el ranking. <button class="lnk" id="hPubVer">Ver las mesas${lista.length ? ` (${lista.length})` : ''}</button>${enJuegoPub().length ? ` · ${enJuegoPub().length} ${enJuegoPub().length === 1 ? 'partido' : 'partidos'} para mirar` : ''} · <button class="lnk" id="hRankVer">Ranking</button></span>`;
 }
 function publicasHomeHTML(){
   let h = `<section class="hpub"><h2>Jugar con gente</h2>
@@ -543,7 +543,8 @@ async function cuentaPublicas(){
   try { const r = await api('publicas'); CUENTA.publicas = r.lista; CUENTA.conectados = r.conectados || 0; } catch (e) { return; }
   cuentaRefrescar();
 }
-const esperandoEn = n => (CUENTA.publicas || []).filter(m => m.n === n && m.personas < m.n);
+const esperandoEn = n => (CUENTA.publicas || []).filter(m => m.n === n && !m.empezada && m.personas < m.n);
+const enJuegoPub = () => (CUENTA.publicas || []).filter(m => m.empezada);
 async function buscarPublica(n){
   if (!conCuenta()) return;
   try { CUENTA.publicas = (await api('publicas')).lista; } catch (e) {}
@@ -565,17 +566,26 @@ function renderPublicas(box){
     const e = esperandoEn(n), gente = e.reduce((a, m) => a + m.personas, 0);
     return `<button class="hmode" data-pn="${n}" ${conCuenta() ? '' : 'disabled'}>${tableSVG(n)}<div><b>${nm}</b><span>${gente ? `${gente} ${gente === 1 ? 'persona esperando' : 'personas esperando'}` : 'Nadie esperando: armás la mesa'}</span></div></button>`;
   }).join('') + '</div>';
+  const esperan = lista && lista.filter(m => !m.empezada), juegan = lista && lista.filter(m => m.empezada);
   h += '<section><h2 class="h3">Mesas esperando gente</h2>';
   if (!lista) h += '<p class="lob">Cargando…</p>';
-  else if (!lista.length) h += '<p class="hkey">Ahora no hay ninguna. Elegí un modo y sé el primero: la mesa aparece acá para los demás.</p>';
-  else h += '<ul class="amg">' + lista.map(m => `<li><b>${esc(modeName(m.n))}</b><small>${esc(m.nombres.join(', '))} · ${m.personas} de ${m.n}</small><small class="mreg">${esc(cfgCorto(limpiarCfgMesa(m.cfg)))}</small>${conCuenta() ? `<button class="tool" data-pc="${m.codigo}">Sentarme</button>` : ''}</li>`).join('') + '</ul>';
+  else if (!esperan.length) h += '<p class="hkey">Ahora no hay ninguna. Elegí un modo y sé el primero: la mesa aparece acá para los demás.</p>';
+  else h += '<ul class="amg">' + esperan.map(m => `<li><b>${esc(modeName(m.n))}</b><small>${esc(m.nombres.join(', '))} · ${m.personas} de ${m.n}</small><small class="mreg">${esc(cfgCorto(limpiarCfgMesa(m.cfg)))}</small>${conCuenta() ? `<button class="tool" data-pc="${m.codigo}">Sentarme</button>` : ''}</li>`).join('') + '</ul>';
   if (conCuenta()) h += `<div class="hlinks"><button class="tool" id="hPubNueva">Armar una mesa nueva</button></div>`;
+  // los partidos que se están jugando: se pueden mirar (sin ver las cartas de nadie hasta que se juegan)
+  if (juegan && juegan.length) {
+    h += '</section><section><h2 class="h3">Partidos en juego</h2><ul class="amg">' + juegan.map(m => {
+      const t = Array.isArray(m.tanto) ? ` · van ${m.tanto[0]} a ${m.tanto[1]}` : '', mir = m.mirando ? ` · ${m.mirando} mirando` : '';
+      return `<li><b>${esc(modeName(m.n))}</b><small>${esc(m.nombres.join(', '))}${t}${mir}</small><small class="mreg">${esc(cfgCorto(limpiarCfgMesa(m.cfg)))}</small>${conCuenta() ? `<button class="tool" data-pm="${m.codigo}">Mirar</button>` : ''}</li>`;
+    }).join('') + '</ul><p class="hkey">Mirando ves las cartas cuando se juegan, el tanteador y el chat de la mesa. Si molestás, los que juegan pueden votar echarte.</p>';
+  }
   h += '</section><p class="hkey">Las reglas (a cuántos puntos, cuántos chicos, el achique, el chat y la voz) las elige quien arma la mesa. Todas se juegan con flor, 30 segundos por jugada y en modo realista. Empiezan solas cuando se llenan; si ya son dos o más y todos quieren, pueden empezar antes y la computadora completa los lugares libres. Cuentan para el ranking cuando hay gente en los dos equipos.</p>';
   box.innerHTML = h;
   $('hBack').onclick = () => { homeView = 'main'; renderHome(); };
   if ($('hGsi')) gsiBoton($('hGsi'));
   box.querySelectorAll('[data-pn]').forEach(b => b.onclick = () => buscarPublica(+b.dataset.pn));
   box.querySelectorAll('[data-pc]').forEach(b => b.onclick = () => joinTable(b.dataset.pc, myName(), false, { publica: true }));
+  box.querySelectorAll('[data-pm]').forEach(b => b.onclick = () => joinTable(b.dataset.pm, myName(), false, { publica: true, mirar: true }));
   if ($('hPubNueva')) $('hPubNueva').onclick = () => abrirCrear(true, players);
   if (!lista) cuentaPublicas();
 }

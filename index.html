@@ -488,6 +488,20 @@ img.avt{object-fit:cover;background:#2a1d13}
 .chatlog{max-height:220px;overflow:auto;font-size:14px;display:flex;flex-direction:column;gap:5px;padding-right:4px;margin-bottom:8px}
 .cm{line-height:1.35;word-wrap:break-word}.cm b{color:var(--gold)}.cm.nos b{color:#9cc7ee}.cm.ellos b{color:#e08a96}.cm.yo b{color:var(--muted, #cbbd9f)}
 .cm.vacio{opacity:.6;font-size:13px}
+.cm.sis{font-size:13px;font-style:italic;opacity:.8}
+.cm small.mir{font-size:11px;opacity:.65;margin-right:2px}
+/* los que miran el partido: nombre, si habla, y para quien juega, votar echarlo */
+.miran:empty{display:none}
+.miran{margin-top:12px;border-top:1px solid rgba(255,255,255,.1);padding-top:10px}
+.miran h4{margin:0 0 6px;font-size:13px;font-weight:600;color:var(--muted)}
+.miran ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.miran li{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:14px}
+.miran li small{display:block;font-size:11.5px;color:#e08a96}
+.miran .tool{font-size:12.5px;padding:4px 10px}
+.miran .tool.echar{border-color:rgba(224,138,150,.55);color:#f0b0b8}
+.miran .hkey{font-size:12px;margin:8px 0 0}
+.mirandobar{font-size:13px;color:var(--muted);text-align:center;margin:2px 0 4px}
+.mirandobar .lnk{font-size:13px;color:var(--gold)}
 .chatf{display:flex;gap:6px}.chatf input{flex:1;min-width:0;font:inherit;font-size:14px;padding:7px 10px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:#2a1d13;color:var(--ink)}
 .voz{margin-top:10px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 .ptt{font:inherit;font-weight:700;font-size:14px;padding:9px 14px;border-radius:12px;border:1px solid rgba(255,255,255,.25);background:#2f3a2c;color:var(--ink);cursor:pointer;user-select:none;-webkit-user-select:none;touch-action:none}
@@ -704,7 +718,7 @@ img.avt{object-fit:cover;background:#2a1d13}
       <div class="ov3d">
         <div class="baz3d" id="baz3d"></div>
         <div class="cam3d"><button class="tool" id="cam3dMine" title="Volver a mirar desde tu lugar (doble clic)">Tu lugar</button><button class="tool" id="cam3dTop" title="Ver la mesa desde arriba">Desde arriba</button></div>
-        <div class="hint3d" id="hint3d">Arrastrá para girar la mesa · rueda o pellizco para acercar</div>
+        <div class="hint3d" id="hint3d">Arrastrá para inclinarte un poco · rueda o pellizco para acercarte</div>
         <div class="mue3d" id="mue3d">Muestra</div>
         <div class="mybub" id="mybub3d"></div>
         <div class="lado3d izq" id="senas3d"></div>
@@ -6507,6 +6521,8 @@ void main() {
 // ({ id: 'x<lugar>-<n>', hidden: true }). El anfitrión le manda a cada invitado su vista, y cada
 // pantalla dibuja la suya, así que nadie tiene en sus datos lo que no le corresponde ver.
 // opts.revealEnd: al terminar la mano se ven las cartas de todos (jugando solo contra la computadora).
+// s = -1: alguien que mira sin jugar. No ve ninguna carta sin jugar ni ninguna seña; sí lo que se muestra
+// sobre la mesa (salvo en el pico a pico, que es solo para el rival del duelo).
 // En el pico a pico, lo que se muestra al final (las cartas del envite o de la flor) lo ve solo el rival
 // de ese duelo, no toda la mesa.
 (function (global) {
@@ -6526,7 +6542,7 @@ void main() {
 
     // Mientras se decide a ley de juego no se ven la muestra ni las cartas, ni las propias (Art. 72);
     // impuesta, los desafiantes no ven las suyas hasta que el otro equipo contesta (Arts. 75 y 79)
-    const sinVer = R.leyPhase || (R.ley && R.ley.team === team(s) && ((R.ley.queue && R.ley.queue.length) || R.ley.pendingResp));
+    const sinVer = s >= 0 && (R.leyPhase || (R.ley && R.ley.team === team(s) && ((R.ley.queue && R.ley.queue.length) || R.ley.pendingResp)));
     if (R.leyPhase) R.muestra = { id: 'xm', hidden: true };
     if (sinVer) {
       R.hands[s] = R.hands[s].map((c, i) => tapada('x', s, i));
@@ -6776,11 +6792,15 @@ const team = p => p % 2;
 const rel = p => (p - ME + G.n) % G.n;            // lugar relativo: 0 sos vos (abajo) y sigue hacia la derecha
 const seatOf = p => SEAT[G.n][rel(p)];
 const MT = () => team(ME);                          // tu equipo
-const nameOf = p => p === ME ? 'Vos' : G.names[p];
+// mirando el partido de otros: se ve desde el lugar 0, sin cartas propias, sin botones y sin "vos"
+const mirando = () => !!(NET && NET.mira);
+const nameOf = p => p === ME && !mirando() ? 'Vos' : G.names[p];
+const colorEq = t => t ? 'bordó' : 'celeste';
 const isGuest = () => !!(NET && NET.role === 'guest');
 const otherOf2 = () => (ME + 1) % 2;                // el rival en mano a mano
 // nombre de un equipo visto desde esta pantalla
 function tName(t){
+  if (mirando()) return G.n === 2 ? G.names[t] : t ? 'Bordó' : 'Celeste';
   if (!NET) return G.teamNames[t];
   if (G.n === 2) return t === MT() ? 'Vos' : G.names[otherOf2()];
   return t === MT() ? 'Nosotros' : 'Ellos';
@@ -6805,7 +6825,7 @@ function render(){
   soundCues();
   if (NET) renderVoz();
   const R = G.round;
-  $('modeLbl').textContent = (G.n===6 ? 'tercetos' : G.n===4 ? 'parejas' : 'mano a mano') + (NET ? ', mesa ' + NET.code : '');
+  $('modeLbl').textContent = (G.n===6 ? 'tercetos' : G.n===4 ? 'parejas' : 'mano a mano') + (NET ? ', mesa ' + NET.code : '') + (mirando() ? ', mirando' : '');
   saveGame();
   if (!$('home').hidden) return;
   renderScore(); renderLog();
@@ -6819,10 +6839,10 @@ function render(){
   }
   $('t3d').hidden = true; $('table').hidden = false; V3.pause();
   const tb = $('table'); tb.innerHTML = ''; tb.className = 'table' + (G.n===4?' four':G.n===6?' six':'');
-  for (let p = 0; p < G.n; p++) if (p !== ME) tb.appendChild(otherSeat(p, act));
+  for (let p = 0; p < G.n; p++) if (p !== ME || mirando()) tb.appendChild(otherSeat(p, act));
   tb.appendChild(G.n>=4 ? center4() : center2());
   tb.appendChild(statusBox(act));
-  tb.appendChild(mySeat(act));
+  if (!mirando()) tb.appendChild(mySeat(act));
   moverMazo();
   renderRanks(); pintarHoja();
 }
@@ -6849,7 +6869,7 @@ const mostr2d = {};
 function mostradasEl(p, cls){
   const R = G.round, k = G.id + ':' + G.roundNo + ':' + p, t0 = mostr2d[k] || (mostr2d[k] = Date.now()), pasó = Date.now() - t0;
   const h = el('div', (cls || 'hand') + ' mostradas');
-  h.title = (p === ME ? 'Mostrás' : G.names[p] + ' muestra') + ' las cartas del envite (Art. 45)';
+  h.title = (p === ME && !mirando() ? 'Mostrás' : G.names[p] + ' muestra') + ' las cartas del envite (Art. 45)';
   R.initial[p].forEach((c, i) => { const e = cardEl(c); e.style.animationDelay = (i * 110 - pasó) + 'ms'; h.appendChild(e); });
   return h;
 }
@@ -6863,7 +6883,7 @@ function otherSeat(p, act){
   if (R.flor.sung[p]) tags.push('<span class="tag flor">flor</span>');
   if (act===p && G.phase==='play') tags.push('<span class="tag turn">juega</span>');
   if (R.out[p]) tags.push('<span class="tag out">pasó</span>');
-  const who = el('div','who', `<div class="name">${esc(G.names[p])}${NET && NET.talking && NET.talking[p] ? ' <span class="mic">🎙</span>' : ''}</div>${G.n>=4?`<div class="sub">${partner?'tu compañero':'rival'}</div>`:''}<div class="tags">${tags.join('')}</div>`);
+  const who = el('div','who', `<div class="name">${esc(G.names[p])}${NET && NET.talking && NET.talking[p] ? ' <span class="mic">🎙</span>' : ''}</div>${G.n>=4?`<div class="sub">${mirando() ? 'equipo ' + colorEq(team(p)) : partner?'tu compañero':'rival'}</div>`:''}<div class="tags">${tags.join('')}</div>`);
   const muestra = G.phase !== 'play' && R.mustShow[p] && R.initial[p].every(c => !c.hidden);
   const h = muestra ? mostradasEl(p) : el('div','hand' + (pos==='top' && G.n===2 ? '' : ' mini'));
   if (!muestra) R.hands[p].forEach(() => h.appendChild(backEl()));
@@ -6900,6 +6920,7 @@ function center2(){
   return c;
 }
 function resChip(t){
+  if (mirando()) return el('div','res '+(t.winnerTeam===-1?'parda':''), t.winnerTeam===-1 ? 'parda' : G.n===2 ? 'de ' + G.names[t.winnerTeam] : colorEq(t.winnerTeam));
   const mine = t.winnerTeam===MT();
   const txt = t.winnerTeam===-1 ? 'parda' : G.n===2 ? (mine ? 'tuya' : NET ? 'de ' + G.names[otherOf2()] : 'de la compu') : (mine?'nuestra':'de ellos');
   return el('div','res '+(t.winnerTeam===-1?'parda':mine?'win':''), txt);
@@ -6950,7 +6971,7 @@ function statusBox(act){
   const st = el('div','status');
   if (R.duel && G.phase==='play') { const [a,b] = R.duel.pairs[R.duel.idx]; box.appendChild(el('div','status', `<span class="duel">Mano a mano · duelo ${R.duel.idx+1} de 3: ${esc(G.names[a])} contra ${esc(G.names[b])}</span>`)); }
   if (G.phase==='play') {
-    if (act===ME) st.innerHTML = '<b>Te toca</b>' + hintFor(legalNow());
+    if (act===ME && !mirando()) st.innerHTML = '<b>Te toca</b>' + hintFor(legalNow());
     else if (act !== null && act !== undefined) st.innerHTML = `<span class="dots">${esc(G.names[act])} ${NET && G.humans.includes(act) ? 'está jugando' : 'está pensando'}</span>`;
   }
   if (isGuest() && NET.paused) st.innerHTML = `${esc(NET.host || 'El anfitrión')} está en el menú: el partido sigue cuando vuelva.`;
@@ -6960,6 +6981,12 @@ function statusBox(act){
   if (clockLimit(G)) box.appendChild(el('div','clock off', '<span class="bar"><i></i></span><b></b>'));
   const h = el('div','helper');
   let t = '';
+  if (mirando()) {   // quien mira: solo lo que está a la vista de todos
+    box.appendChild(el('div', 'mirandobar', 'Estás mirando: las cartas de cada uno se ven cuando se juegan. <button type="button" class="lnk" data-dejar-mirar>Dejar de mirar</button>'));
+    if (R.trucoLevel>1) t = `se juega por <b>${R.trucoLevel}</b>`;
+    h.innerHTML = t; box.appendChild(h);
+    return box;
+  }
   if (showHelp && !R.leyPhase && R.active[ME] && !myCardsHidden()) {
     t = R.flor.has[ME] ? `Tenés <b>flor</b> de <b>${R.flor.pts[ME]}</b>` : `Tu envido: <b>${R.envPts[ME]}</b>`;
     if (R.flor.has[ME] && G.manual[ME] && !R.flor.sung[ME] && !R.flor.negada[ME]) t += ' — cantala antes de jugar o decir otra cosa, si no la negás';
@@ -7010,6 +7037,7 @@ function mySeat(act){
 function hud3d(act){
   const hud = $('hud'); hud.innerHTML = '';
   hud.appendChild(statusBox(act));
+  if (mirando()) { $('senas3d').innerHTML = ''; $('frases3d').innerHTML = ''; return []; }
   const myLegal = legalNow();
   hud.appendChild(actionsEl(myLegal));
   hud.appendChild(el('div','err', esc(errMsg)));
@@ -7031,7 +7059,7 @@ function hud3d(act){
 // Atajos para hablarle al compañero en voz alta (los oye toda la mesa; la computadora compañera hace caso)
 function pedidosEl(){
   const R = G.round;
-  if (!R || G.n < 4 || G.phase !== 'play' || R.leyPhase || !R.active[ME] || R.out[ME]) return null;
+  if (!R || mirando() || G.n < 4 || G.phase !== 'play' || R.leyPhase || !R.active[ME] || R.out[ME]) return null;
   if (!G.names.some((_, q) => q !== ME && team(q) === MT() && R.active[q] && !R.out[q])) return null;   // en los duelos no hay compañero
   const box = el('div','pedidos');
   box.appendChild(el('span','', 'A tu compañero:'));
@@ -7431,6 +7459,7 @@ const RULE_OPTS = [
 // ---------- Flujo ----------
 const delayScale = () => (window.TRUCO_DELAY_SCALE || 1) * SPEEDS[speed];
 function human(a){
+  if (mirando()) return;
   if (isGuest()) { if (NET.actor === ME) { NET.actor = null; netSend({ t: 'act', a }); render(); } return; }
   if (busy || !GM || T.actor(GM)!==ME) return;
   try { T.apply(GM, ME, a); errMsg = ''; }
@@ -7500,8 +7529,8 @@ function soundCues(){
     if (/^(truco|retruco|vale cuatro)$/i.test(l.text)) SND.play('call');
     else if (/flor/i.test(l.text) && !/achico|sin cantar/i.test(l.text)) SND.play('flor', .05);
   }
-  if (cur.phase === 'play' && act === ME && p.act !== ME) SND.play('turn', .15);
-  if (cur.phase !== 'play' && p.phase === 'play' && cur.key === p.key) {
+  if (cur.phase === 'play' && act === ME && p.act !== ME && !mirando()) SND.play('turn', .15);
+  if (cur.phase !== 'play' && p.phase === 'play' && cur.key === p.key && !mirando()) {
     const g = R.gained || [[], []], mine = (g[MT()] || []).reduce((a, x) => a + x.pts, 0), theirs = (g[1 - MT()] || []).reduce((a, x) => a + x.pts, 0);
     if (mine > theirs) SND.play('win', .3); else if (theirs > mine) SND.play('lose', .3);
   }
@@ -7519,7 +7548,7 @@ function paintClock(){
     el.querySelector('i').style.width = (100 * ms / lim).toFixed(1) + '%';
   });
   // tu tiempo: un tic suave en los últimos 5 segundos
-  if (c && lim && c.p === ME && G.phase === 'play') { const sec = Math.ceil(Math.max(0, Math.min(lim, c.ms)) / 1000); if (sec <= 5 && sec > 0 && sec !== paintClock.lastSec) SND.play('tick'); paintClock.lastSec = sec; }
+  if (c && lim && c.p === ME && G.phase === 'play' && !mirando()) { const sec = Math.ceil(Math.max(0, Math.min(lim, c.ms)) / 1000); if (sec <= 5 && sec > 0 && sec !== paintClock.lastSec) SND.play('tick'); paintClock.lastSec = sec; }
 }
 setInterval(() => {
   if (GM && !isGuest()) {
@@ -7568,7 +7597,31 @@ function notePauses(S){
 }
 function startRoundHook(){}
 function cardsRow(name, cards){ return `<div class="cards"><span class="nm">${esc(name)}</span>${cards.map(c=>(c.hidden ? backEl() : cardEl(c)).outerHTML).join('')}</div>`; }
+// Quien mira: el resultado de la mano, con los nombres de los equipos, lo que se mostró y el tanteador;
+// el botón solo cierra el cuadro (la mano siguiente empieza cuando los que juegan quieren).
+function finMirando(){
+  const R = G.round, res = R.result || {}, eq = t => G.teamNames[t];
+  const lines = [];
+  if (res.reason === 'abandono') lines.push(`<li><b>${esc(res.texto)}</b></li>`);
+  [0,1].forEach(t => R.gained[t].forEach(g => lines.push(`<li><b>${esc(eq(t))}</b> ${g.pts < 0 ? '−' + (-g.pts) : '+' + g.pts} — ${esc(g.why)}</li>`)));
+  let title = G.phase==='duelEnd' ? `Terminó el duelo ${R.duel.idx+1}` : 'Fin de la mano';
+  if (G.phase==='matchEnd') title = `Ganó el partido ${eq(G.matchWinner)}`;
+  else if (G.phase==='chicoEnd') title = `${eq(G.chicoWinner)} ganó el chico`;
+  else if (res.winnerTeam !== undefined && res.winnerTeam >= 0) title += `: para ${eq(res.winnerTeam)}`;
+  let shown = '';
+  for (let p=0;p<G.n;p++) if (R.mustShow[p] && R.initial[p].every(c => !c.hidden)) shown += cardsRow(G.names[p], R.initial[p]);
+  if (shown) shown = `<p class="small">Cartas que se muestran (Art. 45):</p>${shown}`;
+  if (R.duel && R.mustShow.some(Boolean) && !shown) shown = '<p class="small">Pico a pico: las cartas se muestran solo al rival del duelo.</p>';
+  const chicos = `<p class="small">Chicos: ${esc(eq(0))} ${G.chicos[0]} — ${esc(eq(1))} ${G.chicos[1]}. Tanteador: ${G.scores[0]} a ${G.scores[1]}.</p>`;
+  const fin = G.phase==='matchEnd';
+  modal(`<h3>${esc(title)}</h3><ul>${lines.join('')||'<li>Nadie sumó puntos.</li>'}</ul>${shown}${chicos}<div class="row"><button class="act" id="mNext">${fin ? 'Volver al inicio' : 'Seguir mirando'}</button></div>`);
+  $('mNext').onclick = () => { closeModal(); if (fin) { leaveNet(); showHome(); } };
+  $('mNext').focus();
+}
+// "Dejar de mirar", desde la mesa
+document.addEventListener('click', e => { if (e.target.closest && e.target.closest('[data-dejar-mirar]')) { leaveNet(); showHome(); } });
 function showRoundEnd(){
+  if (mirando()) return finMirando();
   const R = G.round, we = G.n>=4, mt = MT();
   const them = NET && G.n === 2 ? G.names[otherOf2()] : 'La computadora';
   const lines = [];
@@ -7968,7 +8021,9 @@ const V3 = (function(){
   function rowDir(p){ const a = ang(p); return (Lay.n === 4 && Math.abs(Math.cos(a)) > .5) ? v3(0, 0, 1) : v3(1, 0, 0); }
   function humanSeat(){ return v3(0, 4.3, Lay.TR + 2.2); }
 
-  const claveMesa = () => G.names.join('|') + '#' + ME + '#' + (G.pjs || []).join(',');
+  // quien mira el partido no tiene lugar: se dibujan todos los jugadores, también el de abajo
+  const yoSentado = p => p === ME && !mirando();
+  const claveMesa = () => G.names.join('|') + '#' + ME + (mirando() ? 'm' : '') + '#' + (G.pjs || []).join(',');
   function build(){
     if (Lay) { scene.remove(Lay.root); lbls.innerHTML = ''; }
     const n = G.n, P = PARAMS[n], root = new THREE.Group();
@@ -7976,7 +8031,7 @@ const V3 = (function(){
     Lay = Object.assign({ n, root, names: claveMesa(), chars: [] }, P);
     buildTable(root, P.TR);
     for (let p = 0; p < n; p++) {
-      if (p === ME) { Lay.chars.push(null); continue; }
+      if (yoSentado(p)) { Lay.chars.push(null); continue; }
       const c = makeChar(p, G.names[p]);
       const pos = onCircle(ang(p), P.TR + 1.8);
       c.g.position.copy(pos); c.g.lookAt(0, 0, 0);
@@ -8334,7 +8389,7 @@ const V3 = (function(){
       const h = R.hands[p], k = h.length;
       h.forEach((c, i) => {
         if (fueMazo(p)) { out[c.id] = { key: 'd', deck: true }; return; }
-        if (p === ME) { out[c.id] = { key: 'hand', hand: true, face: true }; return; }
+        if (yoSentado(p)) { out[c.id] = { key: 'hand', hand: true, face: true }; return; }
         if (ended) { const up = !!R.mustShow[p] && !c.hidden; out[c.id] = { key: `r:${p}:${i}:${k}:${up}`, pose: downPose(p, i, k, up, c.id), face: up, p }; return; }
         if (!R.active[p] || R.out[p]) { out[c.id] = { key: `x:${p}:${i}:${k}`, pose: downPose(p, i, k, false, c.id), face: false, p }; return; }
         out[c.id] = { key: `f:${p}:${i}:${k}`, pose: fanPose(p, i, k), face: false, fan: true, p };
@@ -8381,7 +8436,7 @@ const V3 = (function(){
         if (o.g.parent === handGroup) scene.attach(o.g);
         if (tw.slot.face || tw.slot.hand) setFace(o, true);
         else if (!tw.slot.deck && !tw.slot.muestra) setFace(o, false);
-        if (tw.slot.table && tw.slot.p !== ME) S.cnt[tw.fromPose ? 'desdeMano' : 'desdeMazo']++; // carta jugada por otro: sale de su mano
+        if (tw.slot.table && !yoSentado(tw.slot.p)) S.cnt[tw.fromPose ? 'desdeMano' : 'desdeMazo']++; // carta jugada por otro: sale de su mano
         if (t < S.dealEnd && !tw.slot.deck && !tw.slot.table) SND.play('deal');
         tw.fromHand = o.where === 'hand';
         tw.from = { pos: o.g.position.clone(), quat: o.g.quaternion.clone(), scale: o.g.scale.x };
@@ -8433,8 +8488,10 @@ const V3 = (function(){
     camera.updateMatrixWorld(true);
     if (Lay.dealer !== G.dealer || fresh) { Lay.dealer = G.dealer; Lay.deckPos = deckSpot(G.dealer); if (fresh) { Lay.deck.position.set(Lay.deckPos.x, Lay.deck.position.y, Lay.deckPos.z); Lay.deck.rotation.y = deckYaw(Lay.deckPos); } }
     S.playable = new Set(myLegal.filter(a => a.type === 'play').map(a => a.card.id));
-    S.myTurn = act === ME && G.phase === 'play';
-    S.myOut = !R.active[ME] || R.out[ME];
+    S.myTurn = act === ME && G.phase === 'play' && !mirando();
+    S.myOut = mirando() || !R.active[ME] || R.out[ME];
+    $('cam3dMine').textContent = mirando() ? 'Vista de la mesa' : 'Tu lugar';
+    if (hintEl) hintEl.textContent = mirando() ? 'Arrastrá para dar la vuelta a la mesa · rueda o pellizco para acercar' : 'Arrastrá para inclinarte un poco · rueda o pellizco para acercarte';
 
     const slots = computeSlots(), rk = G.roundNo + ':' + (R.duel ? R.duel.idx : 0);
     for (const id in slots) if (!CARDS[id]) { CARDS[id] = makeCard(id); CARDS[id].hidden = true; }
@@ -8544,12 +8601,12 @@ const V3 = (function(){
 
   function showBubble(p, text){
     S.cnt.dichos++;
-    const el2 = p === ME ? myBub : Lay.chars[p] && Lay.chars[p].bub;
+    const el2 = yoSentado(p) ? myBub : Lay.chars[p] && Lay.chars[p].bub;
     if (!el2) return;
     el2.textContent = text; el2.classList.remove('on'); void el2.offsetWidth; el2.classList.add('on');
     clearTimeout(el2._t); el2._t = setTimeout(() => el2.classList.remove('on'), 2200);
     // quien habla mueve la boca y reacciona; los demás lo miran
-    const speaker = p === ME ? humanSeat() : charHead(p);
+    const speaker = yoSentado(p) ? humanSeat() : charHead(p);
     Lay.chars.forEach(c => { if (c && c.p !== p && !c.gest) { c.lookTo = speaker; c.lookUntil = now + 1.6; } });
     const c = Lay.chars[p];
     if (!c) return;
@@ -8567,7 +8624,7 @@ const V3 = (function(){
     const R = G.round;
     Lay.chars.forEach(c => {
       if (!c) return;
-      const p = c.p, tags = [], partner = G.n >= 4 && team(p) === team(ME);
+      const p = c.p, tags = [], partner = G.n >= 4 && team(p) === team(ME) && !mirando();
       if (R.mano === p) tags.push('<span class="tag mano">mano</span>');
       if (G.dealer === p) tags.push('<span class="tag">da</span>');
       if (R.flor.sung[p]) tags.push('<span class="tag flor">flor</span>');
@@ -8577,7 +8634,7 @@ const V3 = (function(){
       if (partner && R.senasShown[p] && G.rules.senas && !R.leyPhase && !R.duel && !R.hands[ME].some(c => c.hidden)) sen += senaGroups(R.senasShown[p]).map(([k, n]) => `<span class="sena">${senaTxt(k, n)}</span>`).join('');
       if (!R.leyPhase) senaGroups((R.seen[ME] || []).filter(v => v.p === p).map(v => v.s)).forEach(([k, n]) => { sen += `<span class="sena caught">👀 ${senaTxt(k, n)}</span>`; });
       const mic = NET && NET.talking && NET.talking[p] ? ' 🎙' : '';
-      const html = `<div class="nm">${esc(G.names[p])}${mic}${G.n >= 4 ? `<small>${partner ? 'compañero' : 'rival'}</small>` : ''}</div>`
+      const html = `<div class="nm">${esc(G.names[p])}${mic}${G.n >= 4 ? `<small>${mirando() ? colorEq(team(p)) : partner ? 'compañero' : 'rival'}</small>` : ''}</div>`
         + (tags.length ? `<div class="tags">${tags.join('')}</div>` : '') + (sen ? `<div class="senas">${sen}</div>` : '');
       if (html !== c.lblHTML) { c.lblIn.innerHTML = html; c.lblHTML = html; }
       c.lbl.classList.toggle('inactive', !R.active[p]);
@@ -8593,7 +8650,20 @@ const V3 = (function(){
   function defaultCam(){
     const c = (Lay || { cam: PARAMS[2].cam }).cam, a = camera.aspect || 1.6;
     const wide = a < 1.25 ? Math.pow(1.25 / a, .5) : 1;
-    return { phi: 0, beta: c.beta, rho: c.rho * wide, tx: c.tx * (a < 1 ? 0 : 1), ty: c.ty, tz: c.tz };
+    // quien mira está parado detrás del lugar de abajo: un poco más alto y más atrás
+    const m = mirando() ? { beta: .14, rho: 1.12 } : { beta: 0, rho: 1 };
+    return { phi: 0, beta: c.beta + m.beta, rho: c.rho * wide * m.rho, tx: c.tx * (a < 1 ? 0 : 1), ty: c.ty, tz: c.tz };
+  }
+  // El que juega mira desde su silla: puede inclinarse un poco hacia los costados, hacia adelante o atrás,
+  // y acercarse o alejarse un poco, como una persona en la mesa, pero no dar la vuelta a la mesa.
+  // Quien mira el partido sí la rodea.
+  const LIM = { phi: .26, abajo: .1, arriba: .16, cerca: .86, lejos: 1.1 };
+  function limitarCam(g){
+    if (mirando()) { g.beta = clamp(g.beta, .2, 1.5); g.rho = clamp(g.rho, 7, 34); return; }
+    const b = CAM.vista === 'top' ? topCam() : defaultCam();
+    g.phi = clamp(g.phi, b.phi - LIM.phi, b.phi + LIM.phi);
+    g.beta = clamp(g.beta, b.beta - LIM.abajo, Math.min(1.5, b.beta + LIM.arriba));
+    g.rho = clamp(g.rho, b.rho * LIM.cerca, b.rho * LIM.lejos);
   }
   function topCam(){ const d = defaultCam(); return { phi: 0, beta: 1.45, rho: d.rho * 1.05, tx: d.tx, ty: 0, tz: 1.2 }; }
   function updateCamera(dt){
@@ -8605,7 +8675,7 @@ const V3 = (function(){
     camera.position.set(CAM.tx + CAM.rho*Math.sin(CAM.phi)*cb, CAM.ty + CAM.rho*Math.sin(CAM.beta), CAM.tz + CAM.rho*Math.cos(CAM.phi)*cb);
     camera.lookAt(CAM.tx, CAM.ty, CAM.tz);
   }
-  function setView(v){ if (S.mz) { S.mz = null; muLbl.classList.remove('on'); } CAM.user = v !== 'mine'; CAM.g = v === 'top' ? topCam() : defaultCam(); CAM.k = 3; }
+  function setView(v){ if (S.mz) { S.mz = null; muLbl.classList.remove('on'); } CAM.vista = v; CAM.user = v !== 'mine'; CAM.g = v === 'top' ? topCam() : defaultCam(); CAM.k = 3; }
 
   // ---------- puntero: girar, acercar, jugar cartas ----------
   const ptrs = new Map();
@@ -8668,13 +8738,13 @@ const V3 = (function(){
       if (!drag) return;
       if (drag.pinch && ptrs.size >= 2) {
         const [a, b] = [...ptrs.values()], d = Math.hypot(a.x - b.x, a.y - b.y);
-        startUserCam(); CAM.g.rho = clamp(drag.pinch.rho * drag.pinch.d / Math.max(20, d), 7, 34);
+        startUserCam(); CAM.g.rho = clamp(drag.pinch.rho * drag.pinch.d / Math.max(20, d), 7, 34); limitarCam(CAM.g);
         return;
       }
       if (!drag.moved && Math.hypot(ev.clientX - drag.x, ev.clientY - drag.y) > 6) { drag.moved = true; canvas.style.cursor = 'grabbing'; }
       if (drag.moved) {
         startUserCam();
-        CAM.g.phi -= dx * .0065; CAM.g.beta = clamp(CAM.g.beta + dy * .005, .2, 1.5);
+        CAM.g.phi -= dx * (mirando() ? .0065 : .0032); CAM.g.beta = clamp(CAM.g.beta + dy * (mirando() ? .005 : .0028), .2, 1.5); limitarCam(CAM.g);
         if (hintEl) hintEl.classList.add('gone');
       }
     });
@@ -8693,7 +8763,7 @@ const V3 = (function(){
     canvas.addEventListener('pointerup', up);
     canvas.addEventListener('pointercancel', up);
     canvas.addEventListener('pointerleave', ev => { if (ev.pointerType === 'mouse' && !ptrs.size) { S.hover = null; clearTimeout(S.mzT); if (S.mz && !S.mz.sticky) muestraZoom(false); } });
-    canvas.addEventListener('wheel', ev => { ultimoToque = clock(); ev.preventDefault(); startUserCam(); CAM.g.rho = clamp(CAM.g.rho * Math.exp(ev.deltaY * .0011), 7, 34); }, { passive: false });
+    canvas.addEventListener('wheel', ev => { ultimoToque = clock(); ev.preventDefault(); startUserCam(); CAM.g.rho = clamp(CAM.g.rho * Math.exp(ev.deltaY * .0011), 7, 34); limitarCam(CAM.g); }, { passive: false });
     canvas.addEventListener('dblclick', () => setView('mine'));
     document.addEventListener('keydown', ev => {
       if (!running || document.querySelector('.overlay') || /INPUT|SELECT|TEXTAREA/.test((document.activeElement || {}).tagName || '')) return;
@@ -8879,7 +8949,7 @@ function howToModal(){
   <p><b>Tiempo:</b> tenés 30 segundos para cada decisión (se cambia en Reglas de la mesa). Si se te acaba, decide la computadora por vos. Con el menú abierto la cuenta se frena.</p>
   <p><b>Señas pescadas:</b> de cada 50 señas que se hacen, una la ve algún rival. Te puede pasar a vos con las señas de Tito y Nacho, y a ellos con las tuyas o las de Pocho. Lo que se ve es siempre verdad, y la computadora también lo usa.</p>
   <p><b>Modo realista:</b> la flor no se canta sola y los puntos los cantás vos. Si jugás o cantás otra cosa sin cantar tu flor, la negás. Las faltas se descubren cuando se ven tus cartas. Cantar errado se descubre si ganás un envite (tenés que mostrarlas) o si jugás las tres, y te hace perder todo lo de la mano (Art. 46). La flor negada se descubre si ganás un envite o cuando las cartas que jugaste la muestran (con dos piezas alcanza; si no, hacen falta las tres): el rival cobra los 3 de la flor y el truco que se esté jugando, se termina la mano, y el envido que haya cobrado tu equipo no vale. Cantar flor sin tenerla se descubre enseguida. Si ganaste el envido o cantaste flor y te vas al mazo, tirás tus cartas sin mostrarlas y esos puntos van para el rival: para salir de la mano sin perderlos, decí <i>paso</i> y las mostrás al final. Si se te acaba el tiempo para cantar tus puntos, esos puntos son para el rival; si se te acaba en otra decisión, la computadora decide por vos sin hacer trampa (canta tu flor y dice la verdad).</p>
-  <p><b>Mesas online:</b> quien crea la mesa elige a cuántos puntos se juega, cuántos chicos, si se cobra el achique y si hay chat de texto y de voz. Se juega siempre en modo realista, para que nadie tenga la ventaja de que el juego le cante los puntos.</p>
+  <p><b>Mesas online:</b> quien crea la mesa elige a cuántos puntos se juega, cuántos chicos, si se cobra el achique y si hay chat de texto y de voz. Se juega siempre en modo realista, para que nadie tenga la ventaja de que el juego le cante los puntos. Quien no tiene lugar puede <b>mirar</b> el partido: ve las cartas cuando se juegan, nunca las que están en la mano. Si alguien que mira molesta, los que juegan pueden votar echarlo y no vuelve a entrar a esa mesa.</p>
   <p><b>Mostrar las cartas:</b> al terminar la mano, el que ganó el envido o cantó flor da vuelta sus cartas sobre la mesa para que se vea que tenía lo que cantó (Art. 45).</p>
   <p><b>Paso y mazo:</b> en parejas y tercetos, si decís "paso" salís de la mano y no jugás más bazas, pero te quedás con tus cartas por si tenés que mostrarlas (Arts. 88 y 92). Si te vas al mazo sin ser el pie de tu equipo, te vas solo y tu equipo sigue; si se va el pie, pierde el equipo. En Reglas de la mesa podés elegir en cambio que irse al mazo saque a todo el equipo (Art. 90). Si un equipo se va en la primera baza sin que nadie haya tocado ni gritado, y al otro todavía le quedaba tocar, el otro cobra <b>dos</b> puntos.</p>
   <p><b>Atajos al compañero:</b> en parejas y tercetos, abajo tenés <i>¡Vení!</i> (que juegue su carta más baja, que la baza la hacés vos), <i>¡Jugá algo!</i> (que no tire la peor), <i>¡Gritá!</i> (que cante truco) y <i>Tengo algo para el tanto</i> (que toque o quiera el envido). Los oye toda la mesa, como si lo dijeras en voz alta; la computadora compañera te hace caso.</p>
@@ -9196,10 +9266,16 @@ function voiceRoom(code){
   const relays = (store.get('truco.relays') || '').split(',').filter(Boolean);
   try {
     const room = Trystero.joinRoom({ appId: APP_ID, identity: 'none', password: 'voz-' + code, ...(relays.length ? { relayConfig: { urls: relays } } : {}), ...(NET_TURN.length ? { turnConfig: NET_TURN } : {}) }, 'voz-' + code);
-    room.onPeerStream((stream, c) => vozAttach(c.peerId, stream));
-    room.onPeerJoin(c => { if (VOZ.stream) try { room.addStream(VOZ.stream, { target: c.peerId }); } catch (e) {} });
-    room.onPeerLeave(c => vozDetach(c.peerId));
+    // solo se escucha (y se le manda la voz) a quien la mesa dice que está en ella: así a alguien que la
+    // mesa echó, o que entra a la sala sabiendo el código, no se lo oye ni oye a nadie (vozPermitido)
+    room.onPeerStream((stream, c) => { if (vozPermitido(c.peerId)) vozAttach(c.peerId, stream); else VOZ.pend[c.peerId] = stream; });
+    room.onPeerJoin(c => vozMandar(room, c.peerId));
+    room.onPeerLeave(c => { vozDetach(c.peerId); delete VOZ.pend[c.peerId]; delete VOZ.sent[c.peerId]; });
     room.onError(() => {});
+    Promise.resolve(room.getSelf && room.getSelf()).then(me => {
+      if (!me || !me.peerId || !NET || NET.vr !== room) return;
+      NET.vozId = me.peerId; netPost({ t: 'vozid', id: me.peerId });
+    }).catch(() => {});
     return room;
   } catch (e) { return null; }
 }
@@ -9311,7 +9387,8 @@ function onPeerEvent(ev, peer, err){
 }
 function serverHello(){
   if (!NET || NET.tr.kind !== 'server') return;
-  NET.tr.post({ t: 'hello', v: NETV, code: NET.code, from: NET.cid, name: NET.name, pid: myPid(), pj: miPj() || undefined, key: NET.ownerKey || undefined, crear: NET.crear || undefined, token: CUENTA.token || undefined });
+  NET.tr.post({ t: 'hello', v: NETV, code: NET.code, from: NET.cid, name: NET.name, pid: myPid(), pj: miPj() || undefined, key: NET.ownerKey || undefined, crear: NET.crear || undefined, token: CUENTA.token || undefined,
+    mirar: NET.mira || NET.quiereMirar || undefined, vozId: NET.vozId || undefined });
 }
 // el servidor se cortó o volvió (se reconecta solo)
 function onServerLink(ev){
@@ -9587,7 +9664,7 @@ function joinTable(code, name, back, opts){
   NET.name = myName() || 'Invitado';
   NET.lobby = null; NET.actor = null; NET.legal = []; NET.shownEnd = null; NET.hadSeat = false;
   NET.ownerKey = opts.publica ? null : opts.key || null; NET.owner = !!opts.key && !opts.publica; NET.crear = opts.crear || null; NET.back = !!back;
-  NET.publica = !!opts.publica;
+  NET.publica = !!opts.publica; NET.quiereMirar = !!opts.mirar; NET.mira = false; NET.miraId = null; NET.talkingM = {};
   GM = null; G = null;
   const net = online();
   if (!net) sayHello();   // por internet se saluda al conectarse con cada uno (onPeerEvent); con el servidor, al recibir "hola"
@@ -9639,35 +9716,45 @@ function onGuestMsg(m){
       if (NET.seat >= 0) NET.hadSeat = true;
       else if (NET.hadSeat && m.started) { NET.hadSeat = false; sayHello(); }
       if (m.cfg && !m.cfg.chat) NET.chat = [];
-      vozSync(); renderChat();
+      if (NET.seat >= 0) NET.mira = false;   // se sentó: ya no mira
+      vozSync(); vozRevisar(); renderChat();
       if (!$('home').hidden && (homeView === 'lobby' || homeView === 'main')) renderHome();
       return;
     }
     case 'state': onState(m); return;
     case 'err': errMsg = m.msg; NET.legal = []; render(); return;
     case 'away': NET.hostLost = true; NET.hostPeer = null; netStatus(); return;   // el anfitrión recarga la página
-    case 'chat': chatAdd({ p: m.p, name: m.name, text: m.text }, false); return;
+    case 'chat': chatAdd({ p: m.p, name: m.name, text: m.text, m: m.m }, false); return;
     case 'ranking': cuentaRanking(m); return;
     case 'chatlog': NET.chat = (m.list || []).slice(-80); renderChat(); return;
-    case 'talk': setTalking(m.p, !!m.on); return;
+    case 'talk': if (typeof m.m === 'string') { NET.talkingM[m.m] = !!m.on; renderVoz(); renderMirones(); } else setTalking(m.p, !!m.on); return;
+    case 'mirando': NET.mira = true; NET.miraId = m.id; NET.quiereMirar = false; renderMirones(); return;
+    case 'expulsado': case 'vetado': {
+      const code = NET.code;
+      leaveNet(); netNote = m.t === 'expulsado' ? `La mesa ${code} votó que te fueras. No podés volver a entrar a esa mesa.` : `No podés entrar a la mesa ${code}: la mesa votó que te fueras.`;
+      joinCode = ''; homeView = 'join'; showHome('join'); return;
+    }
+    case 'echado': chatAdd({ p: -2, name: '', text: `La mesa echó a ${m.name}.` }, false); avisoCuenta(`La mesa echó a ${m.name}: ya no puede entrar a esta mesa.`); return;
     case 'full': leaveNet(); netNote = 'La mesa está completa.'; homeView = 'join'; showHome('join'); return;
     case 'closed': leaveNet(); netNote = 'El anfitrión cerró la mesa.'; showHome(); return;
   }
 }
 function onState(m){
   const first = !G || !!(m.view && G.id !== m.view.id);     // el primer estado de este partido (o de otro nuevo en la misma mesa)
-  ME = m.seat; G = m.view; NET.actor = m.actor; NET.legal = m.legal || []; NET.key = m.key;
+  // quien mira ve la mesa desde el lugar 0, sin cartas propias ni botones
+  NET.mira = m.seat < 0 && !!m.mira;
+  ME = NET.mira ? 0 : m.seat; G = m.view; NET.actor = m.actor; NET.legal = m.legal || []; NET.key = m.key;
   NET.paused = !!m.paused; NET.host = m.host;
   NET.clock = m.clock ? { ...m.clock, at: Date.now() } : null;
   NET.endClock = typeof m.endLeft === 'number' ? { left: m.endLeft, at: Date.now() } : null;
-  showWaiting((m.waiting || []).filter(x => x !== G.names[ME]));
-  if (m.actor !== ME) errMsg = '';
+  showWaiting((m.waiting || []).filter(x => NET.mira || x !== G.names[ME]));
+  if (m.actor !== ME || NET.mira) errMsg = '';
   notePauses(G);
   if (first && !$('home').hidden && homeView === 'lobby') hideHome();
   render();
   if (!$('home').hidden) return;
   if (G.phase !== 'play') {
-    if (NET.shownEnd !== m.key && !$('mNext')) { NET.shownEnd = m.key; const k = m.key; setTimeout(() => { if (NET && NET.key === k && $('home').hidden && !$('mNext')) showRoundEnd(); }, ((G.n >= 4 ? 2200 : 1600) + (G.round && G.round.mustShow && G.round.mustShow.some(Boolean) ? 700 : 0)) * delayScale()); }
+    if (NET.shownEnd !== m.key && !$('mNext')) { NET.shownEnd = m.key; const k = m.key; setTimeout(() => { if (NET && NET.key === k && $('home').hidden && !$('mNext')) (NET.mira ? finMirando : showRoundEnd)(); }, ((G.n >= 4 ? 2200 : 1600) + (G.round && G.round.mustShow && G.round.mustShow.some(Boolean) ? 700 : 0)) * delayScale()); }
   } else if ($('mNext')) closeModal();
 }
 
@@ -9769,9 +9856,10 @@ function renderPublicLobby(box, L){
     h += `<p class="lob"><b>${esc(modeName(L.n))}</b>. ${estado}</p>${reglasHTML(mesaCfg())}
       ${seatsHTML(L.seats, { canSit: !enJuego })}${rankNote(L)}`;
     const btns = [];
-    if (!enJuego && g >= 2) btns.push(`<button class="act ${yoVote ? 'sec' : 'flor'}" id="hVote">${yoVote ? 'Ya no' : L.fin ? 'Jugar otro partido' : 'Empezar ya'}</button>`);
-    if (enJuego && G) btns.push('<button class="act flor" id="hGo">Volver a la mesa</button>');
-    btns.push('<button class="act mazo" id="hClose">Salir de la mesa</button>');
+    if (!enJuego && g >= 2 && NET.seat >= 0) btns.push(`<button class="act ${yoVote ? 'sec' : 'flor'}" id="hVote">${yoVote ? 'Ya no' : L.fin ? 'Jugar otro partido' : 'Empezar ya'}</button>`);
+    if (enJuego && G) btns.push(`<button class="act flor" id="hGo">${NET.mira ? 'Volver a mirar' : 'Volver a la mesa'}</button>`);
+    else if (enJuego && NET.seat < 0 && !NET.mira) btns.push('<button class="act flor" id="hMirar">Mirar el partido</button>');
+    btns.push(`<button class="act mazo" id="hClose">${NET.mira ? 'Dejar de mirar' : 'Salir de la mesa'}</button>`);
     h += `<div class="row">${btns.join('')}</div>`;
     if (!enJuego && g >= 2) h += `<p class="hkey">${L.fin ? 'Otro partido' : 'Empezar ya, con la computadora en los lugares libres'}: ${votos.length} de ${g} ${g === 1 ? 'quiere' : 'quieren'}. Empieza cuando quieran todos los que están.</p>`;
     else if (!enJuego) h += '<p class="hkey">Cuando llegue alguien más, si todos quieren pueden empezar antes de que se llene: la computadora completa los lugares libres.</p>';
@@ -9790,6 +9878,7 @@ function renderPublicLobby(box, L){
   if ($('hInvAm')) $('hInvAm').onclick = () => cuentaIr('amigos', { volver: 'lobby' });
   if ($('hVote')) $('hVote').onclick = () => netPost({ t: 'empezar', si: !(L.votos || []).includes(NET.seat) });
   if ($('hGo')) $('hGo').onclick = () => continueGame();
+  if ($('hMirar')) $('hMirar').onclick = () => netPost({ t: 'mirar' });
   if ($('hClose')) $('hClose').onclick = () => confirmarSalida($('hClose'), () => { leaveNet(); homeView = 'main'; renderHome(); });
   box.querySelectorAll('[data-sit]').forEach(b => b.onclick = () => netPost({ t: 'sit', seat: +b.dataset.sit, name: NET.name }));
 }
@@ -9824,12 +9913,15 @@ function renderLobby(box){
     if (!L) h += `<p class="lob">Buscando la mesa ${esc(NET.code)}…${online() ? ' Puede tardar unos segundos.' : ''}</p>`;
     else {
       const host = (L.seats.find(s => s.kind === 'host' || s.host) || {}).name || 'el anfitrión';
-      const sentado = NET.seat >= 0;
-      h += `<p class="lob">${MODES.find(m => m[0] === L.n)[1]}, mesa de ${esc(host)}. ${L.started ? (sentado ? 'El partido ya empezó.' : 'El partido ya empezó: elegí un lugar libre para entrar.') : `Esperando a que ${esc(host)} empiece el partido.`}</p>
+      const sentado = NET.seat >= 0, libre = L.seats.some(x => x.kind === 'ai' && !x.host);
+      const estado = !L.started ? `Esperando a que ${esc(host)} empiece el partido.` : sentado ? 'El partido ya empezó.'
+        : NET.mira ? 'Estás mirando el partido.' : libre ? 'El partido ya empezó: elegí un lugar libre para entrar, o miralo.' : 'El partido ya empezó: podés mirarlo.';
+      h += `<p class="lob">${MODES.find(m => m[0] === L.n)[1]}, mesa de ${esc(host)}. ${estado}</p>
         ${reglasHTML(mesaCfg())}
         ${seatsHTML(L.seats, { canSit: true })}${rankNote(L)}${viaServer && CUENTA.token && CUENTA.yo ? '<div class="hlinks"><button class="tool" id="hInvAm">Invitar amigos</button></div>' : ''}`;
     }
-    h += `<div class="row">${G ? '<button class="act flor" id="hGo">Volver a la mesa</button>' : ''}<button class="act mazo" id="hClose">Salir de la mesa</button></div>`;
+    const mirable = L && L.started && NET.seat < 0 && !NET.mira && viaServer;
+    h += `<div class="row">${G ? `<button class="act flor" id="hGo">${NET.mira ? 'Volver a mirar' : 'Volver a la mesa'}</button>` : mirable ? '<button class="act flor" id="hMirar">Mirar el partido</button>' : ''}<button class="act mazo" id="hClose">${NET.mira ? 'Dejar de mirar' : 'Salir de la mesa'}</button></div>`;
   }
   h += chatSeccion('lc');
   box.innerHTML = h;
@@ -9843,6 +9935,7 @@ function renderLobby(box){
     else if (NET && NET.owner) { NET.name = myName() || 'Anfitrión'; netPost({ t: 'name', name: NET.name }); }
   };
   box.querySelectorAll('[data-mode]').forEach(b => b.onclick = () => NET.role === 'host' ? setTableMode(+b.dataset.mode) : netPost({ t: 'mode', n: +b.dataset.mode }));
+  if ($('hMirar')) $('hMirar').onclick = () => netPost({ t: 'mirar' });
   box.querySelectorAll('[data-sit]').forEach(b => b.onclick = () => netPost({ t: 'sit', seat: +b.dataset.sit, name: NET.name }));
   if ($('hGo')) $('hGo').onclick = () => {
     if (NET.role === 'host' && !NET.started) startTable();
@@ -9886,30 +9979,53 @@ function chatSend(text){
 }
 function chatAdd(m, broadcast){
   const msg = { p: typeof m.p === 'number' ? m.p : -1, name: String(m.name || '').slice(0, 20), text: String(m.text || '').slice(0, 200), at: Date.now() };
+  if (typeof m.m === 'string') msg.m = m.m;   // lo dijo alguien que mira
   NET.chat.push(msg); if (NET.chat.length > 80) NET.chat.shift();
   if (broadcast) netPost({ t: 'chat', p: msg.p, name: msg.name, text: msg.text });
-  const mine = msg.p === chatSeat();
-  if (!mine) { SND.play('chat'); chatToast(msg); }
+  const mine = msg.m ? msg.m === NET.miraId : msg.p >= 0 && msg.p === chatSeat();
+  if (!mine && msg.p !== -2) { SND.play('chat'); chatToast(msg); }
   renderChat();
 }
 const chatSeat = () => !NET ? 0 : NET.role === 'host' ? 0 : NET.seat;
 function chatLine(m){
-  const mine = m.p === chatSeat(), seat = chatSeat();
-  const cls = m.p < 0 || seat < 0 || seat === undefined ? '' : mine ? 'yo' : team(m.p) === team(seat) ? 'nos' : 'ellos';
-  return `<div class="cm ${cls}"><b>${esc(mine ? 'Vos' : m.name)}</b> ${esc(m.text)}</div>`;
+  if (m.p === -2) return `<div class="cm sis">${esc(m.text)}</div>`;   // aviso de la mesa
+  const seat = chatSeat(), mine = m.m ? m.m === (NET && NET.miraId) : m.p >= 0 && m.p === seat;
+  const cls = mine ? 'yo' : m.p < 0 || seat < 0 || seat === undefined ? '' : team(m.p) === team(seat) ? 'nos' : 'ellos';
+  return `<div class="cm ${cls}"><b>${esc(mine ? 'Vos' : m.name)}</b>${m.m && !mine ? ' <small class="mir">mirando</small>' : ''} ${esc(m.text)}</div>`;
 }
 // el chat de texto y la voz se muestran según la mesa (renderChat los prende y apaga)
 function chatUI(k){
   return `<div data-chattxt><div class="chatlog" id="${k}Log" aria-live="polite"></div>
     <form class="chatf" id="${k}Form"><input id="${k}In" maxlength="200" autocomplete="off" placeholder="Escribí algo y apretá Enter" aria-label="Mensaje para la mesa"><button class="tool" type="submit">Enviar</button></form></div>
-    <div class="voz" data-voz></div>`;
+    <div class="voz" data-voz></div>
+    <div class="miran" data-miran></div>`;
 }
 const chatTitulo = c => c.chat ? 'Chat de la mesa' : c.voz ? 'Voz de la mesa' : 'Chat de la mesa';
 // la parte de abajo de la mesa antes de empezar: el chat, la voz o, si la mesa no tiene ninguno, un aviso
 function chatSeccion(k){
   const c = mesaCfg();
-  if (!c.chat && !c.voz) return '<p class="hkey">En esta mesa no hay chat de texto ni de voz.</p>';
+  if (!c.chat && !c.voz) return '<p class="hkey">En esta mesa no hay chat de texto ni de voz.</p><div class="miran" data-miran></div>';
   return `<section class="lchat"><h3>${chatTitulo(c)}</h3>${chatUI(k)}</section>`;
+}
+// ---------- Los que miran ----------
+// La lista de quienes miran el partido. Quien juega puede votar echar a alguno (por ejemplo, si molesta en
+// la voz); con la mayoría de las personas sentadas se va y no puede volver a esta mesa.
+const mirones = () => (NET && NET.lobby && NET.lobby.mirando) || [];
+function renderMirones(){
+  const L = NET && NET.lobby, list = mirones(), juego = NET && NET.seat >= 0 && !NET.mira;
+  document.querySelectorAll('[data-miran]').forEach(box => {
+    if (!list.length) { box.innerHTML = ''; return; }
+    const hacen = (L && L.echarCon) || 1;
+    box.innerHTML = `<h4>Mirando (${list.length})</h4><ul>${list.map(x => {
+      const yo = NET.miraId === x.id, voto = (x.echar || []).includes(NET.seat), habla = NET.talkingM && NET.talkingM[x.id];
+      const votos = (x.echar || []).length ? `<small>${x.echar.length} de ${hacen} para echarlo</small>` : '';
+      const btn = juego ? `<button type="button" class="tool${voto ? '' : ' echar'}" data-echar="${esc(x.id)}" data-no="${voto ? 1 : ''}">${voto ? 'Sacar mi voto' : 'Echar'}</button>` : '';
+      return `<li><span>${habla ? '🎙 ' : ''}${esc(x.name)}${yo ? ' <b>· vos</b>' : ''} ${votos}</span>${btn}</li>`;
+    }).join('')}</ul>${juego ? `<p class="hkey">Si molesta, votá echarlo: con ${hacen === 1 ? 'tu voto' : `${hacen} votos de los que juegan`} se va y no puede volver a esta mesa.</p>` : ''}`;
+    box.querySelectorAll('[data-echar]').forEach(b => b.onclick = () => { b.disabled = true; netPost({ t: 'echar', id: b.dataset.echar, no: !!b.dataset.no }); });
+  });
+  const p = $('chatPanel'), c = mesaCfg();
+  if (p && NET) p.hidden = !c.chat && !c.voz && !list.length;
 }
 function bindChat(k){
   const f = $(k + 'Form'); if (!f) return;
@@ -9924,8 +10040,8 @@ function renderChat(){
     box.scrollTop = box.scrollHeight;
   });
   const p = $('chatPanel');
-  if (p) { p.hidden = !NET || (!c.chat && !c.voz); const h = p.querySelector('h2'); if (h) h.textContent = chatTitulo(c); }
-  renderVoz();
+  if (p) { p.hidden = !NET || (!c.chat && !c.voz && !mirones().length); const h = p.querySelector('h2'); if (h) h.textContent = chatTitulo(c); }
+  renderVoz(); renderMirones();
 }
 // si el chat no está a la vista (en el celular queda abajo), el mensaje aparece un momento arriba
 function chatToast(m){
@@ -9939,7 +10055,28 @@ function chatToast(m){
 // ---------- Voz: pulsar para hablar ----------
 // Por la misma conexión directa entre navegadores (WebRTC). El micrófono se pide la primera vez que
 // se pulsa, y solo manda sonido mientras se mantiene apretado el botón (o la tecla V).
-const VOZ = { stream: null, on: false, audios: {}, mute: store.get('truco.voces') === '0', err: '' };
+const VOZ = { stream: null, on: false, audios: {}, pend: {}, sent: {}, mute: store.get('truco.voces') === '0', err: '' };
+// Con el servidor, la sala de voz está abierta a cualquiera que sepa el código; por eso cada uno solo
+// escucha y le manda su voz a los que la mesa dice que están en ella (lobby.voces). Sin esa lista (un
+// servidor viejo, o de navegador a navegador) no se filtra.
+function vozPermitido(peer){
+  if (!NET || !NET.tr || NET.tr.kind !== 'server') return true;
+  const v = NET.lobby && NET.lobby.voces;
+  return !Array.isArray(v) || v.includes(peer);
+}
+function vozMandar(room, peer){
+  if (!VOZ.stream || !room || VOZ.sent[peer] || !vozPermitido(peer)) return;
+  try { room.addStream(VOZ.stream, { target: peer }); VOZ.sent[peer] = true; } catch (e) {}
+}
+// cambió la lista: se empieza a escuchar a los que ahora están y se deja de escuchar (y de mandarles) a los que no
+function vozRevisar(){
+  const room = NET && NET.vr; if (!room) return;
+  for (const peer in VOZ.pend) if (vozPermitido(peer)) { vozAttach(peer, VOZ.pend[peer]); delete VOZ.pend[peer]; }
+  for (const peer in VOZ.audios) if (!vozPermitido(peer)) vozDetach(peer);
+  for (const peer in VOZ.sent) if (!vozPermitido(peer)) { try { room.removeStream(VOZ.stream, { target: peer }); } catch (e) {} delete VOZ.sent[peer]; }
+  let peers = []; try { peers = Object.keys(room.getPeers() || {}); } catch (e) {}
+  peers.forEach(peer => vozMandar(room, peer));
+}
 const vozOK = () => online() && mesaCfg().voz && !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia) && !!(vozRoom() && vozRoom().addStream);
 // la voz, según la mesa: con el servidor, la sala de voz se abre si la mesa tiene voz y se cierra si no;
 // sin voz, se apaga el micrófono y no se escucha a nadie
@@ -9963,7 +10100,8 @@ async function vozMic(){
   }
   VOZ.err = '';
   VOZ.stream.getAudioTracks().forEach(t => { t.enabled = false; });
-  if (vozRoom()) try { vozRoom().addStream(VOZ.stream); } catch (e) {}
+  if (NET && NET.vr) vozRevisar();                         // con el servidor: a cada uno de los que están en la mesa
+  else if (vozRoom()) try { vozRoom().addStream(VOZ.stream); } catch (e) {}
   return true;
 }
 async function talk(on){
@@ -9979,7 +10117,7 @@ async function talk(on){
 }
 function vozStop(){
   if (VOZ.stream) VOZ.stream.getTracks().forEach(t => t.stop());
-  VOZ.stream = null; VOZ.on = false;
+  VOZ.stream = null; VOZ.on = false; VOZ.pend = {}; VOZ.sent = {};
   for (const k in VOZ.audios) vozDetach(k);
 }
 function vozAttach(peer, stream){
@@ -9996,7 +10134,12 @@ function setTalking(p, on){
   if ($('home').hidden && G) render();
   renderVoz();
 }
-function talkingNames(){ return NET ? Object.keys(NET.talking).filter(p => NET.talking[p] && +p !== chatSeat()).map(p => (G && G.names[p]) || ((NET.seats || (NET.lobby && NET.lobby.seats) || [])[p] || {}).name).filter(Boolean) : []; }
+function talkingNames(){
+  if (!NET) return [];
+  const sentados = Object.keys(NET.talking).filter(p => NET.talking[p] && +p !== chatSeat()).map(p => (G && G.names[p]) || ((NET.seats || (NET.lobby && NET.lobby.seats) || [])[p] || {}).name);
+  const miran = mirones().filter(x => NET.talkingM && NET.talkingM[x.id] && x.id !== NET.miraId).map(x => x.name + ' (mirando)');
+  return sentados.concat(miran).filter(Boolean);
+}
 function renderVoz(){
   const ok = !!(NET && vozOK());
   document.querySelectorAll('[data-voz]').forEach(box => {
@@ -10261,7 +10404,7 @@ function modosPublicosHTML(){
 function clavePublicasHTML(){
   const lista = CUENTA.publicas || [], gente = CUENTA.conectados || 0;
   return `<span class="hpg"><i class="dot${gente ? ' on' : ''}"></i> ${gente ? `${gente} ${gente === 1 ? 'persona conectada' : 'personas conectadas'} ahora` : 'Todavía no hay nadie más conectado'}</span>
-    <span>Cada mesa tiene sus reglas: las elige quien la arma. Cuentan para el ranking. <button class="lnk" id="hPubVer">Ver las mesas${lista.length ? ` (${lista.length})` : ''}</button> · <button class="lnk" id="hRankVer">Ranking</button></span>`;
+    <span>Cada mesa tiene sus reglas: las elige quien la arma. Cuentan para el ranking. <button class="lnk" id="hPubVer">Ver las mesas${lista.length ? ` (${lista.length})` : ''}</button>${enJuegoPub().length ? ` · ${enJuegoPub().length} ${enJuegoPub().length === 1 ? 'partido' : 'partidos'} para mirar` : ''} · <button class="lnk" id="hRankVer">Ranking</button></span>`;
 }
 function publicasHomeHTML(){
   let h = `<section class="hpub"><h2>Jugar con gente</h2>
@@ -10581,7 +10724,8 @@ async function cuentaPublicas(){
   try { const r = await api('publicas'); CUENTA.publicas = r.lista; CUENTA.conectados = r.conectados || 0; } catch (e) { return; }
   cuentaRefrescar();
 }
-const esperandoEn = n => (CUENTA.publicas || []).filter(m => m.n === n && m.personas < m.n);
+const esperandoEn = n => (CUENTA.publicas || []).filter(m => m.n === n && !m.empezada && m.personas < m.n);
+const enJuegoPub = () => (CUENTA.publicas || []).filter(m => m.empezada);
 async function buscarPublica(n){
   if (!conCuenta()) return;
   try { CUENTA.publicas = (await api('publicas')).lista; } catch (e) {}
@@ -10603,17 +10747,26 @@ function renderPublicas(box){
     const e = esperandoEn(n), gente = e.reduce((a, m) => a + m.personas, 0);
     return `<button class="hmode" data-pn="${n}" ${conCuenta() ? '' : 'disabled'}>${tableSVG(n)}<div><b>${nm}</b><span>${gente ? `${gente} ${gente === 1 ? 'persona esperando' : 'personas esperando'}` : 'Nadie esperando: armás la mesa'}</span></div></button>`;
   }).join('') + '</div>';
+  const esperan = lista && lista.filter(m => !m.empezada), juegan = lista && lista.filter(m => m.empezada);
   h += '<section><h2 class="h3">Mesas esperando gente</h2>';
   if (!lista) h += '<p class="lob">Cargando…</p>';
-  else if (!lista.length) h += '<p class="hkey">Ahora no hay ninguna. Elegí un modo y sé el primero: la mesa aparece acá para los demás.</p>';
-  else h += '<ul class="amg">' + lista.map(m => `<li><b>${esc(modeName(m.n))}</b><small>${esc(m.nombres.join(', '))} · ${m.personas} de ${m.n}</small><small class="mreg">${esc(cfgCorto(limpiarCfgMesa(m.cfg)))}</small>${conCuenta() ? `<button class="tool" data-pc="${m.codigo}">Sentarme</button>` : ''}</li>`).join('') + '</ul>';
+  else if (!esperan.length) h += '<p class="hkey">Ahora no hay ninguna. Elegí un modo y sé el primero: la mesa aparece acá para los demás.</p>';
+  else h += '<ul class="amg">' + esperan.map(m => `<li><b>${esc(modeName(m.n))}</b><small>${esc(m.nombres.join(', '))} · ${m.personas} de ${m.n}</small><small class="mreg">${esc(cfgCorto(limpiarCfgMesa(m.cfg)))}</small>${conCuenta() ? `<button class="tool" data-pc="${m.codigo}">Sentarme</button>` : ''}</li>`).join('') + '</ul>';
   if (conCuenta()) h += `<div class="hlinks"><button class="tool" id="hPubNueva">Armar una mesa nueva</button></div>`;
+  // los partidos que se están jugando: se pueden mirar (sin ver las cartas de nadie hasta que se juegan)
+  if (juegan && juegan.length) {
+    h += '</section><section><h2 class="h3">Partidos en juego</h2><ul class="amg">' + juegan.map(m => {
+      const t = Array.isArray(m.tanto) ? ` · van ${m.tanto[0]} a ${m.tanto[1]}` : '', mir = m.mirando ? ` · ${m.mirando} mirando` : '';
+      return `<li><b>${esc(modeName(m.n))}</b><small>${esc(m.nombres.join(', '))}${t}${mir}</small><small class="mreg">${esc(cfgCorto(limpiarCfgMesa(m.cfg)))}</small>${conCuenta() ? `<button class="tool" data-pm="${m.codigo}">Mirar</button>` : ''}</li>`;
+    }).join('') + '</ul><p class="hkey">Mirando ves las cartas cuando se juegan, el tanteador y el chat de la mesa. Si molestás, los que juegan pueden votar echarte.</p>';
+  }
   h += '</section><p class="hkey">Las reglas (a cuántos puntos, cuántos chicos, el achique, el chat y la voz) las elige quien arma la mesa. Todas se juegan con flor, 30 segundos por jugada y en modo realista. Empiezan solas cuando se llenan; si ya son dos o más y todos quieren, pueden empezar antes y la computadora completa los lugares libres. Cuentan para el ranking cuando hay gente en los dos equipos.</p>';
   box.innerHTML = h;
   $('hBack').onclick = () => { homeView = 'main'; renderHome(); };
   if ($('hGsi')) gsiBoton($('hGsi'));
   box.querySelectorAll('[data-pn]').forEach(b => b.onclick = () => buscarPublica(+b.dataset.pn));
   box.querySelectorAll('[data-pc]').forEach(b => b.onclick = () => joinTable(b.dataset.pc, myName(), false, { publica: true }));
+  box.querySelectorAll('[data-pm]').forEach(b => b.onclick = () => joinTable(b.dataset.pm, myName(), false, { publica: true, mirar: true }));
   if ($('hPubNueva')) $('hPubNueva').onclick = () => abrirCrear(true, players);
   if (!lista) cuentaPublicas();
 }

@@ -58,10 +58,16 @@ function voiceRoom(code){
   const relays = (store.get('truco.relays') || '').split(',').filter(Boolean);
   try {
     const room = Trystero.joinRoom({ appId: APP_ID, identity: 'none', password: 'voz-' + code, ...(relays.length ? { relayConfig: { urls: relays } } : {}), ...(NET_TURN.length ? { turnConfig: NET_TURN } : {}) }, 'voz-' + code);
-    room.onPeerStream((stream, c) => vozAttach(c.peerId, stream));
-    room.onPeerJoin(c => { if (VOZ.stream) try { room.addStream(VOZ.stream, { target: c.peerId }); } catch (e) {} });
-    room.onPeerLeave(c => vozDetach(c.peerId));
+    // solo se escucha (y se le manda la voz) a quien la mesa dice que está en ella: así a alguien que la
+    // mesa echó, o que entra a la sala sabiendo el código, no se lo oye ni oye a nadie (vozPermitido)
+    room.onPeerStream((stream, c) => { if (vozPermitido(c.peerId)) vozAttach(c.peerId, stream); else VOZ.pend[c.peerId] = stream; });
+    room.onPeerJoin(c => vozMandar(room, c.peerId));
+    room.onPeerLeave(c => { vozDetach(c.peerId); delete VOZ.pend[c.peerId]; delete VOZ.sent[c.peerId]; });
     room.onError(() => {});
+    Promise.resolve(room.getSelf && room.getSelf()).then(me => {
+      if (!me || !me.peerId || !NET || NET.vr !== room) return;
+      NET.vozId = me.peerId; netPost({ t: 'vozid', id: me.peerId });
+    }).catch(() => {});
     return room;
   } catch (e) { return null; }
 }
@@ -173,7 +179,8 @@ function onPeerEvent(ev, peer, err){
 }
 function serverHello(){
   if (!NET || NET.tr.kind !== 'server') return;
-  NET.tr.post({ t: 'hello', v: NETV, code: NET.code, from: NET.cid, name: NET.name, pid: myPid(), pj: miPj() || undefined, key: NET.ownerKey || undefined, crear: NET.crear || undefined, token: CUENTA.token || undefined });
+  NET.tr.post({ t: 'hello', v: NETV, code: NET.code, from: NET.cid, name: NET.name, pid: myPid(), pj: miPj() || undefined, key: NET.ownerKey || undefined, crear: NET.crear || undefined, token: CUENTA.token || undefined,
+    mirar: NET.mira || NET.quiereMirar || undefined, vozId: NET.vozId || undefined });
 }
 // el servidor se cortó o volvió (se reconecta solo)
 function onServerLink(ev){
@@ -449,7 +456,7 @@ function joinTable(code, name, back, opts){
   NET.name = myName() || 'Invitado';
   NET.lobby = null; NET.actor = null; NET.legal = []; NET.shownEnd = null; NET.hadSeat = false;
   NET.ownerKey = opts.publica ? null : opts.key || null; NET.owner = !!opts.key && !opts.publica; NET.crear = opts.crear || null; NET.back = !!back;
-  NET.publica = !!opts.publica;
+  NET.publica = !!opts.publica; NET.quiereMirar = !!opts.mirar; NET.mira = false; NET.miraId = null; NET.talkingM = {};
   GM = null; G = null;
   const net = online();
   if (!net) sayHello();   // por internet se saluda al conectarse con cada uno (onPeerEvent); con el servidor, al recibir "hola"
@@ -501,35 +508,45 @@ function onGuestMsg(m){
       if (NET.seat >= 0) NET.hadSeat = true;
       else if (NET.hadSeat && m.started) { NET.hadSeat = false; sayHello(); }
       if (m.cfg && !m.cfg.chat) NET.chat = [];
-      vozSync(); renderChat();
+      if (NET.seat >= 0) NET.mira = false;   // se sentó: ya no mira
+      vozSync(); vozRevisar(); renderChat();
       if (!$('home').hidden && (homeView === 'lobby' || homeView === 'main')) renderHome();
       return;
     }
     case 'state': onState(m); return;
     case 'err': errMsg = m.msg; NET.legal = []; render(); return;
     case 'away': NET.hostLost = true; NET.hostPeer = null; netStatus(); return;   // el anfitrión recarga la página
-    case 'chat': chatAdd({ p: m.p, name: m.name, text: m.text }, false); return;
+    case 'chat': chatAdd({ p: m.p, name: m.name, text: m.text, m: m.m }, false); return;
     case 'ranking': cuentaRanking(m); return;
     case 'chatlog': NET.chat = (m.list || []).slice(-80); renderChat(); return;
-    case 'talk': setTalking(m.p, !!m.on); return;
+    case 'talk': if (typeof m.m === 'string') { NET.talkingM[m.m] = !!m.on; renderVoz(); renderMirones(); } else setTalking(m.p, !!m.on); return;
+    case 'mirando': NET.mira = true; NET.miraId = m.id; NET.quiereMirar = false; renderMirones(); return;
+    case 'expulsado': case 'vetado': {
+      const code = NET.code;
+      leaveNet(); netNote = m.t === 'expulsado' ? `La mesa ${code} votó que te fueras. No podés volver a entrar a esa mesa.` : `No podés entrar a la mesa ${code}: la mesa votó que te fueras.`;
+      joinCode = ''; homeView = 'join'; showHome('join'); return;
+    }
+    case 'echado': chatAdd({ p: -2, name: '', text: `La mesa echó a ${m.name}.` }, false); avisoCuenta(`La mesa echó a ${m.name}: ya no puede entrar a esta mesa.`); return;
     case 'full': leaveNet(); netNote = 'La mesa está completa.'; homeView = 'join'; showHome('join'); return;
     case 'closed': leaveNet(); netNote = 'El anfitrión cerró la mesa.'; showHome(); return;
   }
 }
 function onState(m){
   const first = !G || !!(m.view && G.id !== m.view.id);     // el primer estado de este partido (o de otro nuevo en la misma mesa)
-  ME = m.seat; G = m.view; NET.actor = m.actor; NET.legal = m.legal || []; NET.key = m.key;
+  // quien mira ve la mesa desde el lugar 0, sin cartas propias ni botones
+  NET.mira = m.seat < 0 && !!m.mira;
+  ME = NET.mira ? 0 : m.seat; G = m.view; NET.actor = m.actor; NET.legal = m.legal || []; NET.key = m.key;
   NET.paused = !!m.paused; NET.host = m.host;
   NET.clock = m.clock ? { ...m.clock, at: Date.now() } : null;
   NET.endClock = typeof m.endLeft === 'number' ? { left: m.endLeft, at: Date.now() } : null;
-  showWaiting((m.waiting || []).filter(x => x !== G.names[ME]));
-  if (m.actor !== ME) errMsg = '';
+  showWaiting((m.waiting || []).filter(x => NET.mira || x !== G.names[ME]));
+  if (m.actor !== ME || NET.mira) errMsg = '';
   notePauses(G);
   if (first && !$('home').hidden && homeView === 'lobby') hideHome();
   render();
   if (!$('home').hidden) return;
   if (G.phase !== 'play') {
-    if (NET.shownEnd !== m.key && !$('mNext')) { NET.shownEnd = m.key; const k = m.key; setTimeout(() => { if (NET && NET.key === k && $('home').hidden && !$('mNext')) showRoundEnd(); }, ((G.n >= 4 ? 2200 : 1600) + (G.round && G.round.mustShow && G.round.mustShow.some(Boolean) ? 700 : 0)) * delayScale()); }
+    if (NET.shownEnd !== m.key && !$('mNext')) { NET.shownEnd = m.key; const k = m.key; setTimeout(() => { if (NET && NET.key === k && $('home').hidden && !$('mNext')) (NET.mira ? finMirando : showRoundEnd)(); }, ((G.n >= 4 ? 2200 : 1600) + (G.round && G.round.mustShow && G.round.mustShow.some(Boolean) ? 700 : 0)) * delayScale()); }
   } else if ($('mNext')) closeModal();
 }
 
@@ -631,9 +648,10 @@ function renderPublicLobby(box, L){
     h += `<p class="lob"><b>${esc(modeName(L.n))}</b>. ${estado}</p>${reglasHTML(mesaCfg())}
       ${seatsHTML(L.seats, { canSit: !enJuego })}${rankNote(L)}`;
     const btns = [];
-    if (!enJuego && g >= 2) btns.push(`<button class="act ${yoVote ? 'sec' : 'flor'}" id="hVote">${yoVote ? 'Ya no' : L.fin ? 'Jugar otro partido' : 'Empezar ya'}</button>`);
-    if (enJuego && G) btns.push('<button class="act flor" id="hGo">Volver a la mesa</button>');
-    btns.push('<button class="act mazo" id="hClose">Salir de la mesa</button>');
+    if (!enJuego && g >= 2 && NET.seat >= 0) btns.push(`<button class="act ${yoVote ? 'sec' : 'flor'}" id="hVote">${yoVote ? 'Ya no' : L.fin ? 'Jugar otro partido' : 'Empezar ya'}</button>`);
+    if (enJuego && G) btns.push(`<button class="act flor" id="hGo">${NET.mira ? 'Volver a mirar' : 'Volver a la mesa'}</button>`);
+    else if (enJuego && NET.seat < 0 && !NET.mira) btns.push('<button class="act flor" id="hMirar">Mirar el partido</button>');
+    btns.push(`<button class="act mazo" id="hClose">${NET.mira ? 'Dejar de mirar' : 'Salir de la mesa'}</button>`);
     h += `<div class="row">${btns.join('')}</div>`;
     if (!enJuego && g >= 2) h += `<p class="hkey">${L.fin ? 'Otro partido' : 'Empezar ya, con la computadora en los lugares libres'}: ${votos.length} de ${g} ${g === 1 ? 'quiere' : 'quieren'}. Empieza cuando quieran todos los que están.</p>`;
     else if (!enJuego) h += '<p class="hkey">Cuando llegue alguien más, si todos quieren pueden empezar antes de que se llene: la computadora completa los lugares libres.</p>';
@@ -652,6 +670,7 @@ function renderPublicLobby(box, L){
   if ($('hInvAm')) $('hInvAm').onclick = () => cuentaIr('amigos', { volver: 'lobby' });
   if ($('hVote')) $('hVote').onclick = () => netPost({ t: 'empezar', si: !(L.votos || []).includes(NET.seat) });
   if ($('hGo')) $('hGo').onclick = () => continueGame();
+  if ($('hMirar')) $('hMirar').onclick = () => netPost({ t: 'mirar' });
   if ($('hClose')) $('hClose').onclick = () => confirmarSalida($('hClose'), () => { leaveNet(); homeView = 'main'; renderHome(); });
   box.querySelectorAll('[data-sit]').forEach(b => b.onclick = () => netPost({ t: 'sit', seat: +b.dataset.sit, name: NET.name }));
 }
@@ -686,12 +705,15 @@ function renderLobby(box){
     if (!L) h += `<p class="lob">Buscando la mesa ${esc(NET.code)}…${online() ? ' Puede tardar unos segundos.' : ''}</p>`;
     else {
       const host = (L.seats.find(s => s.kind === 'host' || s.host) || {}).name || 'el anfitrión';
-      const sentado = NET.seat >= 0;
-      h += `<p class="lob">${MODES.find(m => m[0] === L.n)[1]}, mesa de ${esc(host)}. ${L.started ? (sentado ? 'El partido ya empezó.' : 'El partido ya empezó: elegí un lugar libre para entrar.') : `Esperando a que ${esc(host)} empiece el partido.`}</p>
+      const sentado = NET.seat >= 0, libre = L.seats.some(x => x.kind === 'ai' && !x.host);
+      const estado = !L.started ? `Esperando a que ${esc(host)} empiece el partido.` : sentado ? 'El partido ya empezó.'
+        : NET.mira ? 'Estás mirando el partido.' : libre ? 'El partido ya empezó: elegí un lugar libre para entrar, o miralo.' : 'El partido ya empezó: podés mirarlo.';
+      h += `<p class="lob">${MODES.find(m => m[0] === L.n)[1]}, mesa de ${esc(host)}. ${estado}</p>
         ${reglasHTML(mesaCfg())}
         ${seatsHTML(L.seats, { canSit: true })}${rankNote(L)}${viaServer && CUENTA.token && CUENTA.yo ? '<div class="hlinks"><button class="tool" id="hInvAm">Invitar amigos</button></div>' : ''}`;
     }
-    h += `<div class="row">${G ? '<button class="act flor" id="hGo">Volver a la mesa</button>' : ''}<button class="act mazo" id="hClose">Salir de la mesa</button></div>`;
+    const mirable = L && L.started && NET.seat < 0 && !NET.mira && viaServer;
+    h += `<div class="row">${G ? `<button class="act flor" id="hGo">${NET.mira ? 'Volver a mirar' : 'Volver a la mesa'}</button>` : mirable ? '<button class="act flor" id="hMirar">Mirar el partido</button>' : ''}<button class="act mazo" id="hClose">${NET.mira ? 'Dejar de mirar' : 'Salir de la mesa'}</button></div>`;
   }
   h += chatSeccion('lc');
   box.innerHTML = h;
@@ -705,6 +727,7 @@ function renderLobby(box){
     else if (NET && NET.owner) { NET.name = myName() || 'Anfitrión'; netPost({ t: 'name', name: NET.name }); }
   };
   box.querySelectorAll('[data-mode]').forEach(b => b.onclick = () => NET.role === 'host' ? setTableMode(+b.dataset.mode) : netPost({ t: 'mode', n: +b.dataset.mode }));
+  if ($('hMirar')) $('hMirar').onclick = () => netPost({ t: 'mirar' });
   box.querySelectorAll('[data-sit]').forEach(b => b.onclick = () => netPost({ t: 'sit', seat: +b.dataset.sit, name: NET.name }));
   if ($('hGo')) $('hGo').onclick = () => {
     if (NET.role === 'host' && !NET.started) startTable();
@@ -748,30 +771,53 @@ function chatSend(text){
 }
 function chatAdd(m, broadcast){
   const msg = { p: typeof m.p === 'number' ? m.p : -1, name: String(m.name || '').slice(0, 20), text: String(m.text || '').slice(0, 200), at: Date.now() };
+  if (typeof m.m === 'string') msg.m = m.m;   // lo dijo alguien que mira
   NET.chat.push(msg); if (NET.chat.length > 80) NET.chat.shift();
   if (broadcast) netPost({ t: 'chat', p: msg.p, name: msg.name, text: msg.text });
-  const mine = msg.p === chatSeat();
-  if (!mine) { SND.play('chat'); chatToast(msg); }
+  const mine = msg.m ? msg.m === NET.miraId : msg.p >= 0 && msg.p === chatSeat();
+  if (!mine && msg.p !== -2) { SND.play('chat'); chatToast(msg); }
   renderChat();
 }
 const chatSeat = () => !NET ? 0 : NET.role === 'host' ? 0 : NET.seat;
 function chatLine(m){
-  const mine = m.p === chatSeat(), seat = chatSeat();
-  const cls = m.p < 0 || seat < 0 || seat === undefined ? '' : mine ? 'yo' : team(m.p) === team(seat) ? 'nos' : 'ellos';
-  return `<div class="cm ${cls}"><b>${esc(mine ? 'Vos' : m.name)}</b> ${esc(m.text)}</div>`;
+  if (m.p === -2) return `<div class="cm sis">${esc(m.text)}</div>`;   // aviso de la mesa
+  const seat = chatSeat(), mine = m.m ? m.m === (NET && NET.miraId) : m.p >= 0 && m.p === seat;
+  const cls = mine ? 'yo' : m.p < 0 || seat < 0 || seat === undefined ? '' : team(m.p) === team(seat) ? 'nos' : 'ellos';
+  return `<div class="cm ${cls}"><b>${esc(mine ? 'Vos' : m.name)}</b>${m.m && !mine ? ' <small class="mir">mirando</small>' : ''} ${esc(m.text)}</div>`;
 }
 // el chat de texto y la voz se muestran según la mesa (renderChat los prende y apaga)
 function chatUI(k){
   return `<div data-chattxt><div class="chatlog" id="${k}Log" aria-live="polite"></div>
     <form class="chatf" id="${k}Form"><input id="${k}In" maxlength="200" autocomplete="off" placeholder="Escribí algo y apretá Enter" aria-label="Mensaje para la mesa"><button class="tool" type="submit">Enviar</button></form></div>
-    <div class="voz" data-voz></div>`;
+    <div class="voz" data-voz></div>
+    <div class="miran" data-miran></div>`;
 }
 const chatTitulo = c => c.chat ? 'Chat de la mesa' : c.voz ? 'Voz de la mesa' : 'Chat de la mesa';
 // la parte de abajo de la mesa antes de empezar: el chat, la voz o, si la mesa no tiene ninguno, un aviso
 function chatSeccion(k){
   const c = mesaCfg();
-  if (!c.chat && !c.voz) return '<p class="hkey">En esta mesa no hay chat de texto ni de voz.</p>';
+  if (!c.chat && !c.voz) return '<p class="hkey">En esta mesa no hay chat de texto ni de voz.</p><div class="miran" data-miran></div>';
   return `<section class="lchat"><h3>${chatTitulo(c)}</h3>${chatUI(k)}</section>`;
+}
+// ---------- Los que miran ----------
+// La lista de quienes miran el partido. Quien juega puede votar echar a alguno (por ejemplo, si molesta en
+// la voz); con la mayoría de las personas sentadas se va y no puede volver a esta mesa.
+const mirones = () => (NET && NET.lobby && NET.lobby.mirando) || [];
+function renderMirones(){
+  const L = NET && NET.lobby, list = mirones(), juego = NET && NET.seat >= 0 && !NET.mira;
+  document.querySelectorAll('[data-miran]').forEach(box => {
+    if (!list.length) { box.innerHTML = ''; return; }
+    const hacen = (L && L.echarCon) || 1;
+    box.innerHTML = `<h4>Mirando (${list.length})</h4><ul>${list.map(x => {
+      const yo = NET.miraId === x.id, voto = (x.echar || []).includes(NET.seat), habla = NET.talkingM && NET.talkingM[x.id];
+      const votos = (x.echar || []).length ? `<small>${x.echar.length} de ${hacen} para echarlo</small>` : '';
+      const btn = juego ? `<button type="button" class="tool${voto ? '' : ' echar'}" data-echar="${esc(x.id)}" data-no="${voto ? 1 : ''}">${voto ? 'Sacar mi voto' : 'Echar'}</button>` : '';
+      return `<li><span>${habla ? '🎙 ' : ''}${esc(x.name)}${yo ? ' <b>· vos</b>' : ''} ${votos}</span>${btn}</li>`;
+    }).join('')}</ul>${juego ? `<p class="hkey">Si molesta, votá echarlo: con ${hacen === 1 ? 'tu voto' : `${hacen} votos de los que juegan`} se va y no puede volver a esta mesa.</p>` : ''}`;
+    box.querySelectorAll('[data-echar]').forEach(b => b.onclick = () => { b.disabled = true; netPost({ t: 'echar', id: b.dataset.echar, no: !!b.dataset.no }); });
+  });
+  const p = $('chatPanel'), c = mesaCfg();
+  if (p && NET) p.hidden = !c.chat && !c.voz && !list.length;
 }
 function bindChat(k){
   const f = $(k + 'Form'); if (!f) return;
@@ -786,8 +832,8 @@ function renderChat(){
     box.scrollTop = box.scrollHeight;
   });
   const p = $('chatPanel');
-  if (p) { p.hidden = !NET || (!c.chat && !c.voz); const h = p.querySelector('h2'); if (h) h.textContent = chatTitulo(c); }
-  renderVoz();
+  if (p) { p.hidden = !NET || (!c.chat && !c.voz && !mirones().length); const h = p.querySelector('h2'); if (h) h.textContent = chatTitulo(c); }
+  renderVoz(); renderMirones();
 }
 // si el chat no está a la vista (en el celular queda abajo), el mensaje aparece un momento arriba
 function chatToast(m){
@@ -801,7 +847,28 @@ function chatToast(m){
 // ---------- Voz: pulsar para hablar ----------
 // Por la misma conexión directa entre navegadores (WebRTC). El micrófono se pide la primera vez que
 // se pulsa, y solo manda sonido mientras se mantiene apretado el botón (o la tecla V).
-const VOZ = { stream: null, on: false, audios: {}, mute: store.get('truco.voces') === '0', err: '' };
+const VOZ = { stream: null, on: false, audios: {}, pend: {}, sent: {}, mute: store.get('truco.voces') === '0', err: '' };
+// Con el servidor, la sala de voz está abierta a cualquiera que sepa el código; por eso cada uno solo
+// escucha y le manda su voz a los que la mesa dice que están en ella (lobby.voces). Sin esa lista (un
+// servidor viejo, o de navegador a navegador) no se filtra.
+function vozPermitido(peer){
+  if (!NET || !NET.tr || NET.tr.kind !== 'server') return true;
+  const v = NET.lobby && NET.lobby.voces;
+  return !Array.isArray(v) || v.includes(peer);
+}
+function vozMandar(room, peer){
+  if (!VOZ.stream || !room || VOZ.sent[peer] || !vozPermitido(peer)) return;
+  try { room.addStream(VOZ.stream, { target: peer }); VOZ.sent[peer] = true; } catch (e) {}
+}
+// cambió la lista: se empieza a escuchar a los que ahora están y se deja de escuchar (y de mandarles) a los que no
+function vozRevisar(){
+  const room = NET && NET.vr; if (!room) return;
+  for (const peer in VOZ.pend) if (vozPermitido(peer)) { vozAttach(peer, VOZ.pend[peer]); delete VOZ.pend[peer]; }
+  for (const peer in VOZ.audios) if (!vozPermitido(peer)) vozDetach(peer);
+  for (const peer in VOZ.sent) if (!vozPermitido(peer)) { try { room.removeStream(VOZ.stream, { target: peer }); } catch (e) {} delete VOZ.sent[peer]; }
+  let peers = []; try { peers = Object.keys(room.getPeers() || {}); } catch (e) {}
+  peers.forEach(peer => vozMandar(room, peer));
+}
 const vozOK = () => online() && mesaCfg().voz && !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia) && !!(vozRoom() && vozRoom().addStream);
 // la voz, según la mesa: con el servidor, la sala de voz se abre si la mesa tiene voz y se cierra si no;
 // sin voz, se apaga el micrófono y no se escucha a nadie
@@ -825,7 +892,8 @@ async function vozMic(){
   }
   VOZ.err = '';
   VOZ.stream.getAudioTracks().forEach(t => { t.enabled = false; });
-  if (vozRoom()) try { vozRoom().addStream(VOZ.stream); } catch (e) {}
+  if (NET && NET.vr) vozRevisar();                         // con el servidor: a cada uno de los que están en la mesa
+  else if (vozRoom()) try { vozRoom().addStream(VOZ.stream); } catch (e) {}
   return true;
 }
 async function talk(on){
@@ -841,7 +909,7 @@ async function talk(on){
 }
 function vozStop(){
   if (VOZ.stream) VOZ.stream.getTracks().forEach(t => t.stop());
-  VOZ.stream = null; VOZ.on = false;
+  VOZ.stream = null; VOZ.on = false; VOZ.pend = {}; VOZ.sent = {};
   for (const k in VOZ.audios) vozDetach(k);
 }
 function vozAttach(peer, stream){
@@ -858,7 +926,12 @@ function setTalking(p, on){
   if ($('home').hidden && G) render();
   renderVoz();
 }
-function talkingNames(){ return NET ? Object.keys(NET.talking).filter(p => NET.talking[p] && +p !== chatSeat()).map(p => (G && G.names[p]) || ((NET.seats || (NET.lobby && NET.lobby.seats) || [])[p] || {}).name).filter(Boolean) : []; }
+function talkingNames(){
+  if (!NET) return [];
+  const sentados = Object.keys(NET.talking).filter(p => NET.talking[p] && +p !== chatSeat()).map(p => (G && G.names[p]) || ((NET.seats || (NET.lobby && NET.lobby.seats) || [])[p] || {}).name);
+  const miran = mirones().filter(x => NET.talkingM && NET.talkingM[x.id] && x.id !== NET.miraId).map(x => x.name + ' (mirando)');
+  return sentados.concat(miran).filter(Boolean);
+}
 function renderVoz(){
   const ok = !!(NET && vozOK());
   document.querySelectorAll('[data-voz]').forEach(box => {

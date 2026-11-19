@@ -855,6 +855,33 @@ t('mazo en la primera sin tocar ni gritar, si el otro todavía podía tocar: dos
   assert.equal(G.scores[1 - T.team(q2)] - a2[1 - T.team(q2)], 1);
 });
 
+t('quien mira (vista -1) no ve ninguna carta sin jugar ni ninguna seña, en ningún momento', () => {
+  const TV = require('./vista.js');
+  for (const n of [2, 4, 6]) for (let semilla = 1; semilla <= 30; semilla++) {
+    let x = semilla * 7919; T.setRng(() => { x = (x * 1664525 + 1013904223) % 4294967296; return x / 4294967296; });
+    const G = T.newMatch({ players: n, humans: [0] }); T.startRound(G);
+    for (let k = 0; k < 400 && G.phase !== 'matchEnd'; k++) {
+      if (G.phase !== 'play') { T.nextRound(G); continue; }
+      const R = G.round, V = TV.viewFor(G, -1), VR = V.round;
+      // lo que todavía nadie jugó: lo que queda en cada mano (y la muestra, mientras se decide a ley de juego)
+      for (let q = 0; q < n; q++) {
+        assert(VR.hands[q].every(c => c.hidden), `semilla ${semilla}: ve la mano de ${q}`);
+        assert(VR.initial[q].every((c, i) => c.hidden || !R.hands[q].some(h => h.id === c.id)), `semilla ${semilla}: ve una carta sin jugar de ${q}`);
+        assert(VR.senas[q] === null && VR.senasShown[q] === null, 've señas');
+        assert(VR.envPts[q] === null && VR.florPts[q] === null, 've los puntos');
+      }
+      if (R.leyPhase) assert(VR.muestra.hidden);
+      // en el pico a pico, tampoco las piezas que se juegan dadas vuelta
+      if (R.duel) R.tricks.concat([{ cards: R.cur }]).forEach(t => t.cards.forEach((c, i) => {
+        const v = (VR.tricks[R.tricks.indexOf(t)] || { cards: VR.cur }).cards[i];
+        if (c && !R.muestra.hidden && T.isPieza(c, R.muestra)) assert(!v || v.hidden, 've una pieza del duelo');
+      }));
+      const q = T.actor(G), L = T.legal(G, q);
+      T.apply(G, q, L[Math.floor(Math.random() * L.length)]);
+    }
+  }
+  T.setRng(Math.random);
+});
 t('ley de juego: mientras se decide nadie ve sus cartas; impuesta, los desafiantes tampoco hasta la respuesta', () => {
   const V = require('./vista.js');
   const G = setupLey();

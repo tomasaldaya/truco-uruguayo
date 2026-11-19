@@ -5,6 +5,8 @@
 // ({ id: 'x<lugar>-<n>', hidden: true }). El anfitrión le manda a cada invitado su vista, y cada
 // pantalla dibuja la suya, así que nadie tiene en sus datos lo que no le corresponde ver.
 // opts.revealEnd: al terminar la mano se ven las cartas de todos (jugando solo contra la computadora).
+// s = -1: alguien que mira sin jugar. No ve ninguna carta sin jugar ni ninguna seña; sí lo que se muestra
+// sobre la mesa (salvo en el pico a pico, que es solo para el rival del duelo).
 // En el pico a pico, lo que se muestra al final (las cartas del envite o de la flor) lo ve solo el rival
 // de ese duelo, no toda la mesa.
 (function (global) {
@@ -24,7 +26,7 @@
 
     // Mientras se decide a ley de juego no se ven la muestra ni las cartas, ni las propias (Art. 72);
     // impuesta, los desafiantes no ven las suyas hasta que el otro equipo contesta (Arts. 75 y 79)
-    const sinVer = R.leyPhase || (R.ley && R.ley.team === team(s) && ((R.ley.queue && R.ley.queue.length) || R.ley.pendingResp));
+    const sinVer = s >= 0 && (R.leyPhase || (R.ley && R.ley.team === team(s) && ((R.ley.queue && R.ley.queue.length) || R.ley.pendingResp)));
     if (R.leyPhase) R.muestra = { id: 'xm', hidden: true };
     if (sinVer) {
       R.hands[s] = R.hands[s].map((c, i) => tapada('x', s, i));

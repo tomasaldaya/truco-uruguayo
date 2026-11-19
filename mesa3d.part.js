@@ -302,7 +302,9 @@ const V3 = (function(){
   function rowDir(p){ const a = ang(p); return (Lay.n === 4 && Math.abs(Math.cos(a)) > .5) ? v3(0, 0, 1) : v3(1, 0, 0); }
   function humanSeat(){ return v3(0, 4.3, Lay.TR + 2.2); }
 
-  const claveMesa = () => G.names.join('|') + '#' + ME + '#' + (G.pjs || []).join(',');
+  // quien mira el partido no tiene lugar: se dibujan todos los jugadores, también el de abajo
+  const yoSentado = p => p === ME && !mirando();
+  const claveMesa = () => G.names.join('|') + '#' + ME + (mirando() ? 'm' : '') + '#' + (G.pjs || []).join(',');
   function build(){
     if (Lay) { scene.remove(Lay.root); lbls.innerHTML = ''; }
     const n = G.n, P = PARAMS[n], root = new THREE.Group();
@@ -310,7 +312,7 @@ const V3 = (function(){
     Lay = Object.assign({ n, root, names: claveMesa(), chars: [] }, P);
     buildTable(root, P.TR);
     for (let p = 0; p < n; p++) {
-      if (p === ME) { Lay.chars.push(null); continue; }
+      if (yoSentado(p)) { Lay.chars.push(null); continue; }
       const c = makeChar(p, G.names[p]);
       const pos = onCircle(ang(p), P.TR + 1.8);
       c.g.position.copy(pos); c.g.lookAt(0, 0, 0);
@@ -668,7 +670,7 @@ const V3 = (function(){
       const h = R.hands[p], k = h.length;
       h.forEach((c, i) => {
         if (fueMazo(p)) { out[c.id] = { key: 'd', deck: true }; return; }
-        if (p === ME) { out[c.id] = { key: 'hand', hand: true, face: true }; return; }
+        if (yoSentado(p)) { out[c.id] = { key: 'hand', hand: true, face: true }; return; }
         if (ended) { const up = !!R.mustShow[p] && !c.hidden; out[c.id] = { key: `r:${p}:${i}:${k}:${up}`, pose: downPose(p, i, k, up, c.id), face: up, p }; return; }
         if (!R.active[p] || R.out[p]) { out[c.id] = { key: `x:${p}:${i}:${k}`, pose: downPose(p, i, k, false, c.id), face: false, p }; return; }
         out[c.id] = { key: `f:${p}:${i}:${k}`, pose: fanPose(p, i, k), face: false, fan: true, p };
@@ -715,7 +717,7 @@ const V3 = (function(){
         if (o.g.parent === handGroup) scene.attach(o.g);
         if (tw.slot.face || tw.slot.hand) setFace(o, true);
         else if (!tw.slot.deck && !tw.slot.muestra) setFace(o, false);
-        if (tw.slot.table && tw.slot.p !== ME) S.cnt[tw.fromPose ? 'desdeMano' : 'desdeMazo']++; // carta jugada por otro: sale de su mano
+        if (tw.slot.table && !yoSentado(tw.slot.p)) S.cnt[tw.fromPose ? 'desdeMano' : 'desdeMazo']++; // carta jugada por otro: sale de su mano
         if (t < S.dealEnd && !tw.slot.deck && !tw.slot.table) SND.play('deal');
         tw.fromHand = o.where === 'hand';
         tw.from = { pos: o.g.position.clone(), quat: o.g.quaternion.clone(), scale: o.g.scale.x };
@@ -767,8 +769,10 @@ const V3 = (function(){
     camera.updateMatrixWorld(true);
     if (Lay.dealer !== G.dealer || fresh) { Lay.dealer = G.dealer; Lay.deckPos = deckSpot(G.dealer); if (fresh) { Lay.deck.position.set(Lay.deckPos.x, Lay.deck.position.y, Lay.deckPos.z); Lay.deck.rotation.y = deckYaw(Lay.deckPos); } }
     S.playable = new Set(myLegal.filter(a => a.type === 'play').map(a => a.card.id));
-    S.myTurn = act === ME && G.phase === 'play';
-    S.myOut = !R.active[ME] || R.out[ME];
+    S.myTurn = act === ME && G.phase === 'play' && !mirando();
+    S.myOut = mirando() || !R.active[ME] || R.out[ME];
+    $('cam3dMine').textContent = mirando() ? 'Vista de la mesa' : 'Tu lugar';
+    if (hintEl) hintEl.textContent = mirando() ? 'Arrastrá para dar la vuelta a la mesa · rueda o pellizco para acercar' : 'Arrastrá para inclinarte un poco · rueda o pellizco para acercarte';
 
     const slots = computeSlots(), rk = G.roundNo + ':' + (R.duel ? R.duel.idx : 0);
     for (const id in slots) if (!CARDS[id]) { CARDS[id] = makeCard(id); CARDS[id].hidden = true; }
@@ -878,12 +882,12 @@ const V3 = (function(){
 
   function showBubble(p, text){
     S.cnt.dichos++;
-    const el2 = p === ME ? myBub : Lay.chars[p] && Lay.chars[p].bub;
+    const el2 = yoSentado(p) ? myBub : Lay.chars[p] && Lay.chars[p].bub;
     if (!el2) return;
     el2.textContent = text; el2.classList.remove('on'); void el2.offsetWidth; el2.classList.add('on');
     clearTimeout(el2._t); el2._t = setTimeout(() => el2.classList.remove('on'), 2200);
     // quien habla mueve la boca y reacciona; los demás lo miran
-    const speaker = p === ME ? humanSeat() : charHead(p);
+    const speaker = yoSentado(p) ? humanSeat() : charHead(p);
     Lay.chars.forEach(c => { if (c && c.p !== p && !c.gest) { c.lookTo = speaker; c.lookUntil = now + 1.6; } });
     const c = Lay.chars[p];
     if (!c) return;
@@ -901,7 +905,7 @@ const V3 = (function(){
     const R = G.round;
     Lay.chars.forEach(c => {
       if (!c) return;
-      const p = c.p, tags = [], partner = G.n >= 4 && team(p) === team(ME);
+      const p = c.p, tags = [], partner = G.n >= 4 && team(p) === team(ME) && !mirando();
       if (R.mano === p) tags.push('<span class="tag mano">mano</span>');
       if (G.dealer === p) tags.push('<span class="tag">da</span>');
       if (R.flor.sung[p]) tags.push('<span class="tag flor">flor</span>');
@@ -911,7 +915,7 @@ const V3 = (function(){
       if (partner && R.senasShown[p] && G.rules.senas && !R.leyPhase && !R.duel && !R.hands[ME].some(c => c.hidden)) sen += senaGroups(R.senasShown[p]).map(([k, n]) => `<span class="sena">${senaTxt(k, n)}</span>`).join('');
       if (!R.leyPhase) senaGroups((R.seen[ME] || []).filter(v => v.p === p).map(v => v.s)).forEach(([k, n]) => { sen += `<span class="sena caught">👀 ${senaTxt(k, n)}</span>`; });
       const mic = NET && NET.talking && NET.talking[p] ? ' 🎙' : '';
-      const html = `<div class="nm">${esc(G.names[p])}${mic}${G.n >= 4 ? `<small>${partner ? 'compañero' : 'rival'}</small>` : ''}</div>`
+      const html = `<div class="nm">${esc(G.names[p])}${mic}${G.n >= 4 ? `<small>${mirando() ? colorEq(team(p)) : partner ? 'compañero' : 'rival'}</small>` : ''}</div>`
         + (tags.length ? `<div class="tags">${tags.join('')}</div>` : '') + (sen ? `<div class="senas">${sen}</div>` : '');
       if (html !== c.lblHTML) { c.lblIn.innerHTML = html; c.lblHTML = html; }
       c.lbl.classList.toggle('inactive', !R.active[p]);
@@ -927,7 +931,20 @@ const V3 = (function(){
   function defaultCam(){
     const c = (Lay || { cam: PARAMS[2].cam }).cam, a = camera.aspect || 1.6;
     const wide = a < 1.25 ? Math.pow(1.25 / a, .5) : 1;
-    return { phi: 0, beta: c.beta, rho: c.rho * wide, tx: c.tx * (a < 1 ? 0 : 1), ty: c.ty, tz: c.tz };
+    // quien mira está parado detrás del lugar de abajo: un poco más alto y más atrás
+    const m = mirando() ? { beta: .14, rho: 1.12 } : { beta: 0, rho: 1 };
+    return { phi: 0, beta: c.beta + m.beta, rho: c.rho * wide * m.rho, tx: c.tx * (a < 1 ? 0 : 1), ty: c.ty, tz: c.tz };
+  }
+  // El que juega mira desde su silla: puede inclinarse un poco hacia los costados, hacia adelante o atrás,
+  // y acercarse o alejarse un poco, como una persona en la mesa, pero no dar la vuelta a la mesa.
+  // Quien mira el partido sí la rodea.
+  const LIM = { phi: .26, abajo: .1, arriba: .16, cerca: .86, lejos: 1.1 };
+  function limitarCam(g){
+    if (mirando()) { g.beta = clamp(g.beta, .2, 1.5); g.rho = clamp(g.rho, 7, 34); return; }
+    const b = CAM.vista === 'top' ? topCam() : defaultCam();
+    g.phi = clamp(g.phi, b.phi - LIM.phi, b.phi + LIM.phi);
+    g.beta = clamp(g.beta, b.beta - LIM.abajo, Math.min(1.5, b.beta + LIM.arriba));
+    g.rho = clamp(g.rho, b.rho * LIM.cerca, b.rho * LIM.lejos);
   }
   function topCam(){ const d = defaultCam(); return { phi: 0, beta: 1.45, rho: d.rho * 1.05, tx: d.tx, ty: 0, tz: 1.2 }; }
   function updateCamera(dt){
@@ -939,7 +956,7 @@ const V3 = (function(){
     camera.position.set(CAM.tx + CAM.rho*Math.sin(CAM.phi)*cb, CAM.ty + CAM.rho*Math.sin(CAM.beta), CAM.tz + CAM.rho*Math.cos(CAM.phi)*cb);
     camera.lookAt(CAM.tx, CAM.ty, CAM.tz);
   }
-  function setView(v){ if (S.mz) { S.mz = null; muLbl.classList.remove('on'); } CAM.user = v !== 'mine'; CAM.g = v === 'top' ? topCam() : defaultCam(); CAM.k = 3; }
+  function setView(v){ if (S.mz) { S.mz = null; muLbl.classList.remove('on'); } CAM.vista = v; CAM.user = v !== 'mine'; CAM.g = v === 'top' ? topCam() : defaultCam(); CAM.k = 3; }
 
   // ---------- puntero: girar, acercar, jugar cartas ----------
   const ptrs = new Map();
@@ -1002,13 +1019,13 @@ const V3 = (function(){
       if (!drag) return;
       if (drag.pinch && ptrs.size >= 2) {
         const [a, b] = [...ptrs.values()], d = Math.hypot(a.x - b.x, a.y - b.y);
-        startUserCam(); CAM.g.rho = clamp(drag.pinch.rho * drag.pinch.d / Math.max(20, d), 7, 34);
+        startUserCam(); CAM.g.rho = clamp(drag.pinch.rho * drag.pinch.d / Math.max(20, d), 7, 34); limitarCam(CAM.g);
         return;
       }
       if (!drag.moved && Math.hypot(ev.clientX - drag.x, ev.clientY - drag.y) > 6) { drag.moved = true; canvas.style.cursor = 'grabbing'; }
       if (drag.moved) {
         startUserCam();
-        CAM.g.phi -= dx * .0065; CAM.g.beta = clamp(CAM.g.beta + dy * .005, .2, 1.5);
+        CAM.g.phi -= dx * (mirando() ? .0065 : .0032); CAM.g.beta = clamp(CAM.g.beta + dy * (mirando() ? .005 : .0028), .2, 1.5); limitarCam(CAM.g);
         if (hintEl) hintEl.classList.add('gone');
       }
     });
@@ -1027,7 +1044,7 @@ const V3 = (function(){
     canvas.addEventListener('pointerup', up);
     canvas.addEventListener('pointercancel', up);
     canvas.addEventListener('pointerleave', ev => { if (ev.pointerType === 'mouse' && !ptrs.size) { S.hover = null; clearTimeout(S.mzT); if (S.mz && !S.mz.sticky) muestraZoom(false); } });
-    canvas.addEventListener('wheel', ev => { ultimoToque = clock(); ev.preventDefault(); startUserCam(); CAM.g.rho = clamp(CAM.g.rho * Math.exp(ev.deltaY * .0011), 7, 34); }, { passive: false });
+    canvas.addEventListener('wheel', ev => { ultimoToque = clock(); ev.preventDefault(); startUserCam(); CAM.g.rho = clamp(CAM.g.rho * Math.exp(ev.deltaY * .0011), 7, 34); limitarCam(CAM.g); }, { passive: false });
     canvas.addEventListener('dblclick', () => setView('mine'));
     document.addEventListener('keydown', ev => {
       if (!running || document.querySelector('.overlay') || /INPUT|SELECT|TEXTAREA/.test((document.activeElement || {}).tagName || '')) return;

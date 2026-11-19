@@ -436,3 +436,32 @@ Herramientas: `tools/ia/lalo.js` (esa mano, con lo que decide la computadora) y 
 - El tanteador dibuja bien los chicos a 10 y a 30 (malas arriba de la raya, buenas abajo).
 - Pruebas: `server/prueba-mesa.mjs` (reglas, chat y voz, públicas), `server/prueba-cuentas.mjs` (la lista
   guarda las reglas) y `test.js` (achique).
+
+## Mirar partidos y echar a quien molesta; cámara 3D desde la silla (19/11)
+
+- **Mirar**: quien no tiene lugar en una mesa del servidor puede mirar el partido. Se entra con el código o el
+  link ("Mirar el partido" en la mesa de espera) o desde "Ver las mesas", donde las públicas que se están
+  jugando aparecen en "Partidos en juego" con el tanteador y cuántos miran. Quien mira ve lo que vería alguien
+  parado al lado de la mesa: las cartas cuando se juegan, lo que se muestra al final (menos en el pico a pico),
+  el tanteador y el chat. Nunca las cartas sin jugar ni las señas: el servidor le manda la vista del lugar -1
+  (`viewFor(G, -1)` en `vista.js`), una sola para todos los que miran. Ve la mesa desde el lugar 0, sin
+  botones; en 3D se dibuja también al jugador de abajo y la cámara puede dar la vuelta a la mesa. Puede usar
+  el chat (sale marcado "mirando") y la voz, si la mesa los tiene. En las públicas hace falta cuenta.
+- **Echar**: en el panel del chat, quien juega ve la lista de los que miran (con 🎙 si están hablando) y
+  puede votar "Echar" (o sacar su voto). Con la mayoría de las personas sentadas, el que mira se va y queda
+  vetado en esa mesa por su identificador y, si tiene, por su cuenta: no vuelve a entrar ni a mirar ni a
+  jugar (`vetados`, se guarda con la mesa). Los votos de quien se va de la mesa dejan de contar.
+- **Voz solo entre los de la mesa**: la sala de voz está abierta a cualquiera que sepa el código, así que cada
+  navegador avisa su identificador en la sala (`vozid`), el servidor reparte la lista de los que están en la
+  mesa (`lobby.voces`) y cada uno solo escucha y le manda su voz a esos. A alguien echado, o que entra a la
+  sala con el código sin estar en la mesa, no se lo oye y no oye a nadie.
+- Mensajes nuevos: `mirar`, `echar`, `vozid` (al servidor); `mirando`, `expulsado`, `vetado`, `echado` (al
+  jugador). Las mesas entre navegadores (sin servidor) no tienen espectadores.
+- **Cámara 3D del que juega**: queda en su silla. Arrastrando se inclina un poco hacia los costados (±15°)
+  y hacia adelante o atrás, y la rueda o el pellizco acercan o alejan poco (`limitarCam` en
+  `mesa3d.part.js`). "Tu lugar" (o doble clic) vuelve a la posición de siempre; "Desde arriba" y mirar la
+  muestra de cerca siguen igual.
+- Pruebas: `test.js` (la vista -1 nunca tiene una carta sin jugar ni una seña, en partidos al azar de 2, 4 y
+  6), `server/prueba-mesa.mjs` (mirar, chat y voz de quien mira, echar por mayoría, vetado por identificador
+  y por cuenta, votos de quien se va, lista de voces) y `server/prueba-cuentas.mjs` (partidos en juego en la
+  lista). Algunas pruebas del servidor que esperaban partidos largos ahora fijan el chico a 40.

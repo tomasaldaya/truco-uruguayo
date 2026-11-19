@@ -96,7 +96,8 @@ t('el personaje 3D que elige cada uno llega a todos (y uno inválido no)', () =>
 
 t('partido entre dos personas y la computadora: avanza, valida jugadas y sigue solo al fin de mano', () => {
   const W = mundo(), m = new Mesa(W.io, null);
-  m.onOpen('a'); m.onMessage('a', { t: 'hello', name: 'Ana', pid: 'pa', crear: { n: 4, key: 'k' } });
+  // al mejor de tres chicos a 40, para que una falta envido no termine el partido antes de tiempo
+  m.onOpen('a'); m.onMessage('a', { t: 'hello', name: 'Ana', pid: 'pa', crear: { n: 4, key: 'k', cfg: { target: 40, chicos: 2 } } });
   m.onOpen('b'); m.onMessage('b', { t: 'hello', name: 'Juan', pid: 'pb' });
   m.onMessage('a', { t: 'start', speed: 'rápida' });
   // una jugada que no corresponde
@@ -104,7 +105,7 @@ t('partido entre dos personas y la computadora: avanza, valida jugadas y sigue s
   if (sa.actor !== 0) { m.onMessage('a', { t: 'act', a: { type: 'play', card: sa.view.round.hands[0][0] } }); }
   else m.onMessage('a', { t: 'act', a: { type: 'truco', level: 4 } });
   for (let i = 0; i < 4000 && m.GM.roundNo < 4 && m.GM.phase !== 'matchEnd'; i++) { juega(m, W, 'a'); juega(m, W, 'b'); W.run(500); }
-  assert(m.GM.roundNo >= 4, 'mano ' + m.GM.roundNo);
+  { const G = m.GM, p = T.actor(G); assert(m.GM.roundNo >= 4 || G.phase === 'matchEnd', `mano ${G.roundNo}, fase ${G.phase}, le toca a ${p}, manual ${G.manual}, puede ${G.phase === 'play' ? T.legal(G, p).map(x => x.type).join(',') : '-'}, canto ${JSON.stringify(G.round.canto)}, listos ${[...m.ready]}, tanteador ${G.scores}`); }
   // Juan no toca "Siguiente mano": a los 15 segundos se sigue igual
   for (let i = 0; i < 4000 && m.GM.phase === 'play'; i++) { juega(m, W, 'a', true); juega(m, W, 'b', true); W.run(500); }
   const r = m.GM.roundNo;
@@ -240,7 +241,7 @@ await ta('con cuentas: si en un equipo no hay nadie con cuenta, no se anota', as
 
 await ta('con cuentas: el que se va y no vuelve queda con abandono; el que vuelve, no', async () => {
   const W = mundo(), reg = conCuentas(W), m = new Mesa(W.io, null);
-  m.onOpen('a'); m.onMessage('a', { t: 'hello', name: 'Ana', pid: 'pa', crear: { n: 4, key: 'k' }, token: 'tA' });
+  m.onOpen('a'); m.onMessage('a', { t: 'hello', name: 'Ana', pid: 'pa', crear: { n: 4, key: 'k', cfg: { target: 40 } }, token: 'tA' });
   m.onOpen('b'); m.onMessage('b', { t: 'hello', name: 'Beto', pid: 'pb', token: 'tB' });
   await pausa();
   m.onOpen('c'); m.onMessage('c', { t: 'hello', name: 'Ceci', pid: 'pc', token: 'tC' });
@@ -291,6 +292,114 @@ t('si un jugador realista se va y la computadora sigue en su lugar, ese lugar de
   m.onMessage('b', { t: 'bye' });
   assert.equal(m.seats[sb].kind, 'ai');
   assert.equal(m.GM.manual[sb], false);
+});
+
+// mesa de parejas empezada con Ana y Juan sentados (y la computadora en los otros dos lugares)
+function mesaEmpezada(cfg) {
+  const W = mundo(), m = new Mesa(W.io, null);
+  m.onOpen('a'); m.onMessage('a', { t: 'hello', name: 'Ana', pid: 'pa', code: 'MIRA', crear: { n: 4, key: 'k', cfg } });
+  m.onOpen('b'); m.onMessage('b', { t: 'hello', name: 'Juan', pid: 'pb' });
+  m.onMessage('a', { t: 'start', rules: {} });
+  return { W, m };
+}
+t('mirar: quien entra con el partido empezado puede mirar, sin ver ninguna carta sin jugar', () => {
+  const { W, m } = mesaEmpezada();
+  m.onOpen('x'); m.onMessage('x', { t: 'hello', name: 'Mirón', pid: 'px' });
+  assert(!last(W.inbox, 'x', 'state'), 'sin pedir mirar, solo ve la mesa de espera');
+  m.onMessage('x', { t: 'mirar' });
+  const id = last(W.inbox, 'x', 'mirando').id;
+  const st = last(W.inbox, 'x', 'state');
+  assert.equal(st.seat, -1); assert(st.mira); assert.deepEqual(st.legal, []);
+  assert(st.view.round.hands.every(h => h.every(c => c.hidden)), 'ninguna mano a la vista');
+  assert(st.view.round.senas.every(x => x === null));
+  // los demás lo ven en la lista
+  const L = last(W.inbox, 'a', 'lobby');
+  assert.deepEqual(L.mirando.map(x => [x.id, x.name]), [[id, 'Mirón']]); assert.equal(L.echarCon, 2);
+  // sigue el partido: le llega cada estado; no puede jugar ni votar nada
+  W.inbox.x = [];
+  for (let i = 0; i < 4; i++) { juega(m, W, 'a'); juega(m, W, 'b'); W.run(2500); }
+  assert(last(W.inbox, 'x', 'state'));
+  const G0 = JSON.stringify(m.GM.round && m.GM.round.played);
+  m.onMessage('x', { t: 'act', a: { type: 'mazo' } }); m.onMessage('x', { t: 'echar', id });
+  assert.equal(JSON.stringify(m.GM.round && m.GM.round.played), G0);
+  assert.deepEqual(m.miranInfo().mirando[0].echar, []);
+  // chat y voz: con su nombre (no el que mande) y marcado como que mira
+  W.run(700); m.onMessage('x', { t: 'chat', text: 'buena jugada', name: 'Ana' });
+  const ch = last(W.inbox, 'a', 'chat'); assert.equal(ch.name, 'Mirón'); assert.equal(ch.m, id); assert.equal(ch.p, -1);
+  m.onMessage('x', { t: 'talk', on: true }); assert.deepEqual([last(W.inbox, 'a', 'talk').m, last(W.inbox, 'a', 'talk').on], [id, true]);
+  // si se sienta en un lugar libre, deja de mirar y juega
+  m.onMessage('b', { t: 'bye' });
+  const libre = m.seats.findIndex(x => x.kind === 'ai' && x.left);
+  m.onMessage('x', { t: 'sit', seat: libre });
+  assert.equal(m.seatOf('x'), libre); assert.deepEqual(last(W.inbox, 'a', 'lobby').mirando, []);
+});
+
+t('mirar: si la mayoría de los sentados vota echarlo, se va y no puede volver a esa mesa', () => {
+  const { W, m } = mesaEmpezada();
+  m.onOpen('x'); m.onMessage('x', { t: 'hello', name: 'Molesto', pid: 'px', mirar: true });
+  const id = last(W.inbox, 'x', 'mirando').id;
+  m.onOpen('y'); m.onMessage('y', { t: 'hello', name: 'Tranqui', pid: 'py', mirar: true });
+  m.onMessage('a', { t: 'echar', id });
+  let L = last(W.inbox, 'b', 'lobby');
+  assert.deepEqual(L.mirando.find(x => x.id === id).echar, [0]);   // un voto de dos
+  assert(!last(W.inbox, 'x', 'expulsado'));
+  m.onMessage('a', { t: 'echar', id, no: true });                    // se arrepiente
+  assert.deepEqual(last(W.inbox, 'b', 'lobby').mirando.find(x => x.id === id).echar, []);
+  m.onMessage('a', { t: 'echar', id }); m.onMessage('b', { t: 'echar', id });
+  assert(last(W.inbox, 'x', 'expulsado')); assert(last(W.inbox, 'x', '__cerrado'));
+  assert.equal(last(W.inbox, 'a', 'echado').name, 'Molesto');
+  assert.deepEqual(last(W.inbox, 'a', 'lobby').mirando.map(x => x.name), ['Tranqui']);
+  // vuelve con otra conexión (recargó): no entra, ni a mirar ni a sentarse
+  m.onOpen('x2'); m.onMessage('x2', { t: 'hello', name: 'Otro nombre', pid: 'px', mirar: true });
+  assert(last(W.inbox, 'x2', 'vetado')); assert(!last(W.inbox, 'x2', 'state')); assert(!m.conns.has('x2'));
+  // y queda anotado aunque la mesa se guarde y se despierte
+  const m2 = new Mesa(mundo().io, JSON.parse(JSON.stringify(m.data())));
+  assert(m2.vetado({ pid: 'px' })); assert(!m2.vetado({ pid: 'py' }));
+});
+
+t('mirar: con una cuenta echada no se vuelve a entrar aunque cambie de navegador', () => {
+  const W = mundo(); conCuentas(W);
+  const m = new Mesa(W.io, null);
+  m.onOpen('a'); m.onMessage('a', { t: 'hello', name: 'Ana', pid: 'pa', code: 'MIRB', crear: { n: 2, key: 'k' } });
+  m.onMessage('a', { t: 'start', rules: {} });
+  m.onOpen('x'); m.onMessage('x', { t: 'hello', name: 'X', pid: 'px', mirar: true });
+  m.conCuenta('x', { id: 77, apodo: 'Pesado' });
+  assert.equal(last(W.inbox, 'a', 'lobby').mirando[0].name, 'Pesado');   // con cuenta, figura con su apodo
+  m.onMessage('a', { t: 'echar', id: last(W.inbox, 'x', 'mirando').id });   // de una persona sentada, alcanza con ella
+  assert(last(W.inbox, 'x', 'expulsado'));
+  m.onOpen('x3'); m.onMessage('x3', { t: 'hello', name: 'X', pid: 'otro-navegador', mirar: true });
+  assert(last(W.inbox, 'x3', 'mirando'), 'todavía no se sabe de quién es');
+  m.conCuenta('x3', { id: 77, apodo: 'Pesado' });
+  assert(last(W.inbox, 'x3', 'vetado')); assert(!m.conns.has('x3'));
+});
+
+t('mirar: los votos de quien se va no cuentan, y con menos gente sentada puede alcanzar', () => {
+  const W = mundo(), m = new Mesa(W.io, null);
+  m.onOpen('a'); m.onMessage('a', { t: 'hello', name: 'Ana', pid: 'pa', code: 'MIRC', crear: { n: 4, key: 'k' } });
+  for (const [c, nm] of [['b', 'Juan'], ['c', 'Ceci']]) { m.onOpen(c); m.onMessage(c, { t: 'hello', name: nm, pid: 'p' + c }); }
+  m.onMessage('a', { t: 'start', rules: {} });
+  m.onOpen('x'); m.onMessage('x', { t: 'hello', name: 'Mirón', pid: 'px', mirar: true });
+  const id = last(W.inbox, 'x', 'mirando').id;
+  assert.equal(last(W.inbox, 'a', 'lobby').echarCon, 2);   // de tres sentados, dos
+  m.onMessage('c', { t: 'echar', id });
+  m.onMessage('c', { t: 'bye' });                            // Ceci se va: su voto no cuenta
+  assert.deepEqual(last(W.inbox, 'a', 'lobby').mirando[0].echar, []);
+  assert.equal(last(W.inbox, 'a', 'lobby').echarCon, 2);   // de dos, dos
+  m.onMessage('a', { t: 'echar', id });
+  assert(!last(W.inbox, 'x', 'expulsado'));
+  m.onMessage('b', { t: 'echar', id });
+  assert(last(W.inbox, 'x', 'expulsado'));
+});
+
+t('voz: la mesa dice quiénes pueden estar en la sala de voz (los de la mesa, no los echados)', () => {
+  const { W, m } = mesaEmpezada();
+  m.onMessage('a', { t: 'vozid', id: 'vozDeAna0001' });
+  m.onMessage('b', { t: 'vozid', id: 'no vale!' });
+  assert.deepEqual(last(W.inbox, 'b', 'lobby').voces, ['vozDeAna0001']);
+  m.onOpen('x'); m.onMessage('x', { t: 'hello', name: 'Mirón', pid: 'px', mirar: true, vozId: 'vozDelMiron1' });
+  assert.deepEqual(last(W.inbox, 'a', 'lobby').voces.sort(), ['vozDeAna0001', 'vozDelMiron1']);
+  m.onMessage('a', { t: 'echar', id: last(W.inbox, 'x', 'mirando').id }); m.onMessage('b', { t: 'echar', id: last(W.inbox, 'x', 'mirando').id });
+  assert.deepEqual(last(W.inbox, 'a', 'lobby').voces, ['vozDeAna0001']);
 });
 
 t('reglas de la mesa: las elige quien la crea, las ven todos y solo el dueño las cambia hasta empezar', () => {
@@ -357,7 +466,7 @@ await ta('abandono: el que se va a propósito pierde enseguida (y en el ranking)
 
 await ta('abandono: si se le corta, tiene un minuto para volver; si no vuelve, pierde', async () => {
   const W = mundo(); conCuentas(W); const m = new Mesa(W.io, null);
-  m.onOpen('a'); m.onMessage('a', { t: 'hello', name: 'Ana', pid: 'pa', crear: { n: 2, key: 'k' } });
+  m.onOpen('a'); m.onMessage('a', { t: 'hello', name: 'Ana', pid: 'pa', crear: { n: 2, key: 'k', cfg: { target: 40, chicos: 2 } } });
   m.onOpen('b'); m.onMessage('b', { t: 'hello', name: 'Beto', pid: 'pb' });
   m.onMessage('a', { t: 'start' });
   m.onClose('b');

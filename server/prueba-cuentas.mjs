@@ -231,8 +231,12 @@ await t('salón de mesas públicas: lista las que esperan gente y se olvida de l
   let l = (await W.pedir('GET', 'publicas', null)).lista;
   assert.deepEqual(l.map(x => [x.codigo, x.personas]), [['CCCC', 2], ['AAAA', 1], ['BBBB', 1]]);
   W.c.salon({ codigo: 'BBBB', n: 2, personas: 2, nombres: ['Beto', 'Eva'] });     // llena: se va de la lista
-  W.c.salon({ codigo: 'AAAA', n: 4, personas: 1, empezada: true });
+  W.c.salon({ codigo: 'AAAA', n: 4, personas: 4, nombres: ['Ana', 'Eva', 'Fede', 'Gabi'], empezada: true, tanto: [7, 12], mirando: 3 });   // empezó: queda para mirarla
   W.c.salon({ codigo: 'zzz', n: 4, personas: 1 });
+  l = (await W.pedir('GET', 'publicas', null)).lista;
+  assert.deepEqual(l.map(x => [x.codigo, x.empezada]), [['CCCC', false], ['AAAA', true]]);   // primero las que esperan gente
+  assert.deepEqual(l[1].tanto, [7, 12]); assert.equal(l[1].mirando, 3);
+  W.c.salon({ codigo: 'AAAA', n: 4, personas: 4, empezada: true, fin: true });   // terminó el partido: se va
   l = (await W.pedir('GET', 'publicas', null)).lista;
   assert.deepEqual(l.map(x => x.codigo), ['CCCC']); assert.deepEqual(l[0].nombres, ['Ceci', 'Dani']);
   assert.deepEqual(l[0].cfg, { target: 30, chicos: 1, achique: false, chat: true, voz: true });   // sin reglas: las de siempre
