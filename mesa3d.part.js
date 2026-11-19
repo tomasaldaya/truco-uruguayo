@@ -233,6 +233,8 @@ const V3 = (function(){
     GEO.ring = new THREE.TorusGeometry(.085, .058, 12, 24);
     GEO.lente = new THREE.TorusGeometry(.2, .028, 8, 28);
     GEO.arm = new THREE.CapsuleGeometry(.36, 1.7, 6, 14);
+    GEO.brazo = new THREE.CapsuleGeometry(.33, 1.0, 6, 14);    // brazo y antebrazo, unidos en el codo (ver ikArm)
+    GEO.bombilla = new THREE.CylinderGeometry(.03, .03, .7, 8);
     GEO.torso = new THREE.CapsuleGeometry(1.15, 2.7, 8, 22);
     GEO.neck = new THREE.CylinderGeometry(.38, .44, .8, 18);
     GEO.glow = new THREE.CircleGeometry(1.25, 40);
@@ -399,12 +401,24 @@ const V3 = (function(){
     const torso = mesh(GEO.torso, M.shirt, 0, .25, -.2, 1.2, 1, .8); body.add(torso);
     body.add(mesh(GEO.neck, M.skin, 0, 3.05, -.12));
     if (lk.capucha) body.add(mesh(GEO.sph, M.shirt, 0, 2.95, -.78, 1.05, .5, .55));   // la capucha del buzo, atrás del cuello
-    const hands = [];
+    // brazos con codo: el hombro queda fijo y la mano va adonde la mande el gesto (ikArm); en reposo, sobre la mesa
+    // con las cartas. La mano es un puño; para los gestos asoman el pulgar, el índice, la mano abierta o el mate.
+    const hands = [], arms = [];
     for (const sx of [1, -1]) {
-      const a = v3(sx*1.35, 2.15, -.2), b = v3(sx*.58, 1.38, 1.28);
-      const arm = mesh(GEO.arm, M.shirt); arm.position.copy(a).add(b).multiplyScalar(.5);
-      arm.quaternion.setFromUnitVectors(UP, b.clone().sub(a).normalize()); body.add(arm);
-      const hnd = mesh(GEO.sph, M.skin, b.x, b.y, b.z, .34, .3, .36); body.add(hnd); hands.push(hnd);
+      const S = v3(sx*1.35, 2.15, -.2), H0 = v3(sx*.58, 1.38, 1.28);
+      const up = mesh(GEO.brazo, M.shirt), lo = mesh(GEO.brazo, M.shirt); body.add(up); body.add(lo);
+      const hg = new THREE.Group(); hg.position.copy(H0); body.add(hg);
+      const palm = mesh(GEO.sph, M.skin, 0, 0, 0, .34, .3, .36); hg.add(palm); hands.push(palm);
+      const thumb = mesh(GEO.sph, M.skin, 0, .34, .06, .095, .2, .095); thumb.visible = false; hg.add(thumb);
+      const index = mesh(GEO.sph, M.skin, 0, .4, .06, .075, .27, .075); index.visible = false; hg.add(index);
+      const open = new THREE.Group(); open.visible = false; hg.add(open);
+      for (let i = 0; i < 4; i++) open.add(mesh(GEO.sph, M.skin, -.2 + i*.135, .5 - Math.abs(i - 1.5)*.05, 0, .06, .19, .065));
+      const pul = mesh(GEO.sph, M.skin, sx*-.38, .12, 0, .07, .17, .07); pul.rotation.z = sx*.7; open.add(pul);
+      const mate = new THREE.Group(); mate.visible = false; hg.add(mate);
+      mate.add(mesh(GEO.sph, std(0x6e4e2a, .7), 0, .36, .1, .27, .3, .27));
+      mate.add(mesh(GEO.sph, std(0x55702e, .95), 0, .62, .1, .18, .04, .18));
+      const bo = mesh(GEO.bombilla, std(0xcfd3d6, .25, { metalness: .8 }), 0, .82, .02); bo.rotation.x = -.45; mate.add(bo);
+      arms.push({ sx, S, H0, up, lo, hg, palm, thumb, index, open, mate, shape: 'puño', quieto: false });
     }
     // cabeza
     const pivot = new THREE.Group(); pivot.position.set(0, 3.25, -.08); pivot.rotation.order = 'YXZ'; body.add(pivot);
@@ -447,7 +461,7 @@ const V3 = (function(){
       const pu = mesh(GEO.box, M.lente, 0, .17, .96, .16, .035, .035); pu.castShadow = false; head.add(pu);
     }
     hair(head, lk, M);
-    const c = { p, g, body, pivot, head, skull, eyes, brows, nose, mouth, lipU, lipL, inner, teeth, ring, tongue, hands,
+    const c = { p, g, body, pivot, head, skull, eyes, brows, nose, mouth, lipU, lipL, inner, teeth, ring, tongue, hands, arms, ag: null,
       F: Object.assign({}, NEUTRAL), yaw: 0, pitch: 0, blinkAt: clock() + 1 + Math.random()*3, blinkTo: 0,
       talkTo: 0, react: null, lookTo: null, lookUntil: 0, gest: null, phase: Math.random()*6 };
     return c;
@@ -529,6 +543,62 @@ const V3 = (function(){
     if (c.tongue.visible) { c.tongue.position.set(0, -.07 - open*.05, .04 + .1*F.tongue); c.tongue.scale.set(.1, .042, .06 + .06*F.tongue); }
   }
 
+  // ---------- gestos con la mano (panel "En la mesa", extras.part.js) ----------
+  // Dos huesos (brazo y antebrazo, 1,25 cada uno): dado el hombro y adónde va la mano, el codo sale hacia abajo y
+  // para afuera. Cada gesto dice, en cada momento, dónde está la mano derecha (coordenadas del cuerpo: x a la
+  // izquierda del personaje, y arriba, z hacia la mesa), qué forma tiene, cómo gira, y cómo ponen la cara y la cabeza.
+  const L_BRAZO = 1.25, tmpS = v3(0, 0, 0), tmpE = v3(0, 0, 0), tmpH = v3(0, 0, 0), tmpP = v3(0, 0, 0);
+  function hueso(m, a, b){ m.position.copy(a).add(b).multiplyScalar(.5); m.quaternion.setFromUnitVectors(UP, tmpP.copy(b).sub(a).normalize()); }
+  function ikArm(A, H){
+    const dir = tmpS.copy(H).sub(A.S); let d = dir.length(); dir.normalize();
+    d = clamp(d, .4, 2*L_BRAZO - .02);
+    const a = d / 2, h = Math.sqrt(Math.max(0, L_BRAZO*L_BRAZO - a*a));
+    const pole = tmpE.set(A.sx*.55, -1, -.25); pole.addScaledVector(dir, -pole.dot(dir)).normalize();
+    const hand = tmpH.copy(A.S).addScaledVector(dir, d);
+    const elbow = pole.multiplyScalar(h).add(A.S).addScaledVector(dir, a);
+    hueso(A.up, A.S, elbow); hueso(A.lo, elbow, hand); A.hg.position.copy(hand);
+  }
+  function forma(A, s){
+    if (A.shape === s) return; A.shape = s;
+    A.thumb.visible = s === 'pulgar'; A.index.visible = s === 'indice'; A.open.visible = s === 'abierta'; A.mate.visible = s === 'mate';
+    if (s === 'abierta') A.palm.scale.set(.32, .36, .13); else A.palm.scale.set(.34, .3, .36);
+  }
+  const suave = x => x*x*(3 - 2*x);
+  const mezcla = (a, b, k) => a.clone().lerp(b, suave(clamp(k, 0, 1)));
+  const GA = {
+    pulgar: { d: 2.2, f: t => ({ H: v3(-.95, 3.05 + .06*Math.sin(t*9), 1.75), s: 'pulgar', face: { browUp: .35, twist: .25 } }) },
+    nodedo: { d: 2.4, f: t => ({ H: v3(-.55, 3.65, 1.7), s: 'indice', rz: .5*Math.sin(t*13), hy: .12*Math.sin(t*13), face: { browIn: .45, pucker: .25 } }) },
+    // palmea la mano que tiene las cartas
+    aplauso: { d: 2.4, f: (t, c) => { const L = c.arms[0].H0, k = .5 + .5*Math.cos(t*13); return { H: v3(L.x - .42 - .5*k, L.y + .4 + .1*k, L.z + .1), s: 'abierta', ry: -PI/2, face: { browUp: .3, open: .2 } }; } },
+    risa: { d: 2.4, f: t => ({ H: v3(-.4, 1.0, 1.15), s: 'abierta', hp: -.28, bob: .08*Math.abs(Math.sin(t*15)), face: { open: .6, eyeA: .3, eyeB: .3, browUp: .3 } }) },
+    bienahi: { d: 2.0, f: t => ({ H: v3(-1.3, 4.3 + .12*Math.sin(t*12), .9), s: 'puño', face: { open: .4, browUp: .6 } }) },
+    // se señala los ojos y después te señala a vos
+    mirar: { d: 2.6, f: t => { const k = (t - 1.1) / .35; return { H: mezcla(v3(-.4, 4.05, 1.35), v3(-.55, 3.3, 2.2), k), s: 'indice', rx: -1.5 + 3*suave(clamp(k, 0, 1)), face: { browIn: .5, eyeA: .75, eyeB: .75 } }; } },
+    quese: { d: 2.2, f: () => ({ H: v3(-1.85, 2.05, 1.25), s: 'abierta', rx: PI/2, hr: .22, bob: .1, face: { browUp: .85, twist: .3 } }) },
+    pensar: { d: 3.0, f: () => ({ H: v3(-.2, 3.35, 1.05), s: 'puño', hr: .15, hp: -.12, face: { browIn: .3, twist: .35, eyeA: .8, eyeB: .8 } }) },
+    shh: { d: 2.2, f: () => ({ H: v3(-.08, 3.78, 1.25), s: 'indice', face: { pucker: .85, browUp: .3 } }) },
+    // golpea la mesa con el puño, dos veces
+    bronca: { d: 2.2, f: t => { const ph = (t*2.4) % 1, up = ph < .65 ? suave(ph/.65) : 1 - suave((ph - .65)/.35); return { H: v3(-.7, 1.35 + 1.3*up, 1.55), s: 'puño', face: { browIn: 1, nose: .4, bite: .4 } }; } },
+    saludo: { d: 2.4, f: t => ({ H: v3(-1.75, 3.9, 1.0), s: 'abierta', rz: .4*Math.sin(t*11), face: { browUp: .4, twist: .2 } }) },
+    // se lleva el mate a la boca y chupa la bombilla
+    mate: { d: 3.4, f: t => ({ H: v3(-.3, 3.5, 1.3), s: 'mate', hp: .08, face: t > .6 && t < 2.7 ? { pucker: .75, eyeA: .45, eyeB: .45 } : {} }) },
+  };
+  function gestoMano(c, t){
+    const g = c.ag; let out = null, e = 0;
+    if (g) {
+      const tt = t - g.t0;
+      if (tt >= g.d || !GA[g.k]) c.ag = null;
+      else { e = suave(clamp(Math.min(tt / .35, (g.d - tt) / .4), 0, 1)); out = GA[g.k].f(tt, c); }
+    }
+    c.arms.forEach((A, i) => {
+      if (out && i === 1) {
+        ikArm(A, mezcla(A.H0, out.H, e)); forma(A, e > .25 ? out.s : 'puño');
+        A.hg.rotation.set((out.rx || 0)*e, (out.ry || 0)*e, (out.rz || 0)*e); A.quieto = false;
+      } else if (!A.quieto) { ikArm(A, A.H0); forma(A, 'puño'); A.hg.rotation.set(0, 0, 0); A.quieto = true; }
+    });
+    return out ? { out, e } : null;
+  }
+
   function updateChars(t, dt){
     if (!Lay) return;
     const R = G.round;
@@ -537,6 +607,8 @@ const V3 = (function(){
       // cara: seña en curso o reacción
       const tgt = Object.assign({}, NEUTRAL);
       if (c.gest && c.gest.k) { const gk = GEST[c.gest.k]; for (const k in gk) tgt[k] = NEUTRAL[k] + (gk[k] - NEUTRAL[k]) * c.gest.env; }
+      const ga = gestoMano(c, t);
+      if (ga && ga.out.face && !c.gest) for (const k in ga.out.face) tgt[k] += (ga.out.face[k] - NEUTRAL[k]) * ga.e;
       if (c.react && c.react.face) { const rk = c.react.face, e = Math.sin(PI*clamp((t - c.react.t0)/c.react.d, 0, 1)); for (const k in rk) tgt[k] += (rk[k] - NEUTRAL[k]) * e; }
       for (const k in tgt) c.F[k] += (tgt[k] - c.F[k]) * Math.min(1, dt*18);
       if (!c.gest && t > c.blinkAt) { c.blinkTo = t + .13; c.blinkAt = t + 2.5 + Math.random()*4; }
@@ -569,7 +641,9 @@ const V3 = (function(){
           else if (c.react.type === 'slump') rx = .4*s;
         }
       }
-      c.pivot.rotation.set(c.pitch + rx, c.yaw + ry, 0);
+      if (ga) { rx += (ga.out.hp || 0)*ga.e; ry += (ga.out.hy || 0)*ga.e; }
+      c.pivot.rotation.set(c.pitch + rx, c.yaw + ry, ga ? (ga.out.hr || 0)*ga.e : 0);
+      c.pivot.position.y = 3.25 + (ga ? (ga.out.bob || 0)*ga.e : 0);
       c.body.position.z = bz + c.lean;
       c.body.scale.y = 1 + .008*Math.sin(t*1.7 + c.phase);
       c.body.rotation.z = .012*Math.sin(t*.7 + c.phase);
@@ -1239,13 +1313,11 @@ const V3 = (function(){
     retrato,
     update, pause,
     // un gesto, un sonido o un dicho del frasero (extras.part.js): la burbuja y el movimiento del personaje
-    gesto(p, text, react, ms, largo){
+    gesto(p, text, k, ms){
       if (!Lay || !G) return;
-      showBubble(p, text, ms, largo);
-      const c = Lay.chars[p]; if (!c) return;
-      if (react === 'talk') return;   // el dicho: habla y reacciona como cuando canta
-      c.talkTo = 0;
-      c.react = react ? { type: react, t0: now, d: react === 'slump' ? 1.2 : .9 } : null;
+      const c = Lay.chars[p];
+      showBubble(p, c ? text.split(' ')[0] : text, ms);   // al personaje se lo ve haciendo el gesto: alcanza con el dibujito
+      if (c && GA[k]) { c.ag = { k, t0: clock(), d: GA[k].d }; c.react = null; c.talkTo = 0; }
     },
     debug: () => ({ CARDS, S, CAM, Lay, camera, setView, renderer, queue: (p, l, k) => { queueSenas(p, l, k || 'partner'); S.jobs[S.jobs.length-1].notBefore = now; } }),
   };

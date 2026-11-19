@@ -49,15 +49,17 @@ const SND = (() => {
   }
   // los del panel de la mesa (los oye toda la mesa): un poco más fuertes que los del juego, pero cortos
   const MESA = {
-    golpe(t){ [0, .16].forEach(d => { tone(t + d, 95, .16, .22); hiss(t + d, .07, 700, 200, .7, .25, 'lowpass'); }); },
-    aplausos(t){ for (let i = 0; i < 26; i++) hiss(t + i*.045 + Math.random()*.03, .035, 2400 + Math.random()*1500, 1200, 1.3, .06 + Math.random()*.05); },
-    campana(t){ tone(t, 880, 1.4, .07); tone(t, 1760, .9, .025); tone(t, 2637, .5, .012); },
+    // unas pocas palmas, cada una un golpecito seco y corto (sin murmullo ni gritos detrás)
+    aplausos(t){
+      let x = t;
+      for (let i = 0; i < 9; i++) {
+        const g = .05 * (1 - i / 12);
+        hiss(x, .03, 2100, 1300, 2.2, g, 'bandpass'); hiss(x + .004, .02, 900, 500, 1.4, g * .6, 'bandpass');
+        x += .13 + Math.random() * .04;
+      }
+    },
     silbido(t){ sweep(t, [[0, 1300], [.28, 2300], [.42, 2300], [.8, 1500]], .05); },
-    redoble(t){ for (let i = 0; i < 14; i++) { tone(t + i*.05, 150, .06, .1); hiss(t + i*.05, .04, 1500, 600, .8, .08, 'lowpass'); } hiss(t + .72, .6, 6000, 2500, .5, .12, 'highpass'); tone(t + .72, 90, .3, .2); },
-    tada(t){ [[0, 523], [.12, 659], [.24, 784]].forEach(([d, f]) => tone(t + d, f, .18, .05, 'triangle')); [523, 659, 784, 1046].forEach(f => tone(t + .4, f, .8, .035, 'triangle')); },
-    bocina(t){ [0, .3].forEach(d => { tone(t + d, 233, .24, .025, 'sawtooth'); tone(t + d, 311, .24, .02, 'sawtooth'); }); },
     grillos(t){ for (let k = 0; k < 3; k++) for (let i = 0; i < 4; i++) tone(t + k*.38 + i*.035, 4300, .025, .02); },
-    uy(t){ sweep(t, [[0, 620], [.15, 700], [.7, 260]], .06, 'triangle'); },
   };
   const SOUNDS = {
     shuffle(t){ for (let i = 0; i < 9; i++) hiss(t + i*.045 + Math.random()*.01, .05, 3800, 2200, 1.2, .1); hiss(t + .45, .09, 2600, 900, .9, .14); },

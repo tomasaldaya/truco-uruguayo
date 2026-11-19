@@ -365,7 +365,7 @@ function onHostMsg(m){
     case 'talk': if (s >= 0 && mesaCfg().voz) { setTalking(s, !!m.on); netPost({ t: 'talk', p: s, on: !!m.on }); } return;
     case 'gesto': {   // como el servidor: solo códigos conocidos, de a uno cada un segundo y medio
       const ga = NET.gestoAt = NET.gestoAt || {}, now = Date.now();
-      if (s < 0 || !NET.started || typeof m.k !== 'string' || !/^[gsd]:[a-z0-9-]{1,24}$/.test(m.k) || now - (ga[g] || 0) < 1500) return;
+      if (s < 0 || !NET.started || typeof m.k !== 'string' || !/^[gs]:[a-z0-9-]{1,24}$/.test(m.k) || now - (ga[g] || 0) < 1500) return;
       ga[g] = now; const r = { t: 'gesto', p: s, k: m.k }; recibirGesto(r); netPost(r);
       return;
     }

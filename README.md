@@ -541,3 +541,24 @@ Herramientas: `tools/ia/lalo.js` (esa mano, con lo que decide la computadora) y 
 - Pruebas: `server/prueba-cuentas.mjs` (crear, nombres repetidos, unirse, ranking con lo jugado, el del mes, echar,
   dueño que se va, gremio que se borra, borrar la cuenta; logros antes y después). Las pantallas se probaron con
   `wrangler dev` y dos cuentas de prueba.
+
+## Dichos para leer, gestos con la mano, menos sonidos y logo nuevo (19/11, tercera tanda)
+
+- **Dichos**: ahora son solo para leer y decirlos por la voz; no tocan el partido ni aparece nada en la mesa.
+  Tienen tres pestañitas, Truco, Envido y Flor, y adentro solo dichos (no "quiero", "retruco" y eso). `DICHOS` en
+  `extras.part.js` es una lista de textos por grupo; por ahora solo los dos de la flor, el resto los pasa el usuario.
+  El mensaje `gesto` ya no acepta `d:` (servidor y anfitrión).
+- **Gestos con la mano** (mesa 3D): los brazos tienen codo (brazo y antebrazo de 1,25 que se acomodan solos con
+  `ikArm`: el hombro fijo, la mano adonde va y el codo hacia abajo y afuera) y la mano cambia de forma (puño,
+  pulgar, índice, abierta o con el mate: `forma`). Cada gesto (`GA` en `mesa3d.part.js`, mismo código que `GESTOS`)
+  mueve la mano derecha mientras la izquierda sigue con las cartas, y pone la cara y la cabeza: dedito para arriba,
+  que no con el dedo (lo mueve y niega un poco), aplaude contra la mano de las cartas, se agarra la panza de risa,
+  levanta el puño, se señala los ojos y te señala, se encoge con la palma para arriba, la mano en el mentón, el
+  dedo en los labios, golpea la mesa con el puño, saluda con la mano y toma mate. Arriba del personaje sale solo el
+  dibujito; en la 2D, el dibujito con el nombre. El gesto arranca con la hora del momento (`clock()`), no con la del
+  último cuadro dibujado.
+- **Sonidos**: quedan aplausos (unas pocas palmas secas, sin murmullo detrás), silbido y grillos.
+- **Interfaz en la compu**: el costado ya no estira la mesa 3D (con el panel nuevo pasaba de 729 a 861 px): en
+  pantallas de más de 980 px mide lo mismo que la mesa y, si no entra, se desplaza adentro.
+- **Logo nuevo**: el 2, el 4 y el 5 de oro en abanico con la muestra, el 1 de oro, acostada atrás, en el inicio
+  (`paintFan`, `.fan .mu`) y en los íconos de la app (`tools/icono/icono.py`, regenerados).

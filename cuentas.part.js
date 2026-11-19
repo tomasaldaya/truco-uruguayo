@@ -133,7 +133,7 @@ function cuentaRanking(m){
   const d = m.delta > 0 ? `+${m.delta}` : String(m.delta);
   // ¿se consiguió algún logro con este partido? (el servidor manda lo de antes y lo de después)
   const nuevos = m.antes && m.despues ? LOGROS.filter(([, meta, f]) => (f(m.antes) | 0) < meta && (f(m.despues) | 0) >= meta) : [];
-  if (nuevos.length) SND.mesa('tada');
+  if (nuevos.length) SND.play('win');
   avisoCuenta(`Ranking: ${d} puntos. Ahora tenés ${m.puntos}.` + (nuevos.length ? ` ¡${nuevos.length > 1 ? 'Logros nuevos' : 'Logro nuevo'}: ${nuevos.map(x => x[3] + ' ' + x[0]).join(', ')}!` : ''), nuevos.length ? 'perfil' : undefined);
   api('cuenta/yo').then(r => { cuentaGuardar(undefined, r.yo); }).catch(() => {});
 }

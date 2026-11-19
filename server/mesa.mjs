@@ -5,8 +5,8 @@
 //                y el dueño: mode, name, cfg, start, close
 //   al jugador:  hola, lobby, state, err, full, closed, nomesa, ocupada, nocuenta, chat, chatlog, talk, ping, ranking,
 //                mirando, expulsado, vetado, echado, mirada, gesto
-// Gesto: un gesto (dedito para arriba…), un sonido o un dicho del frasero, de los que trae el juego. Viaja solo
-// el código (g:…, s:…, d:…), nunca texto libre; cada pantalla lo traduce y lo muestra o lo hace sonar.
+// Gesto: un gesto (dedito para arriba…) o un sonido, de los que trae el juego. Viaja solo
+// el código (g:…, s:…), nunca texto libre; cada pantalla lo traduce y lo muestra o lo hace sonar.
 // Mirada: hacia dónde mira cada uno en la mesa 3D (girar la cabeza, inclinarse, mirar la muestra de cerca);
 // se reparte tal cual a los demás para que lo vean en su personaje. No dice nada de las cartas.
 // Mirar: quien no tiene lugar puede mirar el partido. Ve lo que vería alguien parado al lado de la mesa (las
@@ -28,7 +28,7 @@ const LEVELS = ['facil', 'normal', 'dificil'];
 const END_WAIT = 17000, CLOCK_GRACE = 2000, PING_MS = 4000;
 const MAX_MIRAN = 20, MAX_VETADOS = 100;
 const VOZ_RE = /^[A-Za-z0-9_-]{8,40}$/;
-const GESTO_RE = /^[gsd]:[a-z0-9-]{1,24}$/, GESTO_MS = 1500;   // el identificador de cada uno en la sala de voz
+const GESTO_RE = /^[gs]:[a-z0-9-]{1,24}$/, GESTO_MS = 1500;   // el identificador de cada uno en la sala de voz
 // mesas públicas: cualquiera con cuenta entra; sin dueño; empieza sola al llenarse (o cuando todos los
 // que están quieren empezar, con la computadora completando)
 const CUENTA_ATRAS = 3000;

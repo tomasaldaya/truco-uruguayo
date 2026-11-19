@@ -82,7 +82,9 @@ function showHome(view){
 // las tres cartas del abanico (con tu mazo, si cargaste uno); se reparten solo la primera vez
 function paintFan(deal){
   const fan = $('hfan'); fan.innerHTML = '';
-  [[1, 'espada'], [1, 'basto'], [7, 'espada']].forEach(([n, s], i) => { const c = cardEl({ n, s, id: n + '-' + s }); c.classList.add('f' + i); fan.appendChild(c); });
+  // el logo: la muestra (el 1 de oro) acostada atrás, como queda en la mesa, y adelante tres piezas de oro: el 2, el 4 y el 5
+  const mu = cardEl({ n: 1, s: 'oro', id: '1-oro' }); mu.classList.add('mu'); fan.appendChild(mu);
+  [[2, 'oro'], [4, 'oro'], [5, 'oro']].forEach(([n, s], i) => { const c = cardEl({ n, s, id: n + '-' + s }); c.classList.add('f' + i); fan.appendChild(c); });
   fan.classList.toggle('deal', !!deal);
 }
 function hideHome(){ $('home').hidden = true; document.querySelector('.app').hidden = false; window.scrollTo(0, 0); if (NET) renderVoz(); }

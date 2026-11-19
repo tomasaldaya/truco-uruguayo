@@ -1,62 +1,42 @@
 // ---------- En la mesa: dichos, gestos y sonidos; racha; reglamento; logros (19/11) ----------
 // Un panel en el costado con tres pestañas, para tener abierto mientras se juega (y se habla por la voz):
-//  - Dichos: el frasero, versitos y dichos para cantar el envido, el truco o la flor. Tocar uno lo muestra
-//    arriba de tu personaje para toda la mesa (y lo podés decir en voz alta).
+//  - Dichos: el frasero, versitos y dichos del truco, del envido y de la flor, solo para leer y decirlos por la voz.
 //  - Gestos: dedito para arriba, que no con el dedo… salen arriba de tu personaje y en la 3D se mueve.
 //  - Sonidos: los oye toda la mesa (cada uno puede apagar los de los demás).
-// Viaja solo el código (d:…, g:…, s:…) en el mensaje "gesto"; nunca texto libre. Para sumar dichos, gestos o
+// Gestos y sonidos viajan solo como código (g:…, s:…) en el mensaje "gesto"; nunca texto libre. Para sumar dichos, gestos o
 // sonidos, alcanza con agregarlos a estas listas (el código: minúsculas, números y guiones, hasta 24).
 
-// El frasero. Para agregar: ['codigo-unico', 'El dicho tal cual se dice.'] en el grupo que va.
-// El reglamento completo: build.py pone acá el texto de reglamento.txt.
-const REGLAMENTO = /*REGLAMENTO*/'';
+// El frasero: solo para leer (y decirlo por la voz); no toca el partido ni se muestra en la mesa.
+// Para agregar un dicho, ponelo tal cual se dice en el grupo que va (truco, envido o flor).
 const DICHOS = [
-  ['envido', 'Para tocar', [
-    ['env-1', '¡Envido!'],
-    ['env-real', 'Real envido, y que se acomode el que pueda.'],
-    ['env-falta', '¡Falta envido! El que no tenga, que se vaya.'],
+  ['truco', 'Truco', [
   ]],
-  ['truco', 'Para gritar', [
-    ['tru-1', '¡Truco!'],
-    ['tru-2', 'Truco, y que sea lo que Dios quiera.'],
-    ['tru-re', '¡Quiero retruco!'],
-    ['tru-v4', '¡Quiero vale cuatro!'],
+  ['envido', 'Envido', [
   ]],
-  ['flor', 'Para cantar flor', [
-    ['flor-farruco', 'A lo Farruco: ¡flor y truco!'],
-    ['flor-piojo', 'Por el río Paraná venía navegando un piojo, con un hachazo en el ojo y una flor en el ojal.'],
-  ]],
-  ['resp', 'Para contestar', [
-    ['r-quiero', '¡Quiero!'],
-    ['r-noquiero', 'No quiero, andá nomás.'],
-    ['r-buenas', 'Son buenas.'],
-    ['r-mazo', 'Me voy al mazo.'],
+  ['flor', 'Flor', [
+    'A lo Farruco: ¡flor y truco!',
+    'Por el río Paraná venía navegando un piojo, con un hachazo en el ojo y una flor en el ojal.',
   ]],
 ];
-// [código, emoji, qué es, cómo se mueve el personaje en la 3D (nod asiente, shake niega, lunge se adelanta, slump se hunde)]
+// [código, emoji, qué es]. En la 3D el personaje hace el gesto con la mano (GA en mesa3d.part.js, mismo código).
 const GESTOS = [
-  ['pulgar', '👍', 'Dedito para arriba', 'nod'],
-  ['nodedo', '☝️', 'Que no, con el dedo', 'shake'],
-  ['aplauso', '👏', 'Aplausos', 'nod'],
-  ['risa', '😂', 'Me muero de risa', 'nod'],
-  ['bienahi', '🙌', 'Bien ahí', 'lunge'],
-  ['mirar', '👀', 'Te estoy mirando', 'lunge'],
-  ['quese', '🤷', 'Qué sé yo', 'slump'],
-  ['pensar', '🤔', 'Pensando…', null],
-  ['shh', '🤫', 'Shhh', 'lunge'],
-  ['bronca', '😤', 'Qué bronca', 'shake'],
-  ['saludo', '👋', 'Hola / chau', 'nod'],
-  ['mate', '🧉', 'Un matecito', 'nod'],
+  ['pulgar', '👍', 'Dedito para arriba'],
+  ['nodedo', '☝️', 'Que no, con el dedo'],
+  ['aplauso', '👏', 'Aplausos'],
+  ['risa', '😂', 'Me muero de risa'],
+  ['bienahi', '🙌', 'Bien ahí'],
+  ['mirar', '👀', 'Te estoy mirando'],
+  ['quese', '🤷', 'Qué sé yo'],
+  ['pensar', '🤔', 'Pensando…'],
+  ['shh', '🤫', 'Shhh'],
+  ['bronca', '😤', 'Qué bronca'],
+  ['saludo', '👋', 'Hola / chau'],
+  ['mate', '🧉', 'Un matecito'],
 ];
 // [código, emoji, nombre]: los hace SND (sonido.part.js) en el momento. Los propios del jugador, más adelante.
-const SONIDOS_MESA = [
-  ['golpe', '✊', 'Golpe en la mesa'], ['aplausos', '👏', 'Aplausos'], ['campana', '🔔', 'Campana'],
-  ['silbido', '😙', 'Silbido'], ['redoble', '🥁', 'Redoble'], ['tada', '🎉', '¡Ta-dá!'],
-  ['bocina', '📯', 'Bocina'], ['grillos', '🦗', 'Grillos'], ['uy', '😬', 'Uyyy'],
-];
-const dichoDe = id => { for (const [, , l] of DICHOS) { const x = l.find(d => d[0] === id); if (x) return x[1]; } return null; };
+const SONIDOS_MESA = [['aplausos', '👏', 'Aplausos'], ['silbido', '😙', 'Silbido'], ['grillos', '🦗', 'Grillos']];
 const GESTO_VIVO = {};   // p -> { txt, at, ms, largo }: lo que se ve arriba de cada uno (mesa 2D)
-let sonMesa = store.get('truco.sonmesa') !== '0', gestoAt = 0, mesaTab = store.get('truco.mesatab') || 'dichos';
+let sonMesa = store.get('truco.sonmesa') !== '0', gestoAt = 0, mesaTab = store.get('truco.mesatab') || 'dichos', dichoTab = store.get('truco.dichotab') || 'truco';
 
 function mandarGesto(k){
   const now = Date.now();
@@ -71,13 +51,12 @@ function mandarGesto(k){
 function recibirGesto(m){
   if (!G || typeof m.p !== 'number' || m.p < 0 || m.p >= G.n || typeof m.k !== 'string') return;
   const tipo = m.k[0], id = m.k.slice(2), mio = m.p === ME && !mirando();
-  let txt, ms = 2600, react = null, largo = false;
-  if (tipo === 'g') { const x = GESTOS.find(g => g[0] === id); if (!x) return; txt = x[1] + ' ' + x[2]; react = x[3]; }
-  else if (tipo === 'd') { const x = dichoDe(id); if (!x) return; txt = '«' + x + '»'; ms = Math.min(7000, 2600 + x.length * 45); react = 'talk'; largo = x.length > 34; }
+  let txt, ms = 2600, largo = false;
+  if (tipo === 'g') { const x = GESTOS.find(g => g[0] === id); if (!x) return; txt = x[1] + ' ' + x[2]; ms = 2800; }
   else if (tipo === 's') { const x = SONIDOS_MESA.find(g => g[0] === id); if (!x) return; txt = x[1] + ' ' + x[2]; if (mio || sonMesa) SND.mesa(id); }
   else return;
   GESTO_VIVO[m.p] = { txt, at: Date.now(), ms, largo };
-  if (use3D()) V3.gesto(m.p, txt, react, ms, largo);
+  if (use3D()) V3.gesto(m.p, txt, tipo === 'g' ? id : null, ms);
   else { render(); setTimeout(() => { if (G && !use3D()) render(); }, ms + 80); }
 }
 // mesa 2D: si alguien acaba de hacer un gesto, va en su etiqueta (en vez de lo último que dijo)
@@ -97,11 +76,13 @@ function fuego(p){
 
 function mesaPanelHTML(){
   const tab = (k, nm) => `<button type="button" class="mtab" data-tab="${k}" aria-pressed="${mesaTab === k}">${nm}</button>`;
-  const dichos = DICHOS.map(([, nm, l]) => `<h4>${esc(nm)}</h4>` + l.map(([id, tx]) => `<button type="button" class="mdicho" data-k="d:${id}">${esc(tx)}</button>`).join('')).join('');
+  const dtab = (k, nm) => `<button type="button" class="mtab chico" data-dtab="${k}" aria-pressed="${dichoTab === k}">${nm}</button>`;
+  const dichos = `<div class="mtabs">${DICHOS.map(([k, nm]) => dtab(k, nm)).join('')}</div>` + DICHOS.map(([k, , l]) => `<div class="dpag" data-dpag="${k}"${dichoTab === k ? '' : ' hidden'}>${
+    l.length ? l.map(tx => `<p class="mdicho">${esc(tx)}</p>`).join('') : '<p class="small">Todavía no hay dichos acá.</p>'}</div>`).join('');
   const gestos = GESTOS.map(([id, em, nm]) => `<button type="button" class="mgesto" data-k="g:${id}" title="${esc(nm)}"><span>${em}</span><small>${esc(nm)}</small></button>`).join('');
   const sonidos = SONIDOS_MESA.map(([id, em, nm]) => `<button type="button" class="mgesto" data-k="s:${id}" title="${esc(nm)}"><span>${em}</span><small>${esc(nm)}</small></button>`).join('');
   return `<div class="mtabs" role="group">${tab('dichos', 'Dichos')}${tab('gestos', 'Gestos')}${tab('sonidos', 'Sonidos')}</div>
-    <div class="mpag" data-pag="dichos"${mesaTab === 'dichos' ? '' : ' hidden'}><p class="small">Tocá uno y aparece arriba de tu personaje para toda la mesa. Con la voz prendida, decilo vos.</p>${dichos}</div>
+    <div class="mpag" data-pag="dichos"${mesaTab === 'dichos' ? '' : ' hidden'}>${dichos}<p class="small">Para leerlos y decirlos por la voz.</p></div>
     <div class="mpag mgrid" data-pag="gestos"${mesaTab === 'gestos' ? '' : ' hidden'}>${gestos}</div>
     <div class="mpag" data-pag="sonidos"${mesaTab === 'sonidos' ? '' : ' hidden'}><div class="mgrid">${sonidos}</div>
       <label class="msw"><input type="checkbox" id="sonMesa"${sonMesa ? ' checked' : ''}> Escuchar los sonidos de los demás</label>
@@ -117,9 +98,13 @@ function mesaPanelSync(){
     const box = $('mesaBox'); box.innerHTML = mesaPanelHTML();
     box.onclick = e => {
       const t = e.target.closest('button'); if (!t) return;
-      if (t.dataset.tab) {
+      if (t.dataset.dtab) {
+        dichoTab = t.dataset.dtab; store.set('truco.dichotab', dichoTab);
+        box.querySelectorAll('[data-dtab]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.dtab === dichoTab)));
+        box.querySelectorAll('.dpag').forEach(x => { x.hidden = x.dataset.dpag !== dichoTab; });
+      } else if (t.dataset.tab) {
         mesaTab = t.dataset.tab; store.set('truco.mesatab', mesaTab);
-        box.querySelectorAll('.mtab').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.tab === mesaTab)));
+        box.querySelectorAll('[data-tab]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.tab === mesaTab)));
         box.querySelectorAll('.mpag').forEach(x => { x.hidden = x.dataset.pag !== mesaTab; });
       } else if (t.dataset.k) mandarGesto(t.dataset.k);
     };

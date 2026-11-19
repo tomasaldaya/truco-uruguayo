@@ -260,8 +260,9 @@ aside{display:flex;flex-direction:column;gap:14px;margin-top:13px}
 .mtab[aria-pressed="true"]{background:var(--gold);color:#2b1d10;border-color:var(--gold)}
 .mpag{max-height:300px;overflow:auto}
 .mpag h4{font:700 12px 'Alegreya Sans',sans-serif;text-transform:uppercase;letter-spacing:.06em;opacity:.7;margin:10px 0 4px}
-.mdicho{display:block;width:100%;text-align:left;font:600 14px/1.35 'Alegreya Sans',sans-serif;color:inherit;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:6px 9px;margin:0 0 5px;cursor:pointer}
-.mdicho:hover,.mgesto:hover{background:rgba(255,255,255,.12)}
+.mtab.chico{font-size:12px;padding:3px 6px}
+.mdicho{font:italic 600 15px/1.4 'Alegreya Sans',sans-serif;background:rgba(255,255,255,.04);border-left:3px solid var(--gold);border-radius:6px;padding:6px 10px;margin:0 0 6px}
+.mgesto:hover{background:rgba(255,255,255,.12)}
 .mgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(74px,1fr));gap:6px}
 .mgesto{display:flex;flex-direction:column;align-items:center;gap:2px;color:inherit;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:6px 4px;cursor:pointer}
 .mgesto span{font-size:24px;line-height:1.1}.mgesto small{font-size:11px;line-height:1.15;text-align:center;opacity:.85}
@@ -345,15 +346,18 @@ aside{display:flex;flex-direction:column;gap:14px;margin-top:13px}
     repeating-linear-gradient(45deg, var(--felt-line) 0 1px, transparent 1px 6px),
     linear-gradient(var(--felt), var(--felt2));
   box-shadow:0 0 0 12px var(--wood),0 0 0 15px var(--wood2),0 24px 60px rgba(0,0,0,.6),inset 0 0 90px rgba(0,0,0,.35)}
-.fan{position:relative;height:250px;margin:4px auto 34px;width:330px}
+.fan{position:relative;height:330px;margin:4px auto 34px;width:330px}
 .fan .card{position:absolute;left:50%;bottom:0;--cw:140px;--ch:213px;border-radius:12px;transform-origin:50% 100%;
   box-shadow:0 2px 0 var(--paper-edge),0 14px 28px rgba(0,0,0,.45)}
 .fan .card img{border-radius:12px}
 .fan .f0{transform:translateX(-50%) translateX(-78px) rotate(-14deg)}
 .fan .f1{transform:translateX(-50%) translateY(-14px)}
 .fan .f2{transform:translateX(-50%) translateX(78px) rotate(14deg)}
+.fan .card.mu{transform-origin:50% 50%;bottom:152px;transform:translateX(-50%) rotate(90deg);filter:brightness(.92)}
 .fan.deal .card{animation:dealIn .55s cubic-bezier(.2,.8,.25,1) both}
 .fan.deal .f1{animation-delay:.12s}.fan.deal .f2{animation-delay:.24s}
+.fan.deal .card.mu{animation:muIn .5s ease-out .36s both}
+@keyframes muIn{from{opacity:0}to{opacity:1}}
 @keyframes dealIn{from{transform:translateX(-50%) translateY(-260px) rotate(0);opacity:0}}
 @media (prefers-reduced-motion:reduce){.fan.deal .card{animation:none}}
 .htitle{font-family:'Alegreya',serif;font-weight:800;font-size:60px;line-height:.95;letter-spacing:-.5px;margin:0;color:var(--paper);text-shadow:0 3px 14px rgba(0,0,0,.45)}
@@ -565,7 +569,8 @@ img.avt{object-fit:cover;background:#2a1d13}
   .home{align-items:flex-start;padding:30px 22px}
   .home-in{grid-template-columns:1fr;gap:26px}
   .hero{padding:24px 18px 22px;border-radius:26px}
-  .fan{height:170px;width:240px;margin-bottom:22px}
+  .fan{height:232px;width:240px;margin-bottom:22px}
+  .fan .card.mu{bottom:106px}
   .fan .card{--cw:96px;--ch:146px}
   .fan .f0{transform:translateX(-50%) translateX(-54px) rotate(-14deg)}
   .fan .f2{transform:translateX(-50%) translateX(54px) rotate(14deg)}
@@ -575,7 +580,8 @@ img.avt{object-fit:cover;background:#2a1d13}
 @media (max-width:520px){
   .home{padding:16px 14px}
   .hero{padding:14px 14px 16px}
-  .fan{height:112px;width:200px;margin:0 auto 10px}
+  .fan{height:158px;width:200px;margin:0 auto 10px}
+  .fan .card.mu{bottom:73px}
   .fan .card{--cw:66px;--ch:100px;border-radius:8px}
   .fan .f0{transform:translateX(-50%) translateX(-38px) rotate(-14deg)}
   .fan .f1{transform:translateX(-50%) translateY(-8px)}
@@ -592,6 +598,8 @@ img.avt{object-fit:cover;background:#2a1d13}
 }
 
 @media (max-width:980px){ .app{grid-template-columns:1fr} }
+/* en la compu, el costado no estira la mesa: mide lo mismo que ella y si no entra se desplaza adentro */
+@media (min-width:981px){ aside{height:0;min-height:100%;overflow-y:auto;scrollbar-width:thin} }
 /* ---------- Celular: todo lo de la mano en una sola pantalla, sin deslizar ----------
    arriba el tanteo; en el medio la mesa; abajo tus cartas y los botones; frases, señas y tanteador en una barra
    que abre hojas por encima (no empujan nada) */

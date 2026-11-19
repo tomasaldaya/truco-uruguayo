@@ -592,7 +592,7 @@ await ta('pública: con dos o más, si todos quieren empezar ya, la computadora 
   assert.notEqual(m.GM.id, id1); assert.equal(m.GM.phase, 'play');
 });
 
-t('gestos, sonidos y dichos: solo códigos válidos, solo de quien juega y de a uno cada tanto', () => {
+t('gestos y sonidos: solo códigos válidos, solo de quien juega y de a uno cada tanto', () => {
   const W = mundo(), m = new Mesa(W.io, null);
   m.onOpen('a'); m.onMessage('a', { t: 'hello', name: 'Ana', pid: 'pa', crear: { n: 2, key: 'k' } });
   m.onOpen('b'); m.onMessage('b', { t: 'hello', name: 'Beto', pid: 'pb' });
@@ -603,7 +603,7 @@ t('gestos, sonidos y dichos: solo códigos válidos, solo de quien juega y de a 
   W.inbox.b = []; m.onMessage('a', { t: 'gesto', k: 's:campana' }); assert(!last(W.inbox, 'b', 'gesto'));   // muy seguido
   W.run(1600); m.onMessage('a', { t: 'gesto', k: '<b>hola</b>' }); m.onMessage('a', { t: 'gesto', k: 'x:algo' }); m.onMessage('a', { t: 'gesto', k: 'd:' + 'a'.repeat(30) });
   assert(!last(W.inbox, 'b', 'gesto'));
-  m.onMessage('b', { t: 'gesto', k: 'd:flor-piojo' }); assert.equal(last(W.inbox, 'a', 'gesto').p, 1);
+  m.onMessage('b', { t: 'gesto', k: 'g:mate' }); assert.equal(last(W.inbox, 'a', 'gesto').p, 1);
   m.onOpen('c'); m.onMessage('c', { t: 'mirar' }); W.inbox.a = [];
   m.onMessage('c', { t: 'gesto', k: 'g:risa' }); assert(!last(W.inbox, 'a', 'gesto'));   // quien mira, no
 });
