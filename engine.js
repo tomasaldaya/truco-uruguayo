@@ -763,7 +763,7 @@
     R.mustShow[w] = true;
     const ctx = c.ctx;
     if (ctx.type === 'env') {
-      R.envido.result = { winner: w, team: wt, pts: c.stake, accepted: true, sung: Object.assign({}, c.sung), declined: Object.assign({}, c.declined) };
+      R.envido.result = { winner: w, team: wt, pts: c.stake, accepted: true, falta: !!ctx.falta, sung: Object.assign({}, c.sung), declined: Object.assign({}, c.declined) };
       R.wonEnvite[wt] = true;
       if (reveal(G, w)) return;
       R.canto = null;
@@ -804,7 +804,7 @@
       afterPoints(G);
       return;
     }
-    startCanto(G, 'env', { type: 'env' }, betTotal(bets, R.falta));
+    startCanto(G, 'env', { type: 'env', falta: bets.some(b => b.amt === 'falta') }, betTotal(bets, R.falta));
   }
   // Envite con flor no querido (Art. 32): el que envidó cobra las flores de su equipo; en un reenvite, además
   // lo envidado antes (y las flores del rival si ya había contra flor). Con achique, el primer envite no

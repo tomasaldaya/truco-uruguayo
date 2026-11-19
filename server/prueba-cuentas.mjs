@@ -24,7 +24,7 @@ function mundo(extra) {
   return { c, db, avisos, online, pedir, alta, avanzar: ms => { now += ms; }, get now() { return now; } };
 }
 const partido = (id, ganador, cuentas) => ({ id, n: 2, ganador, tanteador: '30 a 20', equipos: [[{ nombre: 'A' }], [{ nombre: 'B' }]], cuentas });
-const stats = { manos: 9, manosGanadas: 5, envidos: 2, flores: 1, trucos: 3 };
+const stats = { manos: 9, manosGanadas: 5, envidos: 2, flores: 1, trucos: 3, faltas: 1, falta37: 1 };
 
 await t('alta, sesión, apodos únicos y cambio de apodo', async () => {
   const W = mundo();
@@ -70,6 +70,8 @@ await t('ranking: puntos tipo ELO, solo con cuentas en los dos equipos, sin repe
   const perfil = (await W.pedir('GET', 'cuenta/perfil?id=' + a, null)).perfil;
   assert.equal(perfil.partidos, 3); assert.equal(perfil.ganados, 3); assert.equal(perfil.racha, 3); assert.equal(perfil.mejorRacha, 3);
   assert.equal(perfil.manos, 9); assert.equal(perfil.flores, 1); assert.equal(perfil.posicion, 1);
+  assert.equal(perfil.faltas, 1); assert.equal(perfil.falta37, 1);
+  assert.equal(r.jugadores[0].racha, 1);
   const pc = (await W.pedir('GET', 'cuenta/perfil?id=' + c, null)).perfil;
   assert.equal(pc.abandonos, 1); assert.equal(pc.racha, 0);
   // historial, del más nuevo al más viejo

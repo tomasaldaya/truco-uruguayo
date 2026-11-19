@@ -1,10 +1,12 @@
 // Una mesa compartida en el servidor (una por código). Hace lo que hacía el navegador del anfitrión
 // en las mesas por internet (red.part.js), pero acá: nadie tiene que dejar una pestaña abierta y nadie
 // tiene en su navegador las cartas ajenas. Habla el mismo idioma de mensajes que el juego:
-//   del jugador: hello, sit, bye, act, senas, pedido, ready, chat, talk, pong, empezar (mesa pública), mirar, echar, vozid, mirada;
+//   del jugador: hello, sit, bye, act, senas, pedido, ready, chat, talk, pong, empezar (mesa pública), mirar, echar, vozid, mirada, gesto;
 //                y el dueño: mode, name, cfg, start, close
 //   al jugador:  hola, lobby, state, err, full, closed, nomesa, ocupada, nocuenta, chat, chatlog, talk, ping, ranking,
-//                mirando, expulsado, vetado, echado, mirada
+//                mirando, expulsado, vetado, echado, mirada, gesto
+// Gesto: un gesto (dedito para arriba…), un sonido o un dicho del frasero, de los que trae el juego. Viaja solo
+// el código (g:…, s:…, d:…), nunca texto libre; cada pantalla lo traduce y lo muestra o lo hace sonar.
 // Mirada: hacia dónde mira cada uno en la mesa 3D (girar la cabeza, inclinarse, mirar la muestra de cerca);
 // se reparte tal cual a los demás para que lo vean en su personaje. No dice nada de las cartas.
 // Mirar: quien no tiene lugar puede mirar el partido. Ve lo que vería alguien parado al lado de la mesa (las
@@ -25,7 +27,8 @@ const SPEEDS = { lenta: 1.6, normal: 1, 'rápida': 0.55 };
 const LEVELS = ['facil', 'normal', 'dificil'];
 const END_WAIT = 17000, CLOCK_GRACE = 2000, PING_MS = 4000;
 const MAX_MIRAN = 20, MAX_VETADOS = 100;
-const VOZ_RE = /^[A-Za-z0-9_-]{8,40}$/;   // el identificador de cada uno en la sala de voz
+const VOZ_RE = /^[A-Za-z0-9_-]{8,40}$/;
+const GESTO_RE = /^[gsd]:[a-z0-9-]{1,24}$/, GESTO_MS = 1500;   // el identificador de cada uno en la sala de voz
 // mesas públicas: cualquiera con cuenta entra; sin dueño; empieza sola al llenarse (o cuando todos los
 // que están quieren empezar, con la computadora completando)
 const CUENTA_ATRAS = 3000;
@@ -80,7 +83,7 @@ export class Mesa {
     this.seats = (s.seats || []).map((x, p) => x.kind === 'ai' ? x
       : this.publica && !this.started ? { kind: 'ai', name: AI_NAMES[this.n][p] }
       : p === 0 && !this.started ? { ...x, cid: null }
-      : { kind: 'ai', name: x.name, left: true, pid: x.pid, host: p === 0 && !this.publica, uid: x.uid || null });
+      : { kind: 'ai', name: x.name, left: true, pid: x.pid, host: p === 0 && !this.publica, uid: x.uid || null, racha: x.racha || 0 });
     if (this.GM) this.GM.humans = [];
     // cuentas que juegan este partido: uid -> { equipo, abandono, stats }; hasta que vuelvan, figuran como que se fueron
     this.cuentas = new Map((s.cuentas || []).map(([uid, c]) => [uid, { ...c, abandono: true }]));
@@ -143,6 +146,10 @@ export class Mesa {
         return;
       }
       case 'echar': return this.echar(s, m);
+      case 'gesto':
+        if (s < 0 || !this.started || typeof m.k !== 'string' || !GESTO_RE.test(m.k) || now - (c.gestoAt || 0) < GESTO_MS) return;
+        c.gestoAt = now; this.broadcast({ t: 'gesto', p: s, k: m.k });
+        return;
       // lo que puede hacer el dueño de la mesa
       case 'mode': if (this.isOwner(cid) && !this.started && [2, 4, 6].includes(m.n)) this.setMode(m.n); return;
       case 'name': if (this.isOwner(cid) && !this.started) { this.seats[0].name = cleanName(m.name); this.lobbyChanged(); } return;
@@ -164,7 +171,7 @@ export class Mesa {
         c.esperando = false;
         if (!this.conns.has(cid)) return;
         if (!u || typeof u.id !== 'number') { this.send(cid, { t: 'nocuenta' }); return; }
-        c.uid = u.id; c.apodo = cleanName(u.apodo);
+        c.uid = u.id; c.apodo = cleanName(u.apodo); c.racha = u.racha | 0;
         this.hello(cid, { ...m, name: c.apodo });
       }).catch(() => { c.esperando = false; this.send(cid, { t: 'nocuenta' }); });
       return;
@@ -244,11 +251,12 @@ export class Mesa {
   conCuenta(cid, u) {
     const c = this.conns.get(cid);
     if (!c || !u || typeof u.id !== 'number') return;
-    c.uid = u.id; c.apodo = cleanName(u.apodo);
+    c.uid = u.id; c.apodo = cleanName(u.apodo); c.racha = u.racha | 0;
     if (this.key && this.vetado(c)) { this.send(cid, { t: 'vetado' }); this.io.close(cid); this.onClose(cid); return; }
     const p = this.seatOf(cid);
     if (p < 0) { if (c.mira) { c.mira.name = c.apodo; this.broadcast(this.lobbyMsg()); } return; }
-    this.seats[p].uid = u.id;
+    this.seats[p].uid = u.id; this.seats[p].racha = c.racha;
+    if (this.started && this.GM) { if (!this.GM.rachas) this.GM.rachas = Array(this.GM.n).fill(0); this.GM.rachas[p] = c.racha; this.publish(); }
     if (!this.started) this.seats[p].name = c.apodo;
     this.notarCuenta(p);
     this.lobbyChanged();
@@ -258,18 +266,20 @@ export class Mesa {
     if (!this.started || !s || !s.uid || s.kind === 'ai') return;
     const c = this.cuentas.get(s.uid);
     if (c) { c.equipo = team(p); c.abandono = false; }
-    else this.cuentas.set(s.uid, { equipo: team(p), abandono: false, stats: { manos: 0, manosGanadas: 0, envidos: 0, flores: 0, trucos: 0 } });
+    else this.cuentas.set(s.uid, { equipo: team(p), abandono: false, stats: { manos: 0, manosGanadas: 0, envidos: 0, flores: 0, trucos: 0, faltas: 0, falta37: 0 } });
   }
   takeSeat(p, who) {
     const cc = this.conns.get(who.cid);
     if (this.ausentes.has(p)) { this.io.clearTimeout(this.ausentes.get(p)); this.ausentes.delete(p); }
-    this.seats[p] = { kind: who.kind, name: who.name, cid: who.cid, pid: who.pid, uid: (cc && cc.uid) || null, pj: (cc && cc.pj) || null };
+    this.seats[p] = { kind: who.kind, name: who.name, cid: who.cid, pid: who.pid, uid: (cc && cc.uid) || null, pj: (cc && cc.pj) || null, racha: (cc && cc.racha) || 0 };
     const c = this.conns.get(who.cid); if (c) c.alive = this.pingSeq;
     if (this.started && this.GM) {
       if (!this.GM.humans.includes(p)) this.GM.humans.push(p);
       this.GM.names[p] = who.name;
       if (!this.GM.pjs) this.GM.pjs = Array(this.GM.n).fill(null);
       this.GM.pjs[p] = this.seats[p].pj;
+      if (!this.GM.rachas) this.GM.rachas = Array(this.GM.n).fill(0);
+      this.GM.rachas[p] = this.seats[p].racha;   // partidos ganados seguidos (se ve 🔥 desde dos)
       this.GM.teamNames = this.GM.n > 2 ? [0, 1].map(t => joinY(this.GM.names.filter((_, q) => team(q) === t))) : this.GM.names.slice();
     }
     this.notarCuenta(p);
@@ -279,12 +289,13 @@ export class Mesa {
   }
   freeSeat(p) {
     const prev = this.seats[p];
-    this.seats[p] = this.started ? { kind: 'ai', name: prev.name, left: true, pid: prev.pid, host: p === 0 && !this.publica, uid: prev.uid || null, pj: prev.pj || null } : { kind: 'ai', name: AI_NAMES[this.n][p] };
+    this.seats[p] = this.started ? { kind: 'ai', name: prev.name, left: true, pid: prev.pid, host: p === 0 && !this.publica, uid: prev.uid || null, pj: prev.pj || null, racha: 0 } : { kind: 'ai', name: AI_NAMES[this.n][p] };
     this.votos.delete(p);
     for (const x of this.conns.values()) if (x.mira) x.mira.echar.delete(p);
     if (this.started && prev.uid && this.cuentas.has(prev.uid)) this.cuentas.get(prev.uid).abandono = true;
     this.ready.delete(p);
     if (this.started && this.GM) {
+      if (this.GM.rachas) this.GM.rachas[p] = 0;
       this.GM.humans = this.GM.humans.filter(q => q !== p);
       this.GM.manual[p] = false;   // la computadora juega su lugar sin el modo realista (canta lo que tiene)
       if (this.GM.phase === 'play' && T.actor(this.GM) === p) this.step(); else this.checkReady();
@@ -448,7 +459,8 @@ export class Mesa {
     this.level = LEVELS.includes(m.level) ? m.level : 'normal';
     this.stopTimers();
     this.GM = T.newMatch({ players: n, names, humans, rules, manual: this.seats.map(s => s.kind !== 'ai'), teamNames });
-    this.GM.pjs = this.seats.map(s => s.pj || null);   // los personajes 3D de cada uno (los de la computadora, por su nombre)
+    this.GM.pjs = this.seats.map(s => s.pj || null);
+    this.GM.rachas = this.seats.map(s => s.kind !== 'ai' && s.uid ? s.racha || 0 : 0);   // los personajes 3D de cada uno (los de la computadora, por su nombre)
     this.GM.id = this.io.now().toString(36) + Math.random().toString(36).slice(2, 7);
     T.startRound(this.GM);
     this.started = true; this.ready = new Set(); this.lastRoundKey = null; this.clock = null;
@@ -515,6 +527,8 @@ export class Mesa {
         if (pts(t, 'envido') > 0) st.envidos++;
         if (pts(t, 'truco') >= 2) st.trucos++;
         if (R.flor && R.flor.sung[p] && R.flor.has[p]) st.flores++;
+        const E = R.envido && R.envido.result;   // falta envido querida y ganada (y si la ganó él con 37)
+        if (E && E.accepted && E.falta && E.team === t && !E.vencido) { st.faltas = (st.faltas || 0) + 1; if (E.winner === p && R.envPts && R.envPts[p] === 37) st.falta37 = (st.falta37 || 0) + 1; }
       });
     }
     if (G.phase === 'matchEnd' && !this.registrado) {
@@ -530,6 +544,7 @@ export class Mesa {
         // a cada uno, cómo le fue en el ranking
         for (const j of r.jugadores || []) {
           const p = this.seats.findIndex(s => s.kind !== 'ai' && s.uid === j.uid);
+          if (p >= 0) { this.seats[p].racha = j.racha | 0; const cc = this.conns.get(this.seats[p].cid); if (cc) cc.racha = j.racha | 0; }
           if (p >= 0 && this.seats[p].cid) this.send(this.seats[p].cid, { t: 'ranking', ...j });
         }
       }).catch(() => {});
@@ -649,7 +664,7 @@ export class Mesa {
   data() {
     if (!this.key) return null;
     return { code: this.code, key: this.key, n: this.n, started: this.started, publica: this.publica, cfg: this.cfg, speed: this.speed, level: this.level, chat: this.chat, GM: this.GM,
-      seats: (this.seats || []).map(s => ({ kind: s.kind, name: s.name, pid: s.pid || null, left: !!s.left, host: !!s.host, uid: s.uid || null })),
+      seats: (this.seats || []).map(s => ({ kind: s.kind, name: s.name, pid: s.pid || null, left: !!s.left, host: !!s.host, uid: s.uid || null, racha: s.racha || 0 })),
       cuentas: [...this.cuentas], anotada: this.anotada, registrado: this.registrado, vetados: this.vetados };
   }
   save() { if (this.saveT) return; this.saveT = this.io.setTimeout(() => { this.saveT = null; this.saveNow(); }, 800); }

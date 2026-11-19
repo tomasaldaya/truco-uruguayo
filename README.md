@@ -11,7 +11,8 @@ Juego de truco uruguayo para el navegador, según el *Reglamento del Truco Urugu
 - `inicio.part.js` — pantalla de inicio, configuración y guardado del partido.
 - `vista.js` — lo que ve cada jugador: una copia del partido sin lo que ese lugar no puede saber.
 - `red.part.js` — mesa compartida: crear una mesa, unirse, lugares, la conexión por internet y los mensajes entre anfitrión e invitados.
-- `sonido.part.js` — sonidos hechos con WebAudio (sin archivos).
+- `sonido.part.js` — sonidos hechos con WebAudio (sin archivos), también los del panel de la mesa.
+- `extras.part.js` — el panel "En la mesa" (dichos, gestos y sonidos), la racha 🔥, el reglamento completo y los logros.
 - `trystero.min.js` — Trystero 0.27 (licencia MIT) en un solo archivo: hace que los navegadores se encuentren y se conecten directo (WebRTC).
 - `mesa3d.part.js` — la mesa 3D: escena, jugadores con cara y señas, cartas animadas, cámara.
 - `three.min.js` — recorte de Three.js r187 (licencia MIT) con solo lo que usa la mesa 3D.
@@ -486,3 +487,38 @@ Herramientas: `tools/ia/lalo.js` (esa mano, con lo que decide la computadora) y 
 - El borde dorado ahora marca las cartas de la baza que se está jugando (o la que se acaba de cerrar, hasta
   que alguien tira la próxima), en la 3D y en la 2D de mano a mano (`bazaEnJuego`); quién ganó cada baza se
   sigue viendo arriba (1ª, 2ª, 3ª).
+
+## En la mesa: dichos, gestos y sonidos; racha, reglamento y logros (19/11)
+
+- **Panel "En la mesa"** (en el costado, debajo del chat; en el celular, en la hoja del tanteador), con tres
+  pestañas que quedan abiertas mientras se juega y se habla por la voz:
+  - **Dichos** (el frasero): versitos y dichos para tocar, gritar, cantar flor y contestar. Tocar uno lo muestra
+    arriba de tu personaje para toda la mesa, más tiempo si es largo, y en la 3D el personaje lo "dice". La lista
+    está en `DICHOS`, en `extras.part.js`: por ahora tiene unos pocos para ir completando con los del usuario
+    (`['codigo-unico', 'El dicho.']` en el grupo que va).
+  - **Gestos**: dedito para arriba, que no con el dedo, aplausos, risa, qué sé yo, un matecito… (`GESTOS`). Salen
+    arriba de tu personaje y en la 3D se mueve (asiente, niega, se adelanta o se hunde).
+  - **Sonidos**: golpe en la mesa, aplausos, campana, silbido, redoble, ta-dá, bocina, grillos y uyyy, hechos con
+    WebAudio (`MESA` en `sonido.part.js`, `SND.mesa`). Los oye toda la mesa con su volumen; cada uno puede apagar
+    los de los demás ("Escuchar los sonidos de los demás", `truco.sonmesa`). Los sonidos propios (archivos que
+    elija el usuario) quedan para más adelante.
+  - Viaja solo el código (`g:…`, `s:…`, `d:…`) en el mensaje `gesto`, nunca texto libre. El servidor (o el
+    anfitrión, entre navegadores) acepta solo códigos con esa forma, de quien está sentado, con el partido empezado
+    y de a uno cada 1,5 s (`GESTO_RE`, `GESTO_MS` en `server/mesa.mjs`), y lo reparte a todos (también a los que
+    miran). Contra la computadora se ve en tu propio personaje.
+- **Racha 🔥**: quien tiene cuenta y lleva dos partidos o más ganados seguidos muestra 🔥 con el número al lado de
+  su nombre, en la 2D y en la 3D, en las mesas del servidor (`fuego`). Las cuentas le pasan la racha a la mesa
+  (`quien`), que la pone en `G.rachas`; al terminar el partido se actualiza para el siguiente (`registrar`
+  devuelve la racha nueva). Si alguien deja su lugar, la computadora que lo reemplaza no la muestra.
+- **Reglamento completo**: botón "Reglamento" en el inicio y "Ver el reglamento completo" en Cómo se juega.
+  `build.py` mete `reglamento.txt` en el juego (`REGLAMENTO`). Tiene índice por capítulo y buscador (con "art 45"
+  encuentra el artículo 45).
+- **Logros** (en el perfil): 15, calculados con lo que ya guarda la cuenta (partidos ganados, mejor racha, flores,
+  trucos, envidos, puesto en el ranking) y dos números nuevos por cuenta: faltas envido ganadas (`faltas`) y faltas
+  envido ganadas por uno mismo con 37 (`falta37`). Las cuenta la mesa del servidor en cada mano (el motor marca
+  `R.envido.result.falta`). Los que faltan se ven apagados, con una barrita de lo que llevás.
+- Pruebas: `server/prueba-mesa.mjs` (gestos: solo códigos válidos, de quien juega, de a uno; la racha llega en la
+  vista y se actualiza al final; las faltas en las estadísticas) y `server/prueba-cuentas.mjs` (faltas, falta37 y
+  racha en el resultado).
+- **Pendiente** (lo más pesado, para otra tanda): **gremios** con su ranking; sonidos propios del usuario; aviso
+  de logro nuevo al terminar un partido.

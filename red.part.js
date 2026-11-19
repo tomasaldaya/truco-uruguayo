@@ -363,6 +363,12 @@ function onHostMsg(m){
       recibirMirada(r); netPost(r);
     } return;
     case 'talk': if (s >= 0 && mesaCfg().voz) { setTalking(s, !!m.on); netPost({ t: 'talk', p: s, on: !!m.on }); } return;
+    case 'gesto': {   // como el servidor: solo códigos conocidos, de a uno cada un segundo y medio
+      const ga = NET.gestoAt = NET.gestoAt || {}, now = Date.now();
+      if (s < 0 || !NET.started || typeof m.k !== 'string' || !/^[gsd]:[a-z0-9-]{1,24}$/.test(m.k) || now - (ga[g] || 0) < 1500) return;
+      ga[g] = now; const r = { t: 'gesto', p: s, k: m.k }; recibirGesto(r); netPost(r);
+      return;
+    }
     case 'pong':
       if (s >= 0) NET.alive[g] = Math.max(NET.alive[g] || 0, m.s);
       else if (m.seated) netPost({ ...lobbyMsg(), to: g });   // se durmió y lo dejé afuera: que se entere y vuelva a entrar
@@ -526,6 +532,7 @@ function onGuestMsg(m){
     case 'chatlog': NET.chat = (m.list || []).slice(-80); renderChat(); return;
     case 'talk': if (typeof m.m === 'string') { NET.talkingM[m.m] = !!m.on; renderVoz(); renderMirones(); } else setTalking(m.p, !!m.on); return;
     case 'mirada': recibirMirada(m); return;
+    case 'gesto': recibirGesto(m); return;
     case 'mirando': NET.mira = true; NET.miraId = m.id; NET.quiereMirar = false; renderMirones(); return;
     case 'expulsado': case 'vetado': {
       const code = NET.code;

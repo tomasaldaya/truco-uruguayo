@@ -195,9 +195,9 @@ t('el dueño cierra la mesa: les avisa a todos', () => {
 const pausa = () => new Promise(r => setTimeout(r, 0));
 async function ta(name, f) { try { await f(); console.log('ok  ', name); } catch (e) { fails++; console.log('FAIL', name, '\n   ', e.stack.split('\n').slice(0, 3).join('\n    ')); } }
 function conCuentas(W) {
-  const reg = [], quien = { tA: { id: 1, apodo: 'Ana' }, tB: { id: 2, apodo: 'Beto' }, tC: { id: 3, apodo: 'Ceci' } };
+  const reg = [], quien = { tA: { id: 1, apodo: 'Ana', racha: 3 }, tB: { id: 2, apodo: 'Beto', racha: 0 }, tC: { id: 3, apodo: 'Ceci' } };
   W.io.cuenta = tok => Promise.resolve(quien[tok] || null);
-  W.io.registrar = r => { reg.push(JSON.parse(JSON.stringify(r))); return Promise.resolve({ anotado: true, jugadores: r.cuentas.map(c => ({ uid: c.uid, gano: c.equipo === r.ganador && !c.abandono, delta: 16, puntos: 1016 })) }); };
+  W.io.registrar = r => { reg.push(JSON.parse(JSON.stringify(r))); return Promise.resolve({ anotado: true, jugadores: r.cuentas.map(c => ({ uid: c.uid, gano: c.equipo === r.ganador && !c.abandono, delta: 16, puntos: 1016, racha: c.equipo === r.ganador ? 4 : 0 })) }); };
   return reg;
 }
 async function hastaElFinal(m, W, cids) {
@@ -213,9 +213,12 @@ await ta('con cuentas: la mesa usa el apodo, lo marca y al final anota el partid
   const L = last(W.inbox, 'b', 'lobby');
   assert.deepEqual(L.seats.map(s => [s.name, !!s.cuenta]), [['Ana', true], ['Beto', true]]);
   m.onMessage('a', { t: 'start', rules: { target: 30, chicosToWin: 1 }, speed: 'rápida' });
+  assert.deepEqual(last(W.inbox, 'b', 'state').view.rachas, [3, 0]);   // la racha de cada uno (🔥 desde dos)
   await hastaElFinal(m, W, ['a', 'b']);
   assert.equal(m.GM.phase, 'matchEnd');
   assert.equal(reg.length, 1);
+  assert('faltas' in reg[0].cuentas[0].stats && 'falta37' in reg[0].cuentas[0].stats);
+  const gan = m.GM.matchWinner; assert.equal(m.seats[gan].racha, 4); assert.equal(m.seats[1 - gan].racha, 0);   // para el próximo partido
   const r = reg[0];
   assert.equal(r.n, 2); assert.equal(r.ganador, m.GM.matchWinner); assert.match(r.tanteador, /^\d+ a \d+$/);
   assert.deepEqual(r.cuentas.map(c => [c.uid, c.equipo, c.abandono]), [[1, 0, false], [2, 1, false]]);
@@ -587,6 +590,22 @@ await ta('pública: con dos o más, si todos quieren empezar ya, la computadora 
   const id1 = m.GM.id;
   m.onMessage('a', { t: 'empezar' }); m.onMessage('b', { t: 'empezar' }); W.run(3500);
   assert.notEqual(m.GM.id, id1); assert.equal(m.GM.phase, 'play');
+});
+
+t('gestos, sonidos y dichos: solo códigos válidos, solo de quien juega y de a uno cada tanto', () => {
+  const W = mundo(), m = new Mesa(W.io, null);
+  m.onOpen('a'); m.onMessage('a', { t: 'hello', name: 'Ana', pid: 'pa', crear: { n: 2, key: 'k' } });
+  m.onOpen('b'); m.onMessage('b', { t: 'hello', name: 'Beto', pid: 'pb' });
+  m.onMessage('a', { t: 'gesto', k: 'g:pulgar' }); assert(!last(W.inbox, 'b', 'gesto'));   // antes de empezar, no
+  m.onMessage('a', { t: 'start', rules: { target: 30 } });
+  m.onMessage('a', { t: 'gesto', k: 'g:pulgar' });
+  assert.deepEqual([last(W.inbox, 'b', 'gesto'), last(W.inbox, 'a', 'gesto')].map(x => x && [x.p, x.k]), [[0, 'g:pulgar'], [0, 'g:pulgar']]);
+  W.inbox.b = []; m.onMessage('a', { t: 'gesto', k: 's:campana' }); assert(!last(W.inbox, 'b', 'gesto'));   // muy seguido
+  W.run(1600); m.onMessage('a', { t: 'gesto', k: '<b>hola</b>' }); m.onMessage('a', { t: 'gesto', k: 'x:algo' }); m.onMessage('a', { t: 'gesto', k: 'd:' + 'a'.repeat(30) });
+  assert(!last(W.inbox, 'b', 'gesto'));
+  m.onMessage('b', { t: 'gesto', k: 'd:flor-piojo' }); assert.equal(last(W.inbox, 'a', 'gesto').p, 1);
+  m.onOpen('c'); m.onMessage('c', { t: 'mirar' }); W.inbox.a = [];
+  m.onMessage('c', { t: 'gesto', k: 'g:risa' }); assert(!last(W.inbox, 'a', 'gesto'));   // quien mira, no
 });
 
 console.log(fails ? `\n${fails} FALLAS` : '\nTodo OK');

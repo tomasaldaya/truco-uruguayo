@@ -151,7 +151,7 @@ function pintarInicio(){
   h += '</section>';
   h += `<nav class="hlinks" aria-label="Más opciones">
     <button class="tool" id="hCfg">Configuración</button><button class="tool" id="hPj">Tu personaje</button><button class="tool" id="hDeck">Tu mazo</button>
-    <button class="tool" id="hHow">Cómo se juega</button><button class="tool" id="hStats">Estadísticas</button>
+    <button class="tool" id="hHow">Cómo se juega</button><button class="tool" id="hRegl">Reglamento</button><button class="tool" id="hStats">Estadísticas</button>
     <button class="tool" id="hInstalar"${comoInstalar() ? '' : ' hidden'}>Instalar el juego</button></nav>
     <p class="hcred">Cartas: baraja española libre de <a href="https://commons.wikimedia.org/wiki/Category:Spanish_playing_cards" target="_blank" rel="noopener">Basquetteur</a> (Wikimedia Commons), con licencia <a href="https://creativecommons.org/licenses/by-sa/3.0/deed.es" target="_blank" rel="noopener">CC BY-SA 3.0</a>.</p>`;
   box.innerHTML = h;
@@ -172,6 +172,7 @@ function pintarInicio(){
   $('hPj').onclick = pjModal;
   $('hInstalar').onclick = instalarJuego;
   $('hHow').onclick = howToModal;
+  $('hRegl').onclick = reglamentoModal;
   $('hStats').onclick = statsModal;
   bindCuenta();
   if (conGente && !NET) bindPublicasHome();

@@ -62,7 +62,7 @@ export class Cuentas {
     try { this.q(`ALTER TABLE publicas ADD COLUMN tanto TEXT`); } catch (e) {}
     try { this.q(`ALTER TABLE publicas ADD COLUMN mirando INTEGER DEFAULT 0`); } catch (e) {}
     // lo del perfil (columnas que se agregaron después: si ya están, no pasa nada)
-    for (const col of ['nombre TEXT', 'bio TEXT', 'lugar TEXT', 'cuadro TEXT', 'color INTEGER', 'foto_v INTEGER DEFAULT 0', 'pj TEXT']) {
+    for (const col of ['nombre TEXT', 'bio TEXT', 'lugar TEXT', 'cuadro TEXT', 'color INTEGER', 'foto_v INTEGER DEFAULT 0', 'pj TEXT', 'faltas INTEGER DEFAULT 0', 'falta37 INTEGER DEFAULT 0']) {
       try { this.q(`ALTER TABLE usuarios ADD COLUMN ${col}`); } catch (e) {}
     }
     this.q(`CREATE TABLE IF NOT EXISTS fotos (usuario INTEGER PRIMARY KEY, tipo TEXT, datos TEXT)`);
@@ -145,7 +145,7 @@ export class Cuentas {
       nombre: u.nombre || '', bio: u.bio || '', lugar: u.lugar || '', cuadro: u.cuadro || '', pj: u.pj || null,
       puntos: Math.round(u.elo), posicion: this.posicion(u),
       partidos: u.partidos, ganados: u.ganados, abandonos: u.abandonos, racha: u.racha, mejorRacha: u.mejor_racha,
-      manos: u.manos, manosGanadas: u.manos_ganadas, envidos: u.envidos, flores: u.flores, trucos: u.trucos,
+      manos: u.manos, manosGanadas: u.manos_ganadas, envidos: u.envidos, flores: u.flores, trucos: u.trucos, faltas: u.faltas || 0, falta37: u.falta37 || 0,
       mes: { mes: mesActual, puntos: Math.round(mes ? u.elo_mes : ELO0), partidos: mes ? u.partidos_mes : 0, ganados: mes ? u.ganados_mes : 0 },
       enLinea: !propio && this.enLinea().has(u.id) || undefined,
       admin: propio && this.admins.has(u.id) || undefined,
@@ -397,7 +397,7 @@ export class Cuentas {
   presencia(uid, en) { for (const a of this.amigosDe(uid)) this.avisar(a, { t: 'presencia', id: uid, enLinea: !!en }); }
 
   // ---------- desde las mesas ----------
-  async quien(token) { const u = await this.sesionDe(token); return u ? { id: u.id, apodo: u.apodo } : null; }
+  async quien(token) { const u = await this.sesionDe(token); return u ? { id: u.id, apodo: u.apodo, racha: u.racha || 0 } : null; }
 
   // Anota un partido terminado. r = { id, fecha, n, ganador, tanteador, equipos: [[{nombre, cuenta, compu}], [...]],
   //   cuentas: [{ uid, equipo, abandono, stats: { manos, manosGanadas, envidos, flores, trucos } }] }
@@ -427,13 +427,13 @@ export class Cuentas {
       const d = K * (gano - esperado(gen[t], gen[1 - t])), dm = K * (gano - esperado(men[t], men[1 - t]));
       const racha = gano ? u.racha + 1 : 0, st = j.st;
       this.q(`UPDATE usuarios SET elo = ?, partidos = partidos + 1, ganados = ganados + ?, abandonos = abandonos + ?, racha = ?, mejor_racha = ?,
-          manos = manos + ?, manos_ganadas = manos_ganadas + ?, envidos = envidos + ?, flores = flores + ?, trucos = trucos + ?,
+          manos = manos + ?, manos_ganadas = manos_ganadas + ?, envidos = envidos + ?, flores = flores + ?, trucos = trucos + ?, faltas = faltas + ?, falta37 = falta37 + ?,
           mes = ?, elo_mes = ?, partidos_mes = ?, ganados_mes = ? WHERE id = ?`,
         u.elo + d, gano, j.abandono ? 1 : 0, racha, Math.max(u.mejor_racha, racha),
-        n0(st.manos), n0(st.manosGanadas), n0(st.envidos), n0(st.flores), n0(st.trucos),
+        n0(st.manos), n0(st.manosGanadas), n0(st.envidos), n0(st.flores), n0(st.trucos), n0(st.faltas), n0(st.falta37),
         mes, eloMes(u) + dm, (u.mes === mes ? u.partidos_mes : 0) + 1, (u.mes === mes ? u.ganados_mes : 0) + gano, u.id);
       this.q(`INSERT INTO jugadas (partido, usuario, equipo, gano, abandono, delta, elo, fecha) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, r.id, u.id, t, gano, j.abandono ? 1 : 0, d, u.elo + d, fecha);
-      res.push({ uid: u.id, gano: !!gano, delta: Math.round(d), puntos: Math.round(u.elo + d) });
+      res.push({ uid: u.id, gano: !!gano, delta: Math.round(d), puntos: Math.round(u.elo + d), racha });
     }
     return { anotado: true, jugadores: res };
   }

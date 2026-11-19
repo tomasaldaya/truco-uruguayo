@@ -303,7 +303,7 @@ function renderPerfil(box){
   h += `<div class="cficha grande">${avatar(p, 'g')}<div><b>${esc(p.apodo)}</b>${p.nombre ? `<span class="cnom">${esc(p.nombre)}</span>` : ''}<span>${p.enLinea ? '<i class="dot on"></i> En línea · ' : ''}Juega desde ${new Date(p.desde).toLocaleDateString('es-UY', { month: 'long', year: 'numeric' })}${propio ? ` · cuenta n.º ${p.id}` : ''}</span>${datos ? `<span>${datos}</span>` : ''}</div></div>`;
   if (p.bio) h += `<p class="cbio">${esc(p.bio)}</p>`;
   if (propio) h += `<div class="hlinks"><button class="act flor" id="pEditar">Editar perfil</button><button class="act sec" id="pPj">Tu personaje</button></div>`;
-  h += statsHTML(p);
+  h += statsHTML(p) + logrosHTML(p);
   if (!propio && D.relacion) {
     const r = D.relacion;
     h += '<div class="hlinks">' + (r === 'no' ? '<button class="tool" id="pAm" data-a="pedir">Agregar a amigos</button>'

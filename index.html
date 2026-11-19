@@ -252,6 +252,33 @@ aside{display:flex;flex-direction:column;gap:14px;margin-top:13px}
 .l3d .senas{gap:4px}
 .l3d .sena{background:rgba(0,0,0,.62);font-size:12px;padding:2px 8px}
 .l3d .sena.caught{background:rgba(60,45,10,.75)}
+/* En la mesa: dichos, gestos y sonidos; racha; reglamento; logros */
+.fuego{font-size:.82em;font-weight:800;color:#ffb347;white-space:nowrap;text-shadow:0 0 6px rgba(255,120,0,.45)}
+.dicho.largo,.l3d .say.largo,.mybub.largo{white-space:normal;width:max-content;max-width:260px;border-radius:12px;padding:3px 10px;text-align:center}
+.mtabs{display:flex;gap:6px;margin:0 0 10px}
+.mtab{flex:1;font:700 13px 'Alegreya Sans',sans-serif;color:inherit;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.15);border-radius:999px;padding:5px 8px;cursor:pointer}
+.mtab[aria-pressed="true"]{background:var(--gold);color:#2b1d10;border-color:var(--gold)}
+.mpag{max-height:300px;overflow:auto}
+.mpag h4{font:700 12px 'Alegreya Sans',sans-serif;text-transform:uppercase;letter-spacing:.06em;opacity:.7;margin:10px 0 4px}
+.mdicho{display:block;width:100%;text-align:left;font:600 14px/1.35 'Alegreya Sans',sans-serif;color:inherit;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:6px 9px;margin:0 0 5px;cursor:pointer}
+.mdicho:hover,.mgesto:hover{background:rgba(255,255,255,.12)}
+.mgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(74px,1fr));gap:6px}
+.mgesto{display:flex;flex-direction:column;align-items:center;gap:2px;color:inherit;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:6px 4px;cursor:pointer}
+.mgesto span{font-size:24px;line-height:1.1}.mgesto small{font-size:11px;line-height:1.15;text-align:center;opacity:.85}
+#mesaBox button:disabled{opacity:.45;cursor:default}
+.msw{display:flex;gap:6px;align-items:center;font-size:13px;margin:10px 0 2px}
+.rgtop{position:sticky;top:0}
+.rgtop input{width:100%;box-sizing:border-box;font:15px 'Alegreya Sans',sans-serif;padding:7px 10px;border-radius:10px;border:1px solid rgba(0,0,0,.2);margin:0 0 6px}
+.rgidx{display:flex;flex-wrap:wrap;gap:4px;margin:0 0 8px}.rgidx .tool{font-size:12px;padding:3px 8px}
+.rgtxt{max-height:56vh;overflow:auto;padding-right:6px}
+.rgtxt h4{font-family:'Alegreya',serif;margin:16px 0 2px}.rgtxt h5{margin:0 0 6px;font-size:13px;opacity:.8}
+.rgtxt p{margin:0 0 8px;line-height:1.45}
+.clogt{font-family:'Alegreya',serif;margin:14px 0 6px}.clogt small{font-size:13px;opacity:.7;font-weight:400}
+.logros{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:6px}
+.logro{position:relative;display:flex;flex-direction:column;align-items:center;gap:2px;text-align:center;padding:8px 6px 10px;border-radius:12px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);opacity:.5;filter:grayscale(1);overflow:hidden}
+.logro.ok{opacity:1;filter:none;border-color:var(--gold);background:rgba(243,210,122,.1)}
+.logro span{font-size:24px}.logro b{font-size:12px;line-height:1.2}
+.logro i{position:absolute;left:0;bottom:0;height:3px;width:var(--pr);background:var(--gold)}
 /* lo que dice cada uno: una etiqueta chica pegada al nombre, que se va sola */
 .l3d .say,.mybub{background:rgba(251,246,234,.9);color:#2b1d10;font-family:'Alegreya Sans',sans-serif;font-weight:700;font-size:13px;line-height:1.35;
   padding:0 9px;border-radius:999px;white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .35s}
@@ -739,6 +766,7 @@ img.avt{object-fit:cover;background:#2a1d13}
     <button type="button" class="tool cerrarhoja" id="cerrarHoja">Cerrar</button>
     <div class="panel"><h2>Tanteador</h2><div class="score" id="score"></div></div>
     <div class="panel chatp" id="chatPanel" hidden><h2>Chat de la mesa</h2><div id="chatBox"></div></div>
+    <div class="panel mesap" id="mesaPanel" hidden><h2>En la mesa</h2><div id="mesaBox"></div></div>
     <div class="panel" id="ranksPanel" hidden><h2>Jerarquía con esta muestra</h2><div class="rank-list" id="ranks"></div></div>
     <div class="panel"><h2>Lo que se dijo</h2><div class="log" id="log" aria-live="polite"></div></div>
   </aside>
@@ -5750,7 +5778,7 @@ void main() {
     R.mustShow[w] = true;
     const ctx = c.ctx;
     if (ctx.type === 'env') {
-      R.envido.result = { winner: w, team: wt, pts: c.stake, accepted: true, sung: Object.assign({}, c.sung), declined: Object.assign({}, c.declined) };
+      R.envido.result = { winner: w, team: wt, pts: c.stake, accepted: true, falta: !!ctx.falta, sung: Object.assign({}, c.sung), declined: Object.assign({}, c.declined) };
       R.wonEnvite[wt] = true;
       if (reveal(G, w)) return;
       R.canto = null;
@@ -5791,7 +5819,7 @@ void main() {
       afterPoints(G);
       return;
     }
-    startCanto(G, 'env', { type: 'env' }, betTotal(bets, R.falta));
+    startCanto(G, 'env', { type: 'env', falta: bets.some(b => b.amt === 'falta') }, betTotal(bets, R.falta));
   }
   // Envite con flor no querido (Art. 32): el que envidó cobra las flores de su equipo; en un reenvite, además
   // lo envidado antes (y las flores del rival si ya había contra flor). Con achique, el primer envite no
@@ -6661,6 +6689,26 @@ const SND = (() => {
     const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(gain, t + .008); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
     o.connect(g); g.connect(out); o.start(t); o.stop(t + dur + .02);
   }
+  // nota que se desliza de una altura a otra (silbido, "uyyy")
+  function sweep(t, pts, gain, type){
+    const o = ctx.createOscillator(); o.type = type || 'sine';
+    const g = ctx.createGain(), end = t + pts[pts.length - 1][0];
+    o.frequency.setValueAtTime(pts[0][1], t); pts.slice(1).forEach(([dt, f]) => o.frequency.exponentialRampToValueAtTime(f, t + dt));
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(gain, t + .03); g.gain.setValueAtTime(gain, end - .06); g.gain.exponentialRampToValueAtTime(0.0001, end);
+    o.connect(g); g.connect(out); o.start(t); o.stop(end + .02);
+  }
+  // los del panel de la mesa (los oye toda la mesa): un poco más fuertes que los del juego, pero cortos
+  const MESA = {
+    golpe(t){ [0, .16].forEach(d => { tone(t + d, 95, .16, .22); hiss(t + d, .07, 700, 200, .7, .25, 'lowpass'); }); },
+    aplausos(t){ for (let i = 0; i < 26; i++) hiss(t + i*.045 + Math.random()*.03, .035, 2400 + Math.random()*1500, 1200, 1.3, .06 + Math.random()*.05); },
+    campana(t){ tone(t, 880, 1.4, .07); tone(t, 1760, .9, .025); tone(t, 2637, .5, .012); },
+    silbido(t){ sweep(t, [[0, 1300], [.28, 2300], [.42, 2300], [.8, 1500]], .05); },
+    redoble(t){ for (let i = 0; i < 14; i++) { tone(t + i*.05, 150, .06, .1); hiss(t + i*.05, .04, 1500, 600, .8, .08, 'lowpass'); } hiss(t + .72, .6, 6000, 2500, .5, .12, 'highpass'); tone(t + .72, 90, .3, .2); },
+    tada(t){ [[0, 523], [.12, 659], [.24, 784]].forEach(([d, f]) => tone(t + d, f, .18, .05, 'triangle')); [523, 659, 784, 1046].forEach(f => tone(t + .4, f, .8, .035, 'triangle')); },
+    bocina(t){ [0, .3].forEach(d => { tone(t + d, 233, .24, .025, 'sawtooth'); tone(t + d, 311, .24, .02, 'sawtooth'); }); },
+    grillos(t){ for (let k = 0; k < 3; k++) for (let i = 0; i < 4; i++) tone(t + k*.38 + i*.035, 4300, .025, .02); },
+    uy(t){ sweep(t, [[0, 620], [.15, 700], [.7, 260]], .06, 'triangle'); },
+  };
   const SOUNDS = {
     shuffle(t){ for (let i = 0; i < 9; i++) hiss(t + i*.045 + Math.random()*.01, .05, 3800, 2200, 1.2, .1); hiss(t + .45, .09, 2600, 900, .9, .14); },
     deal(t){ hiss(t, .07, 4200, 1600, 1.1, .07); },
@@ -6684,11 +6732,183 @@ const SND = (() => {
   }
   return {
     play,
+    mesa(name){ const c = ac(); if (!c || !MESA[name]) return; try { MESA[name](c.currentTime + .02); } catch (e) {} },
     get on(){ return on; }, get vol(){ return vol; },
     setOn(v){ on = !!v; store.set('truco.sonido', on ? '1' : '0'); if (on) play('turn'); else if (ctx) ctx.suspend().catch(() => {}); },
     setVol(v){ if (!VOL[v]) return; vol = v; store.set('truco.volumen', v); if (out) out.gain.value = VOL[v] * .55; play('turn'); },
   };
 })();
+
+// ---------- En la mesa: dichos, gestos y sonidos; racha; reglamento; logros (19/11) ----------
+// Un panel en el costado con tres pestañas, para tener abierto mientras se juega (y se habla por la voz):
+//  - Dichos: el frasero, versitos y dichos para cantar el envido, el truco o la flor. Tocar uno lo muestra
+//    arriba de tu personaje para toda la mesa (y lo podés decir en voz alta).
+//  - Gestos: dedito para arriba, que no con el dedo… salen arriba de tu personaje y en la 3D se mueve.
+//  - Sonidos: los oye toda la mesa (cada uno puede apagar los de los demás).
+// Viaja solo el código (d:…, g:…, s:…) en el mensaje "gesto"; nunca texto libre. Para sumar dichos, gestos o
+// sonidos, alcanza con agregarlos a estas listas (el código: minúsculas, números y guiones, hasta 24).
+
+// El frasero. Para agregar: ['codigo-unico', 'El dicho tal cual se dice.'] en el grupo que va.
+// El reglamento completo: build.py pone acá el texto de reglamento.txt.
+const REGLAMENTO = "EL TRUCO\n\nREGLAMENTO DEL JUEGO\n\nCAPÍTULO PRIMERO. GENERALIDADES\n\nARTÍCULO 1º.— El truco es un juego rioplatense de cartas en el que dos rivales o dos equipos rivales, disputan la obtención de los puntos o tanto fijados para cada chico o serie integrante de un partido, según las normas que se establecen.\n\nARTÍCULO 2º.— Se juega con cartas españolas cuyos mazos, compuestos de cuarenta cartas, ya excluidos los “ocho” y los “nueve”, se integran con cuatro palos: “Oro”, “Copa”, “Espada” y “Basto”.\n\nARTÍCULO 3º.— El juego puede hacerse entre dos rivales, entre dos parejas o entre dos tercetos. En el primer caso se llama partido “mano a mano”. En partidos entre parejas o tercetos los jugadores se ubicarán en la mesa de juego en forma alterna de modo que a cada lado de cualquier jugador quede ubicado un contrario.\n\nARTÍCULO 4º.— El partido se compone de tres “chicos” de cuarenta puntos o tantos cada uno y lo ganará el jugador o equipo que gane dos chicos. La primera mitad de los puntos de cada chico se llaman “malos” y la segunda “buenos”. Ganará un chico el primero que obtenga los puntos para él fijados.\n\nARTÍCULO 5º.— En torneos o cuando así lo acuerden los jugadores se actuará con juez designado por sorteo o por acuerdo de aquellos, que podrá ser además, el único que mezclará las cartas después de cada mano o ronda y se usarán dos mazos en forma alterna.\n\nARTÍCULO 6º.— Antes de dar comienzo al juego se sorteará el jugador que debe repartir las cartas en primer término y designado este, el juez, previa mezcla de la baraja, pondrá el mazo para que el jugador contrario al dador que se halla a su izquierda, proceda al corte del mismo. Este se efectuará así: con una sola mano y sin levantar el mazo, el cortador levantará parte de él y depositará la parte levantada sobre la mesa en un solo montón boca abajo. La parte de la baraja levantada en el corte podrá contener cualquier número de cartas entre un mínimo de una y un máximo de treinta y nueve. El dador recogerá la parte del mazo no levantada y lo pondrá sobre la otra.\n\nARTÍCULO 7º.— No habiendo juez ni barajador, el jugador que por sorteo debe dar o repartir las cartas las mezclará a su manera previamente sin poder mirar ni dejar ver la boca, poniéndolas luego a disposición del contrario a su izquierda para el corte.\n\nARTÍCULO 8º.— Con el mazo boca abajo y sacando siempre de la boca, el dador repartirá las cartas entregando una a cada uno empezando por el primero de su derecha y siguiendo hacia la izquierda, sirviéndose también una. Repetirá dos veces la operación y cuando se complete la tercera rueda, sacará la carta de la boca y la pondrá a su derecha sobre la mesa boca arriba. Esta carta se llama “muestra”. Sobre parte de ella colocará el resto del mazo no repartido.\n\nARTÍCULO 9º.— Si al repartir las cartas se hubiera cometido error en el reparto o se diera vuelta alguna, se barajará y dará de nuevo, previo corte.\n\nARTÍCULO 10.— Cada jugador podrá ir recogiendo y mirando sus cartas a medida que las vaya recibiendo, salvo lo dispuesto en el Art. 85.\n\nCAPÍTULO SEGUNDO\n\nLAS CARTAS Y SUS VALORES\n\nARTÍCULO 11.— Las cartas tienen fijados valores:\n\na)  Para la disputa del “truco” propiamente dicho u obtención de las bazas.\n\nb)  Para la formación de los puntos o cifras en la disputa de los envites.\n\nARTÍCULO 12.— A efectos de la disputa de las bazas del “truco”, las cartas se dividen en cuatro categorías o sea: “piezas”, “matas”, “fíos” y comunes.\nEstas últimas se dividen a su vez en blancas y negras.\n\na)  Piezas\n    Son los \"dos\", \"cuatro\", \"cinco\", \"caballos\" y \"sotas\" cuando sean del palo de la muestra. Las dos últimas se llaman \"perico\" y \"perica\".\n\nb)  Cuando sea muestra una de las cartas indicadas, el Rey del mismo palo adquiere el valor de ella como \"pieza\" a todos los efectos.\n\nc)  Matas\n    Son \"matas\": el As de Espada o \"Espadilla\", el As de Basto o \"Bastillo\", el Siete de Espadas y el Siete de Oros.\n\nd)  Fíos\n    Son fíos: los \"tres\", los \"dos\" que no sean del palo de la muestra y los ases de oro y copa.\n\ne)  Cartas comunes\n\nSon todas las no indicadas antes. Son \"negras\" los reyes, caballos y sotas que, de acuerdo a la muestra no tengan calidad de piezas y blancas, los siete de bastos y copas, los seis, los cinco y cuatro. estos dos últimos siempre que sean de palo distinto a la muestra.\n\nLas piezas superan en valor a las matas, éstas a los fíos y estos a las cartas comunes. Dentro de cada categoría los valores se ajustan a lo siguiente:\n\n1.  Piezas.— El \"Dos\" vale más que el \"Cuatro\"; éste más que el \"Cinco\", éste más que el \"perico\" y éste más que la \"perica\".\n\n2.  Matas.— La \"espadilla\" vale más que el \"bastillo\", éste más que el siete de espadas y éste más que el siete de oros.\n\n3.  Fíos.— Los tres valen más que los dos y éstos más que los ases de oro y copa.\n\n4.  Cartas comunes.— Los reyes valen más que los caballos; éstos más que las sotas; éstas más que los siete de copas y bastos; éstos más que los seis; éstos más que los cinco y éstos más que los cuatro.\n\nComo consecuencia de la fijación de valores establecidos, el \"Dos\" es la carta más poderosa y un cuatro que no sea del palo de la muestra, la más débil. Entre cartas de igual valor, gana la del jugador que sea más \"mano\".\n\nARTÍCULO 13.— A los efectos de fijar el puntaje de las cartas para los envites los valores son:\n\na)  Piezas.— El \"dos\" vale treinta puntos; el \"cuatro\" veintinueve; el \"cinco\" veintiocho; el \"perico\" y la \"perica\" veintisiete cada uno.\n\nb)  Las blancas que no sean piezas, cualquiera sea su categoría, valen por su valor escrito.\n\nc)  Las negras valen cero.\n\nLos valores fijados en los incisos b) y c) quedan sujetos a lo dispuesto en las letras c), d) y e) del inciso B) del Art. 14.\n\nARTÍCULO 14.— El punto de las cartas de un jugador se obtiene:\nA) Envite con flores.\n\na)  Con tres piezas.\n\nA la pieza mayor o a cualquiera de ellas se le agrega lo que exceda de veinte de las otras piezas.\n\nb)  Con dos piezas.\n\nAl valor de una pieza se agrega lo que exceda de veinte de la otra pieza y el valor escrito de la otra carta si es blanca. En ese caso las negras valen cero.\n\nc)  Con una pieza.\n\nA su valor se agrega el valor escrito de las otras cartas. También en este caso las negras valen cero.\n\nd)  Sin piezas.\n\nBlancas solas. Se suma sobre veinte el valor escrito de las tres.\n\ne)  Blancas y negras.\n\nSe suma sobre veinte el valor escrito de las blancas.\n\nf)  Negras solas. Valen veinte.\n\nB) Envite sin flores.\n\na)  Con una pieza.\n\nSe suma al valor de ésta, el valor escrito de la blanca más alta.\n\nb)  Sin piezas.\n\nBlancas solas de distinto palo. Se toma el valor escrito de la más alta.\n\nc)  Dos blancas del mismo palo.\n\nSe suman sus valores escritos sobre veinte.\n\nd)  Negras y blancas del mismo palo.\n\nSe suma sobre veinte el valor escrito de la blanca.\n\ne)  Dos negras del mismo palo. Valen veinte.\n\nf)  Tres negras de distinto palo. Valen cero.\n\nCAPÍTULO TERCERO\n\nDE LAS FLORES\n\nARTÍCULO 15.— Se llama \"flor\" a cuatro formas de integración que las tres cartas en poder de un jugador pueden efectuar. Forman flor: a) tres piezas; b) dos piezas y una carta cualquiera; c) una pieza y dos cartas de un mismo palo; d) tres cartas de un mismo palo. Podría la primera y última forma confundirse en una sola.\n\nARTÍCULO 16.— El jugador que tenga \"flor\" está obligado a cantarla y para hacerlo válidamente pronunciará la palabra \"flor\" con claridad, en idioma castellano. Cualquier palabra o derivado de aquella que contenga la sílaba \"flor\" no importará en ningún caso cantarla.\n\nEl jugador que no canta correctamente su \"flor\" , la niega. No canta flor el jugador que use expresiones negativas antepuestas a la palabra \"flor\", cualquiera sea la forma que se le dé al giro usado. En caso de tenerla, la niega.\n\nARTÍCULO 17.— Para ser válida, la \"flor\" debe ser cantada antes de jugar quien la tiene, su primera carta. No haciéndolo así, la negará. También niega su flor el jugador que sin cantarla diga:\n\na)  \"Envido\" o \"truco\".\n\nb)  \"Quiero\" o \"no quiero\" al envido o truco dicho por un adversario.\n\nc)  \"Paso\"; se vaya a baraja, o se tienda.\n\nd)  No la exhiba, mostrando las cartas que la acrediten.\n\nARTÍCULO 18.— Repartidas las cartas y puesta la muestra, los jugadores que tengan \"flor\" la cantarán, siendo el mano el obligado en primer término y luego por su orden, los demás jugadores, sin perjuicio de lo dispuesto en el capítulo \"Octavo\", artículo 85 y lo establecido en el capítulo \"Séptimo\".\n\nARTÍCULO 19.— Si cantan \"flor\" jugadores rivales, se procederá de acuerdo con lo que se establece en el Art. 30 y siguientes.\n\nARTÍCULO 20.— Cada \"flor\" vale tres puntos. En caso de disputa o no de envites entre jugadores con \"flor\", ganará los puntos de ésta el que gane los envites y en defecto de éstos, el que acredite \"flor\" mayor y no habiendo superioridad, ganará la del equipo en que sea más mano el jugador que la cante. Los puntos de las flores de los compañeros de equipo del ganador se sumarán a los de éste.\n\nCAPÍTULO CUARTO\n\nDE LOS ENVITES EN GENERAL\n\nARTÍCULO 21.— El envite o \"Envido\" es el desafío que hace un jugador al rival, por sí o por su equipo, ofreciendo la disputa de los tantos o puntos que exprese, de acuerdo a lo que se establece.\n\nARTÍCULO 22.— Para envidar válidamente, se requiere:\n\na)  Estar en juego.\n\nb)  Tener el envidante las tres cartas en su poder.\n\nc)  No haber dicho \"truco\" o \"quiero\" al truco o envido del adversario habilitado para poder hacerlo.\n\nd)  Que ningún integrante del equipo haya hecho lo mismo.\n\ne)  Usar la palabra \"envido\".\n\nARTÍCULO 23.— Se puede envidar válidamente hasta la cantidad de puntos o tantos que resten al jugador o equipo que lleve ventaja para completar la cantidad fijada para el chico en disputa, salvo lo dispuesto en el Art. 86.\n\nARTÍCULO 24.— El \"envido\" sin expresión de cantidad da dos puntos al ganador, si es aceptado. Cualquier cantidad superior a dos que se desee envidar, debe preceder a las palabras \"tantos envido\". No obstante, las expresiones \"real envido\", \"falta envido\" y \"hasta igualar envido\", tienen valor por sus importes respectivos. \"Real envido\" equivale a tres tantos y si se le antepone una cifra superior a uno, será por el importe de ella multiplicada por tres. El envite no aceptado da un punto al envidante.\n\nARTÍCULO 25.— Se llama \"falta\" la cantidad de puntos que expresa el Art. 23. Esa cantidad queda fijada por los puntos que tenga el equipo delantero luego de anotados los resultados de la mano o ronda anterior. Sólo modifican la falta, los envites o reenvites válidos que sean aceptados y por la suma de sus importes en la ronda en disputa.\n\nARTÍCULO 26.— En los envites \"con Flor\" o \"contra Flor\" sólo los importes sumados de los envites o reenvites aceptados, reducen la falta, siendo por consiguiente válido cualquier envite \"con Flor\" o \"contra Flor\" que exprese cifra no superior a la falta, sin perjuicio de lo dispuesto en el Art. 86.\n\nARTÍCULO 27.— Los envites \"con Flor\", sólo tendrán lugar entre rivales que la tengan y las hayan cantado válidamente. Si sólo canta flor un rival o integrantes de un solo equipo, no habrá disputa de tantos de \"envido\" . En caso de envites entre jugadores \"con Flor\" rigen las disposiciones generales con respecto al \"envido\" y las que se establecen a continuación.\n\nARTÍCULO 28.— Para envidar válidamente \"con Flor\" , se re— quiere cumplir todos los requisitos fijados por el Art. 22 y los siguientes:\n\na)  No haberse achicado.\n\nb)  No haber sido achicado.\n\nARTÍCULO 29.— Se achica o es achicado y no puede envidar el jugador:\n\na)  Que diga \"chica\" después de cantar y haber cantado un adversario.\n\nb)  Repita la palabra \"flor\" después de cantar un rival, salvo que ella integre frases de envites válidos expresados normalmente.\n\nc)  Cuando cualquier integrante del equipo que también haya cantado \"flor\" , se achique por las mismas causas.\n\nd)  Cuando cualquier integrante de un equipo, tenga o no \"flor\", diga \"truco\" o \"quiero\" al truco dicho por un adversario; \"se tienda\" o se \"vaya a baraja\" sin decir \"paso\"\n\nARTÍCULO 30.— No achica a sus compañeros:\n\na)  El jugador que diga \"con flor paso\" y sale de juego manteniendo las cartas en su poder o exhibiendo su \"flor\" se va luego a baraja.\n\nb)  El jugador que juegue su primera carta sin envidar.\n\nARTÍCULO 31.— Se puede envidar \"con Flor\" o \"contra Flor\". En los envites \"con Flor\", el ganador cobra el importe de lo envidado aceptado más los puntos de su \"flor\" y las de sus compañeros de equipo. En los envites \"contra Flor\", cobrará además el importe de la o las \"flores\" del rival.\n\nARTÍCULO 32.— No siendo aceptado un envite, el envidante cobrará sólo el importe de las flores de su equipo. En caso de reenvite no aceptado, si hubo envite previo \"contra Flor\", el reenvidante cobrará los puntos envidados y el importe de las flores de su equipo y las del adversario.\n\nARTÍCULO 33.— La palabra \"resto\" equivale a la \"falta\", pero sólo se admite en los envites \"contra Flor\" , no pudiendo anteponérsele la palabra \"envido\" que anula a la palabra \"resto\".\n\nARTÍCULO 34.— Todo envite debe ser aceptado por un “quiero” y rechazado por un “no quiero”, , pero en caso de reenvite se tendrá por aceptado sin previo “quiero”.Principio del formulario\n\nDE LOS REENVITES\n\nARTÍCULO 35.— Un jugador o equipo envidado puede reenvidar por los puntos porque fue envidado como mínimo o por más siempre que se cumplan las condiciones establecidas en los incisos a), c), d) y e) del Art. 22. Los reenvites pueden ser repetidos tantas veces como se desee. En cada caso el reenvidante adquiere la calidad del envidante, pero el reenvite no aceptado no genera ganancia de punto a favor del reenvidante. El envite por cifra menor de la del envite o reenvite que le precede, será siempre por el importe de éste.\n\nARTÍCULO 36.— Si en un envite el envidante excede la falta fijada según lo establecido en los Arts. 25 y 86, ese envite se tomará como simple de dos tantos. En caso de ser excedida la falta en virtud de un reenvite, éste será siempre válido por el importe del envite o reenvite que le precede o por la falta si fuera esta menor.\n\nARTÍCULO 37.— Un jugador envidado \"con Flor la falta envido\", puede reenvidar \"contra flor el resto\", en caso de no poder ser ganador del chico en disputa siendo ganador de aquel envite.\n\nCAPÍTULO QUINTO\n\nDEL CANTO DE LOS PUNTOS EN LOS ENVITES\n\nARTÍCULO 38.— Se llama \"cantar\" en los envites, el acto de expresar cada jugador los puntos que sus cartas contienen según las normas fijadas.\n\nARTÍCULO 39.— En los envites sin flores, el mano está obligado a cantar su punto en primer término. El rival que lo supere empezando por su derecha, cantará el suyo y siempre que el último punto cantado sea superado por un rival, éste debe cantarlo siendo obligado en primer término quien ocupa el lugar de \"más mano\" a la izquierda de aquél si lo hubiere y en caso contrario el primero de la derecha.\n\nARTÍCULO 40.— En los envites con flores, los jugadores que la tengan, empezando por el \"más mano\", deberán cantar su punto en la forma fijada en el artículo anterior.\n\nARTÍCULO 41.— Ningún jugador está obligado a cantar su punto:\n\na)  Cuando no siendo \"mano\" o \"más mano\", no supere el punto cantado por un rival de su izquierda.\n\nb)  Cuando en la misma posición del inciso anterior no haya sido superado el punto cantado por un compañero que está a su izquierda.\n\nc)  Siempre que esté fuera de juego.\n\nARTÍCULO 42.— El canto del punto debe hacerse con claridad y sin pausas en la expresión, con las cartas no jugadas en la mano o sobre la mesa boca abajo. La cifra válida pronunciada se tendrá siempre por definitiva y no admite rectificación. Si la cifra cantada no es la del punto que las cartas indican, es canto errado.\n\nARTÍCULO 43.— No se considera cantar:\n\na)  En los envites \"sin flor\", la expresión de cualquier cifra comprendida entre siete y veinte o superior a treinta y siete.\n\nb)  En los envites \"con flor\", cualquier cifra superior a cuarenta y siete o inferior a veinte.\n\nARTÍCULO 44.— Ninguna cifra cantada antes de cerrarse \"un quiero\" tendrá valor y tampoco lo tendrá el canto de un jugador a quien no corresponda hacerlo o cante cifra igual o inferior a la cantada por un rival de su izquierda, no pudiendo cantar válidamente su punto después de ello. En ese caso es canto \"errado\" si su punto es superior al del rival, lo cante o no.\n\nARTÍCULO 45.— El ganador de cualquier envite está obligado a justificar su punto con la exhibición de sus cartas. Si las hubiere jugado todas se considera cumplida su obligación y la parte adversaria podrá pedir aclaración en caso de duda sobre las jugadas por él.\n\nARTÍCULO 46.— Si uno o más jugadores de un equipo cantan \"errado\", niegan o no exhiban las cartas que acrediten sus \"flores\" pierden y hacen perder a su equipo todos los puntos envidados, el importe de todas las flores cantadas, el de las negadas, los puntos del \"truco\" ya aceptado o un punto si no lo hubiera sido, que serán percibidos por el adversario, además de los propios por las flores por éste cantadas.\n\nARTÍCULO 47.— Si en una misma mano o ronda, hubiere canto errado por jugadores de ambos equipos o por ambas partes se cometen los errores que expresa el artículo anterior, se anulará esa ronda sin sanciones. El reparto de las cartas para la próxima, lo hará el jugador que fue mano en la anulada. En las disputas \"mano a mano\" Art. 83 y siguientes, se anulará sólo lo que corresponde a esa competencia parcial.\n\nCAPÍTULO SEXTO\n\nDISPUTA DEL TRUCO\n\nARTÍCULO 48.— La disputa del \"truco\" consiste en la confrontación del valor de las cartas para la obtención de las bazas de cada ronda o mano.\n\nARTÍCULO 49.— Los puntos del truco pueden disputarse con desafío o sin él. Hay desafío cuando cualquier jugador habilitado pronuncia la palabra \"truco\" después de puesta la muestra. Se compite sin desafío mientras esa palabra no sea lanzada.\n\nARTÍCULO 50.— Para trucar válidamente se requiere:\n\na)  Estar en juego.\n\nb)  Mantener en su poder la carta que le corresponde jugar en cada rueda el jugador que quiera \"trucar\"\n\nc)  No haber dicho \"quiero\" o \"no quiero\" al truco del adversario.\n\nd)  No haber dicho lo mismo un compañero de equipo.\n\ne)  Usar la palabra \"truco\".\n\nARTÍCULO 51.— La disputa de los puntos del \"truco\" se realiza jugando los contendores sus cartas en tres ruedas, una por cada rueda, y comienza desde que es jugada la primera carta por el jugador obligado a hacerlo.\n\nARTÍCULO 52.— Jugar las cartas es el acto de tirarlas o poner— las sobre la mesa. Se considera jugada una carta:\n\na)  Cuando por corresponderle hacerlo, un jugador la pone sobre la mesa boca arriba y la suelta.\n\nb)  Cuando la tira sobre la mesa, desde el momento de ser soltada, caiga como caiga, si le corresponde hacerlo.\n\nSi una carta es puesta boca abajo sobre la mesa, no se considerará jugada mientras el propio jugador no la ponga boca arriba. La carta tirada podrá ser vuelta boca arriba por cualquier jugador. Si se ponen dos cartas, una sobre otra boca arriba, se considerará jugada en primer término la de abajo, pero está obligado el que así juegue a descubrir aquélla. Si a requerimiento del rival no lo hace, pierde los puntos del truco en disputa.\n\nARTÍCULO 53.— No se considera jugada:\n\na)  La carta puesta como tal por un jugador a quien no corresponda jugarla siempre que la levante antes que juegue el rival de su izquierda.\n\nb)  La carta que el jugador indique cuando por error juegue más de una, en cuyo caso la recogerá.\n\nc)  Ninguna carta de jugador fuera de juego.\n\nARTÍCULO 54.— La carta jugada válidamente no podrá ser levantada por ninguna razón hasta que termine la rueda.\n\nARTÍCULO 55.— El jugador que es mano, si permanece en juego, está obligado a jugar su primera carta en primer término si no hubo envite o desafío previo del \"truco\". Si los hubo, podrá exigir que se dé contestación a ello y en su caso se canten los puntos respectivos. En la misma situación está cualquier jugador obligado a jugar. La obligación del mano se desplaza hacia los jugadores de la derecha siempre que queden fuera de juego los obligados en primer término.\n\nARTÍCULO 56.— Todos los jugadores de la derecha del mano que permanezcan en juego y por su orden, jugarán su primera carta después de él.\n\nARTÍCULO 57.— Jugada la última carta de esa primera rueda sin haberse \"trucado\" o si hubo \"truco\" previo aceptado, se procederá a jugar la segunda y le corresponderá hacerlo en primer término al jugador que en la primera rueda jugó la carta mayor e hizo por consiguiente la baza. Si dos jugadores rivales jugaron cartas mayores iguales, la baza quedó empatada o \"parda\" y corresponderá jugar en primer término la segunda carta al \"mano\" repitiéndose el proceso de la rueda anterior.\n\nARTÍCULO 58.— Si un jugador del mismo equipo que en la primera rueda hubiera jugado la carta mayor la jugara también en la siguiente o ésta fuera \"parda\" ganará la disputa de los puntos del truco de esta ronda que quedará cerrada. Si por el contrario ganara la segunda baza el otro equipo o rival o fuera otra vez parda, se procederá a jugar la última carta de acuerdo a lo establecido en los artículos anteriores.\n\nARTÍCULO 59.— Jugadas las tres cartas por todos los jugadores que permanezcan en juego, será ganador:\n\na)  El equipo o jugador que gane dos bazas.\n\nb)  El que gane la segunda si la primera fue \"parda\".\n\nc)  El que gane la tercera si las dos anteriores fueron \"pardas\".\n\nd)  El equipo que tenga jugador \"más mano\" en caso de ser pardas las tres o el \"mano\" en competencias \"mano a mano\".\n\ne)  El equipo que haya ganado la primera en caso de ser parda la tercera.\n\nARTÍCULO 60.— Lanzado desafío para la disputa del \"truco\" en forma correcta luego de puesta la muestra, y liquidados los envites si los hubo, la parte rival antes de jugarse las cartas que corresponda con posterioridad al desafío dará contestación en forma expresa o tácita. La contestación expresa podrá ser:\n\na)  No quiero.\n\nb)  Quiero.\n\nc)  Retruco.\n\nHay contestación tácita cuando el rival o cualquier jugador del equipo desafiado se \"va a baraja\" o se \"tiende\" sin decir \"paso\", en cuyos casos será negativa.\n\nARTÍCULO 61.— La contestación negativa, expresa o tácita, pone fin a la ronda y el desafiante gana un punto.\n\nARTÍCULO 62.— Aceptado el desafío si el desafiado ha dicho \"quiero\", se jugarán las cartas aún no jugadas en el orden que corresponda hasta completar las tres ruedas y el ganador cobrará dos puntos.\n\nARTÍCULO 63.— Si después del \"quiero\" o sin éste, el rival desafiado lanza a su vez nuevo desafío por jugador habilitado con la expresión \"retruco\" el ahora desafiado deberá contestar y podrá hacerlo en la forma del Art. 60, cuyo inciso c) dirá \"vale cuatro\" la aceptación se limitó a un \"quiero\" se jugarán las cartas en la forma indicada y el ganador cobrará tres puntos. Si el \"retruco\" no hubiera sido aceptado, quedará cerrada la ronda y el desafiante cobrará dos puntos.\n\nARTÍCULO 64.— Sí al contestarse al \"retruco\" o después cualquier rival del equipo \"retrucado\" que se encuentre habilitado, lanza a su vez nuevo desafío por \"vale cuatro\", el rival dará contestación al mismo que podrá ser:\n\na)  Quiero.\n\nb)  No quiero.\n\nLa contestación tácita será negativa y pondrá fin a la rueda como en el caso del inciso b) y el desafiante cobra tres puntos.\n\nARTÍCULO 65.— Aceptado el \"vale cuatro\", se procede a jugar las cartas como corresponde y el ganador cobrará cuatro puntos, quedando cerrada la ronda.\n\nARTÍCULO 66.— Tanto el \"retruco\" como el \"vale cuatro\" sin previo \"quiero\" de los desafíos respectivos de truco\" y \"retruco\" se tendrán por aceptación de éstos.\n\nARTÍCULO 67.— Tanto para retrucar como para lanzar el \"vale cuatro\" se requiere estar habilitado, Art. 50 inc. a) y b) y usar las expresiones \"retruco\" y \"vale cuatro\".\n\nARTÍCULO 68.— Si en la disputa del \"truco\" un jugador expresa \"es ésa\" señalando la carta jugada por un compañero que tiene que ser superada por un rival para ganar los puntos del \"truco\" en disputa, pasa y hace pasar a su otro compañero quedando ambos fuera de juego.\n\nARTÍCULO 69.— En caso de \"envido\" y \"truco\" simultáneos lanzados por un jugador, el rival desafiado podrá dar respuesta en forma independiente a cada uno. La aceptación o rechazo se hará en el orden que corresponde y por consiguiente se podrá contestar:\n\na)  Quiero.\n\nb)  Quiero y no quiero.\n\nc)  No quiero y quiero.\n\nd)  Quiero y quiero.\n\ne)  No quiero nada.\n\nTodo sin perjuicio de los reenvites y \"retrucos\" que el desafiado podrá lanzar según las normas establecidas. En el caso del inciso a) se entenderá siempre que se refiere sólo al \"envido\" si el desafiado no manifiesta su intención de dar por aceptado también el \"truco\". En aquel caso luego de cantarse los puntos, el desafiado podrá o no aceptar el \"truco\".\n\nCAPÍTULO SÉPTIMO\n\nRÉGIMEN A LEY DE JUEGO\n\nARTÍCULO 70.— Llámase así a una modalidad de juego de carácter excepcional en el desarrollo de la competencia, que, sin perjuicio de las disposiciones generales, se rige por las especiales que se establecen a continuación.\n\nARTÍCULO 71.— El \"Régimen a ley de juego\" puede ser usado por cualquiera de los rivales y en cualquier estado de la competencia. Tendrá preferencia para usar de él el equipo que vaya en pérdida y en igualdad de puntos el que tenga jugador mano.\n\nARTÍCULO 72.— Este régimen se impone al rival antes de ser puesta la muestra de la ronda a disputarse con la sola expresión \"a ley de juego\", seguida de los envites que de inmediato se harán. Sólo un rival puede imponer este régimen en cada ronda.\n\nARTÍCULO 73.— El régimen podrá imponerse total o parcialmente respecto a los posibles envites o desafíos de la ronda y por consiguiente se podrá expresar:\n\na)  Todo dicho.\n\nb)  La falta envido.\n\nc)  El resto.\n\nd)  Falta envido y resto.\n\ne)  La falta envido y el truco.\n\nf)  El truco.\n\ng)  Resto y truco.\n\nLos envites se harán en el orden fijado en cada inciso. En caso contrario, como en el régimen general, quedará anulado el envite que debe preceder.\n\nARTÍCULO 74.— Los rivales desafiados en este régimen cantarán sus flores en caso de tenerlas o manifestarán que no las tienen. La expresión \"con ley\", importa cantar “flor”. Los jugadores que no tengan flor expresarán “a punto”. Las expresiones “con Ley” no teniendo flor, es canto errado y la expresión “a punto” teniendo flor es negar ésta. La primera expresión será siempre la válida luego de puesta la muestra. La palabra \"ley\" sólo dentro de este régimen equivale a \"flor\".\n\nARTÍCULO 75.— La parte envidada, vistas sus cartas y de acuerdo a su estado \"con ley\" o \"a punto\", dará contestación al adversario. La respuesta se hará aceptando todo o parte de lo envidado o no aceptando nada, pero será dada de una sola vez para todos los envites.\n\nARTÍCULO 76.— La aceptación o rechazo de los envites tendrán los mismos efectos que en el régimen común. Antes de la aceptación o rechazo del \"truco\" el desafiado podrá envidar \"con flor\" o sin ésta según el estado de la parte contraria en caso de no haber ésta incluido el envido de la falta o el resto, pero el canto de los puntos en su caso, se hará luego de aceptado o rechazado el truco.\n\nARTÍCULO 77.— Bajo este régimen los envites de la parte desafiante, si son \"con flor\" se entenderán siempre \"contra flor\" y por el resto y en los envites sin flor, lo serán por la falta, salvo que sea envidante la parte desafiada. En este caso, los reenvites se rigen por el régimen común así como los envites de la parte desafiada.\n\nARTÍCULO 78.— Cuando al imponer el régimen se omite el envite de la falta, no podrá el equipo desafiante, si estuvieran todos los jugadores \"a punto\", envidar al rival. Si se hubiera omitido \"el resto\" tampoco podrá envidarse estando \"con ley\". En ambos casos se puede reenvidar de acuerdo a las normas generales.\n\nARTÍCULO 79.— No obstante lo dispuesto en el artículo anterior, el desafiante que haya omitido el envite de la falta o del resto, antes de ver sus cartas, podrá envidar uno de ellos, según el estado manifestado por el equipo desafiado expresando: con ella o sin ella, el \"resto\" o la \"falta envido\".\n\nARTÍCULO 80.— Aceptados los envites total o parcialmente, los rivales desafiantes expresarán de inmediato sus respectivos estados y en su caso se procederá en primer término al canto de los puntos. Si fuera ganador el equipo delantero finaliza la ronda y el chico en disputa. Si fuera ganador el equipo cuyos puntos ganados no le son suficientes para ganar el chico, se continuará con la disputa del \"truco\" si fue aceptado o no fue incluido en el desafío.\n\nARTÍCULO 81.— La aceptación o rechazo de los desafíos que bajo este régimen se hagan se verificará en el orden que corresponda. La aceptación se hará por \"quiero\" , el rechazo por un \"paso\" o \"no quiero\". Salvo intención claramente expresada de salir de juego, la expresión \"paso\" en este régimen sólo importa no aceptación del envite o truco.\n\nARTÍCULO 82.— El régimen \"a ley de juego\" sólo tiene vigencia para la ronda en que se implanta, pero con los requisitos exigidos podrá implantarse en cada una de las siguientes hasta finalizar el chico.\n\nCAPÍTULO OCTAVO\n\nRÉGIMEN ESPECIAL EN PARTIDOS ENTRE DOS TERCEROS\n\nARTÍCULO 83.— Hasta que uno de los dos bandos haya alcanzado la mitad de los puntos de un chico, la disputa de los tantos de las rondas se hará en dos formas:\n\na)  En rueda general en que participarán simultáneamente los seis jugadores.\n\nb)  Mano a mano entre cada integrante de un equipo y el rival ubicado a su frente en la mesa de juego.\n\nARTÍCULO 84.— La disputa de las rondas se hará en forma alterna. La primera de cada chico, será siempre general.\n\nARTÍCULO 85.— Cuando la disputa sea \"mano a mano\" sólo podrán mirar sus cartas los adversarios que deban competir. Los restantes jugadores dejarán las suyas sobre la mesa hasta que les llegue el turno de competir. No es permitido a los jugadores que no estuvieran compitiendo tomar intervención de ninguna índole en el juego. El jugador \"mano\" iniciará la competencia siguiéndole luego los jugadores de su derecha y por su orden.\n\nARTÍCULO 86.— En las disputas mano a mano, \"la falta\" y \"el resto\" quedan limitados a la cantidad de diez tantos aunque fueren mayores. Rigen las disposiciones del Art. 36.\n\nARTÍCULO 87.— El resultado obtenido por cada jugador será anotado por el apuntador de cada equipo una vez finalizada la competencia parcial. Los resultados que queden anotados después de cada disputa parcial, fijarán los nuevos límites de los futuros envites.\n\nCAPÍTULO NOVENO\n\nSALIDA DE JUEGO VOLUNTARIA Y FORZOSA\n\nARTÍCULO 88.— Todo jugador está facultado para salir de juego en cualquier ronda en disputa, cuando lo desee, usando la expresión \"paso\", reteniendo sus cartas no jugadas o poniéndolas en el lomo de la baraja.\n\nARTÍCULO 89.— El jugador que pone sus cartas en el mazo, \"se va a baraja\" y el que pone todas las cartas que debe retener en su poder, sobre la mesa, boca arriba y, las suelta, \"se tiende\". También \"se tiende\" el jugador que tira sus cartas con ánimo de desprenderse de ellas, caigan como caigan, desde el momento de ser soltados, si no conserva ninguna en su poder.\n\n  ARTÍCULO 90.— El jugador que \"se va a baraja\" o \"se tiende\", sin decir previamente \"paso\", queda y deja fuera de juego en esa ronda a sus compañeros de equipo, quedando todos eliminados para disputar envites o desafíos posteriores o continuar la disputa del \"truco\" ya concertado.\n\nARTÍCULO 91.— No obstante lo dispuesto en el artículo anterior, si el que cometió el acto eliminatorio, hubiera cantado antes \"flor\" o sus compañeros la cantaren con posterioridad, para lo cual permanecen habilitados, serán válidas, pero para percibir sus importes, será necesario:\n\na)  Que ningún rival cante \"flor\" después de ese acto.\n\nb)  Que si algún rival cantó \"flor\" con anterioridad y pudiendo hacerlo, no hizo uso de envites, superara el rival eliminado el punto de la o las \"flores\" del adversario.\n\nc)  Cuando hubiere sido ganado un envite \"con flor\" por el equipo eliminado. Asimismo, podrá este equipo percibir lo ganado en envites \"sin flor\" anteriores al acto eliminatorio.\n\nARTÍCULO 92.— La expresión \"paso\" usada por un jugador a quien corresponda jugar una de sus cartas, lo deja fuera de juego desde ese momento, salvo lo dispuesto en el capítulo séptimo.\n\nCAPÍTULO DÉCIMO\n\nDISPOSICIONES COMPLEMENTARIAS\n\nARTÍCULO 93.— Antes del comienzo de un partido se designará en cada equipo el apuntador o tanteador que ejercerá las funciones de capitán. Será el único jugador autorizado para hacer cumplir las disposiciones de este reglamento si no se actuara con juez.\n\nARTÍCULO 94.— El apunte de lo ganado por cada equipo se hará con elementos apropiados y se dispondrán delante del apuntador en grupos de cinco y en forma tal que puedan ser fácilmente contados por el adversario. Con una ficha diferente se señalará la obtención de la mitad de los puntos de cada chico.\n\nARTÍCULO 95.— El apuntador podrá, siempre que su equipo haya perdido un envite, pedir la exhibición de las cartas de todos los rivales a efectos de comprobar si se ha cumplido con las reglas establecidas. También a pedido del juez o apuntador se exhibirán las cartas en caso de declararse \"a punto\" los rivales que impongan el \"régimen a ley de juego\" , si les fuere aceptado el resto.\n\nARTÍCULO 96.— El jugador que no haya jugado sus cartas o alguna de ellas, finalizada la ronda, podrá exigir que se deje el mazo sobre la mesa y en el lomo pondrá las suyas.\n\nARTÍCULO 97.— Las cartas jugadas serán levantadas y puestas sobre el mazo antes de jugarse la primera carta de la rueda siguiente. Cualquier jugador o en su caso el juez podrá levantarlas. No habiendo barajador ajeno a los jugadores, las cartas de la última rueda y las que los jugadores dejen sobre la mesa, sólo podrán ser tocadas y levantadas por quien deba hacer el reparto para la próxima ronda, si éste así lo exige.\n\nARTÍCULO 98.— Luego de puesta la muestra, cualquier palabra o expresión que implique canto de flores, envites o desafíos que en este juego tienen significado, se interpretará como dicha con intención de hacerla valer y no podrá ser rectificada.\n\nARTÍCULO 99.— Sin perjuicio de darse por aceptado como estilo correcto de juego sacar ventajas al adversario por actos de ingenio o viveza, se considerará juego sucio todo acto contrario a las normas de corrección.\n\nARTÍCULO 100.— Se considera falta grave, descalificadora, la que comete un jugador:\n\na)  Cuando su equipo haya ganado un envite sin flor y teniéndola, la niega.\n\nb)  Cuando por haber negado flor, se vaya a baraja sin denunciar el error.\n\nc)  Cuando por haber cantado errado, hace lo mismo.\n\nd)  Cuando por haber visto cartas propias o del adversario en las competencias mano a mano, haga señas a un compañero de las vistas.\n\ne)  Cuando por manejo especializado de la baraja, se altere el orden de entrega de las cartas o la puesta de la muestra.\n\nf)  En general cuando se trate de sacar ventajas indebidas por cualquier medio no admitido por las normas de corrección.\n\nARTÍCULO 101.— En torneos en que actúe con juez y en todos los casos en que se actúe con él, éste, en los casos previstos en el artículo anterior, podrá:\n\na)  Descalificar al jugador incurso en inconducta.\n\nb)  Descalificar al equipo por él integrado.\n\nNo actuándose con juez, los jugadores con excepción del implicado y por mayoría tomarán la resolución que entiendan deba corresponder.\n\nARTÍCULO 102.— Los integrantes de un equipo no podrán\nmostrarse sus cartas, salvo que puedan ser vistas por los rivales, que podrán exigir se les exhiban las mostradas. Podrán, sin embargo, hacerse señas convencionales sobre las que se tengan en forma oculta para el adversario. Las señas casi uniformemente aceptadas, son: para el \"dos\", levantar las cejas o los ojos; para el \"cuatro\", un movimiento hacia adelante de ambos labios; para el \"cinco\" , un rápido fruncido de la nariz; para el \"perico\" y la \"perica\", una guiñada; para las \"matas\", un movimiento de los labios hacia un costado; para los \"tres\", una suave mordida del labio inferior; para los \"dos\" y \"ases\" abrir algo la boca. No tener cartas de valor se indica entornando o cerrando ambos ojos.\n\nARTÍCULO 103.— Los casos no previstos en este reglamento serán resueltos por mayoría de jugadores y en caso de empate, se designará un árbitro cuyo dictamen será decisivo. Ninguna decisión así tomada obligará a otros equipos.\n\nARTÍCULO 104.— La aceptación del presente reglamento implica la obligación de todo participante en juego a someterse a lo en él establecido. No servirá de excusa en ningún caso alegar ignorancia de sus normas.\n\nTRANSCRIPCIÓN DEL LIBRO REGLAMENTO DEL TRUCO URUGUAYO REALIZADA POR TOMÁS ALDAYA.\n\nNOVIEMBRE 2025\n";
+const DICHOS = [
+  ['envido', 'Para tocar', [
+    ['env-1', '¡Envido!'],
+    ['env-real', 'Real envido, y que se acomode el que pueda.'],
+    ['env-falta', '¡Falta envido! El que no tenga, que se vaya.'],
+  ]],
+  ['truco', 'Para gritar', [
+    ['tru-1', '¡Truco!'],
+    ['tru-2', 'Truco, y que sea lo que Dios quiera.'],
+    ['tru-re', '¡Quiero retruco!'],
+    ['tru-v4', '¡Quiero vale cuatro!'],
+  ]],
+  ['flor', 'Para cantar flor', [
+    ['flor-farruco', 'A lo Farruco: ¡flor y truco!'],
+    ['flor-piojo', 'Por el río Paraná venía navegando un piojo, con un hachazo en el ojo y una flor en el ojal.'],
+  ]],
+  ['resp', 'Para contestar', [
+    ['r-quiero', '¡Quiero!'],
+    ['r-noquiero', 'No quiero, andá nomás.'],
+    ['r-buenas', 'Son buenas.'],
+    ['r-mazo', 'Me voy al mazo.'],
+  ]],
+];
+// [código, emoji, qué es, cómo se mueve el personaje en la 3D (nod asiente, shake niega, lunge se adelanta, slump se hunde)]
+const GESTOS = [
+  ['pulgar', '👍', 'Dedito para arriba', 'nod'],
+  ['nodedo', '☝️', 'Que no, con el dedo', 'shake'],
+  ['aplauso', '👏', 'Aplausos', 'nod'],
+  ['risa', '😂', 'Me muero de risa', 'nod'],
+  ['bienahi', '🙌', 'Bien ahí', 'lunge'],
+  ['mirar', '👀', 'Te estoy mirando', 'lunge'],
+  ['quese', '🤷', 'Qué sé yo', 'slump'],
+  ['pensar', '🤔', 'Pensando…', null],
+  ['shh', '🤫', 'Shhh', 'lunge'],
+  ['bronca', '😤', 'Qué bronca', 'shake'],
+  ['saludo', '👋', 'Hola / chau', 'nod'],
+  ['mate', '🧉', 'Un matecito', 'nod'],
+];
+// [código, emoji, nombre]: los hace SND (sonido.part.js) en el momento. Los propios del jugador, más adelante.
+const SONIDOS_MESA = [
+  ['golpe', '✊', 'Golpe en la mesa'], ['aplausos', '👏', 'Aplausos'], ['campana', '🔔', 'Campana'],
+  ['silbido', '😙', 'Silbido'], ['redoble', '🥁', 'Redoble'], ['tada', '🎉', '¡Ta-dá!'],
+  ['bocina', '📯', 'Bocina'], ['grillos', '🦗', 'Grillos'], ['uy', '😬', 'Uyyy'],
+];
+const dichoDe = id => { for (const [, , l] of DICHOS) { const x = l.find(d => d[0] === id); if (x) return x[1]; } return null; };
+const GESTO_VIVO = {};   // p -> { txt, at, ms, largo }: lo que se ve arriba de cada uno (mesa 2D)
+let sonMesa = store.get('truco.sonmesa') !== '0', gestoAt = 0, mesaTab = store.get('truco.mesatab') || 'dichos';
+
+function mandarGesto(k){
+  const now = Date.now();
+  if (now - gestoAt < 1500 || !G || mirando()) return;
+  gestoAt = now;
+  document.querySelectorAll('#mesaBox button[data-k]').forEach(b => { b.disabled = true; });
+  setTimeout(() => document.querySelectorAll('#mesaBox button[data-k]').forEach(b => { b.disabled = false; }), 1500);
+  if (NET && NET.role === 'host') { const m = { t: 'gesto', p: 0, k }; recibirGesto(m); netPost(m); }
+  else if (NET) netPost({ t: 'gesto', k });   // el servidor (o el anfitrión) lo reparte, también a mí
+  else recibirGesto({ p: ME, k });
+}
+function recibirGesto(m){
+  if (!G || typeof m.p !== 'number' || m.p < 0 || m.p >= G.n || typeof m.k !== 'string') return;
+  const tipo = m.k[0], id = m.k.slice(2), mio = m.p === ME && !mirando();
+  let txt, ms = 2600, react = null, largo = false;
+  if (tipo === 'g') { const x = GESTOS.find(g => g[0] === id); if (!x) return; txt = x[1] + ' ' + x[2]; react = x[3]; }
+  else if (tipo === 'd') { const x = dichoDe(id); if (!x) return; txt = '«' + x + '»'; ms = Math.min(7000, 2600 + x.length * 45); react = 'talk'; largo = x.length > 34; }
+  else if (tipo === 's') { const x = SONIDOS_MESA.find(g => g[0] === id); if (!x) return; txt = x[1] + ' ' + x[2]; if (mio || sonMesa) SND.mesa(id); }
+  else return;
+  GESTO_VIVO[m.p] = { txt, at: Date.now(), ms, largo };
+  if (use3D()) V3.gesto(m.p, txt, react, ms, largo);
+  else { render(); setTimeout(() => { if (G && !use3D()) render(); }, ms + 80); }
+}
+// mesa 2D: si alguien acaba de hacer un gesto, va en su etiqueta (en vez de lo último que dijo)
+function gestoBurbuja(parent, p){
+  const g = GESTO_VIVO[p], pasó = g ? Date.now() - g.at : 1e9;
+  if (!g || pasó >= g.ms) return false;
+  const b = el('div', 'dicho gesto' + (g.largo ? ' largo' : ''), esc(g.txt));
+  b.style.animationDuration = g.ms + 'ms'; b.style.animationDelay = -pasó + 'ms';
+  parent.appendChild(b);
+  return true;
+}
+// 🔥 al lado del nombre de quien lleva dos partidos o más ganados seguidos (con cuenta, en mesas del servidor)
+function fuego(p){
+  const r = G && G.rachas ? G.rachas[p] | 0 : 0;
+  return r >= 2 ? ` <span class="fuego" title="Lleva ${r} partidos ganados seguidos">🔥${r}</span>` : '';
+}
+
+function mesaPanelHTML(){
+  const tab = (k, nm) => `<button type="button" class="mtab" data-tab="${k}" aria-pressed="${mesaTab === k}">${nm}</button>`;
+  const dichos = DICHOS.map(([, nm, l]) => `<h4>${esc(nm)}</h4>` + l.map(([id, tx]) => `<button type="button" class="mdicho" data-k="d:${id}">${esc(tx)}</button>`).join('')).join('');
+  const gestos = GESTOS.map(([id, em, nm]) => `<button type="button" class="mgesto" data-k="g:${id}" title="${esc(nm)}"><span>${em}</span><small>${esc(nm)}</small></button>`).join('');
+  const sonidos = SONIDOS_MESA.map(([id, em, nm]) => `<button type="button" class="mgesto" data-k="s:${id}" title="${esc(nm)}"><span>${em}</span><small>${esc(nm)}</small></button>`).join('');
+  return `<div class="mtabs" role="group">${tab('dichos', 'Dichos')}${tab('gestos', 'Gestos')}${tab('sonidos', 'Sonidos')}</div>
+    <div class="mpag" data-pag="dichos"${mesaTab === 'dichos' ? '' : ' hidden'}><p class="small">Tocá uno y aparece arriba de tu personaje para toda la mesa. Con la voz prendida, decilo vos.</p>${dichos}</div>
+    <div class="mpag mgrid" data-pag="gestos"${mesaTab === 'gestos' ? '' : ' hidden'}>${gestos}</div>
+    <div class="mpag" data-pag="sonidos"${mesaTab === 'sonidos' ? '' : ' hidden'}><div class="mgrid">${sonidos}</div>
+      <label class="msw"><input type="checkbox" id="sonMesa"${sonMesa ? ' checked' : ''}> Escuchar los sonidos de los demás</label>
+      <p class="small">Suenan con el volumen de Configuración; si tenés el sonido apagado, no se oyen.</p></div>`;
+}
+function mesaPanelSync(){
+  const P = $('mesaPanel'); if (!P) return;
+  const ver = !!G && !mirando() && $('home').hidden;
+  if (P.hidden === !ver) return;
+  P.hidden = !ver;
+  if (ver && !P.dataset.listo) {
+    P.dataset.listo = '1';
+    const box = $('mesaBox'); box.innerHTML = mesaPanelHTML();
+    box.onclick = e => {
+      const t = e.target.closest('button'); if (!t) return;
+      if (t.dataset.tab) {
+        mesaTab = t.dataset.tab; store.set('truco.mesatab', mesaTab);
+        box.querySelectorAll('.mtab').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.tab === mesaTab)));
+        box.querySelectorAll('.mpag').forEach(x => { x.hidden = x.dataset.pag !== mesaTab; });
+      } else if (t.dataset.k) mandarGesto(t.dataset.k);
+    };
+    $('sonMesa').onchange = e => { sonMesa = e.target.checked; store.set('truco.sonmesa', sonMesa ? '1' : '0'); };
+  }
+}
+
+// ---------- El reglamento completo (reglamento.txt, que build.py mete en REGLAMENTO) ----------
+function reglamentoModal(){
+  const parr = REGLAMENTO.split(/\n\s*\n/).map(x => x.trim()).filter(Boolean);
+  const indice = []; let body = '';
+  parr.forEach((t, i) => {
+    const titulo = t.length < 90 && t === t.toUpperCase() && !/^ART/.test(t);
+    if (/^CAP[IÍ]TULO/.test(t)) { indice.push([i, t.replace(/^CAP[IÍ]TULO\s*/, '').replace(/\..*$/, '')]); body += `<h4 id="rg${i}">${esc(t)}</h4>`; }
+    else if (titulo) body += i < 2 ? `<h3>${esc(t)}</h3>` : `<h5>${esc(t)}</h5>`;
+    else { const m = /^(ART[IÍ]CULO\s+[^—]{1,12}—)\s*([\s\S]*)$/.exec(t); body += m ? `<p><b>${esc(m[1])}</b> ${esc(m[2])}</p>` : `<p>${esc(t)}</p>`; }
+  });
+  toolModal(`<h3>Reglamento del Truco Uruguayo</h3>
+    <div class="rgtop"><input type="search" id="rgBus" placeholder="Buscar (por ejemplo: flor, Art. 45, pico)" aria-label="Buscar en el reglamento">
+    <div class="rgidx">${indice.map(([i, nm]) => `<button type="button" class="tool" data-rg="${i}">${esc(nm.charAt(0) + nm.slice(1).toLowerCase())}</button>`).join('')}</div></div>
+    <div class="rgtxt" id="rgTxt">${body}</div>
+    <p class="small">Transcripción de Tomás Aldaya (noviembre 2025). El juego sigue este reglamento con las decisiones que se cuentan en Cómo se juega.</p>
+    <div class="row"><button class="act" id="mOk">Cerrar</button></div>`);
+  $('mOk').onclick = closeTool;
+  document.querySelectorAll('[data-rg]').forEach(b => b.onclick = () => { const h = $('rg' + b.dataset.rg); if (h) h.scrollIntoView({ block: 'start' }); });
+  $('rgBus').oninput = e => {
+    const q = e.target.value.trim().toLowerCase().replace(/^art\.?\s*/, 'artículo ');
+    $('rgTxt').querySelectorAll('p').forEach(p => { p.hidden = !!q && !p.textContent.toLowerCase().includes(q); });
+  };
+}
+
+// ---------- Logros (en el perfil), con lo que ya guarda la cuenta ----------
+// [qué, cuánto hace falta, de dónde sale, emoji]. Se calculan al mostrar el perfil: no hace falta guardar nada más.
+const LOGROS = [
+  ['Primera victoria', 1, p => p.ganados, '🥇'], ['Ganar 5 partidos', 5, p => p.ganados, '🖐️'],
+  ['Ganar 25 partidos', 25, p => p.ganados, '🏅'], ['Ganar 100 partidos', 100, p => p.ganados, '🏆'],
+  ['Ganar 3 seguidos', 3, p => p.mejorRacha, '🔥'], ['Ganar 5 seguidos', 5, p => p.mejorRacha, '☄️'], ['Ganar 10 seguidos', 10, p => p.mejorRacha, '🌋'],
+  ['Cantar 10 flores', 10, p => p.flores, '🌼'], ['Cantar 50 flores', 50, p => p.flores, '💐'],
+  ['Ganar 25 trucos', 25, p => p.trucos, '🃏'], ['Ganar 25 envidos', 25, p => p.envidos, '🎯'],
+  ['Ganar una falta envido', 1, p => p.faltas || 0, '💥'], ['Ganar una falta envido con 37', 1, p => p.falta37 || 0, '👑'],
+  ['Jugar 50 partidos', 50, p => p.partidos, '🧉'], ['Estar entre los 10 primeros', 1, p => p.partidos && p.posicion && p.posicion <= 10 ? 1 : 0, '⭐'],
+];
+function logrosHTML(p){
+  const l = LOGROS.map(([nm, meta, f, em]) => { const v = Math.max(0, f(p) | 0); return { nm, meta, v: Math.min(v, meta), ok: v >= meta, em }; });
+  const n = l.filter(x => x.ok).length;
+  return `<h3 class="clogt">Logros <small>${n} de ${l.length}</small></h3><div class="logros">` + l.map(x =>
+    `<div class="logro${x.ok ? ' ok' : ''}" title="${esc(x.nm)}${x.ok ? ': conseguido' : `: ${x.v} de ${x.meta}`}"><span>${x.em}</span><b>${esc(x.nm)}</b>${x.ok || x.meta === 1 ? '' : `<i style="--pr:${Math.round(x.v / x.meta * 100)}%"></i>`}</div>`).join('') + '</div>';
+}
 
 // ---------- Naipes ----------
 // Baraja española libre de Basquetteur (Wikimedia Commons, https://commons.wikimedia.org/wiki/Category:Spanish_playing_cards),
@@ -6818,6 +7038,7 @@ function ph(){ return el('div','ph'); }
 
 function render(){
   refreshView();
+  mesaPanelSync();
   if (!G) return;
   clockSync();
   if (NET && NET.role === 'host') publish();
@@ -6883,7 +7104,7 @@ function otherSeat(p, act){
   if (R.flor.sung[p]) tags.push('<span class="tag flor">flor</span>');
   if (act===p && G.phase==='play') tags.push('<span class="tag turn">juega</span>');
   if (R.out[p]) tags.push('<span class="tag out">pasó</span>');
-  const who = el('div','who', `<div class="name">${esc(G.names[p])}${NET && NET.talking && NET.talking[p] ? ' <span class="mic">🎙</span>' : ''}</div>${G.n>=4?`<div class="sub">${mirando() ? 'equipo ' + colorEq(team(p)) : partner?'tu compañero':'rival'}</div>`:''}<div class="tags">${tags.join('')}</div>`);
+  const who = el('div','who', `<div class="name">${esc(G.names[p])}${fuego(p)}${NET && NET.talking && NET.talking[p] ? ' <span class="mic">🎙</span>' : ''}</div>${G.n>=4?`<div class="sub">${mirando() ? 'equipo ' + colorEq(team(p)) : partner?'tu compañero':'rival'}</div>`:''}<div class="tags">${tags.join('')}</div>`);
   const muestra = G.phase !== 'play' && R.mustShow[p] && R.initial[p].every(c => !c.hidden);
   const h = muestra ? mostradasEl(p) : el('div','hand' + (pos==='top' && G.n===2 ? '' : ' mini'));
   if (!muestra) R.hands[p].forEach(() => h.appendChild(backEl()));
@@ -7162,6 +7383,7 @@ function senaPlural(k, n){ const d = n === 2 ? 'dos' : 'tres'; return { perico: 
 // La mesa 2D se redibuja seguido: cada etiqueta recuerda cuándo apareció y sigue su animación desde ahí.
 const DICHO_MS = 2550, dichos2d = {};
 function bubble(parent, said, p){
+  if (gestoBurbuja(parent, p)) return;   // un gesto, un sonido o un dicho del frasero recién hecho
   if (!said) return;
   const key = G.id + ':' + G.roundNo + ':' + said.t;
   let d = dichos2d[p];
@@ -8614,12 +8836,12 @@ const V3 = (function(){
     updateLabels(act);
   }
 
-  function showBubble(p, text){
+  function showBubble(p, text, ms, largo){
     S.cnt.dichos++;
     const el2 = yoSentado(p) ? myBub : Lay.chars[p] && Lay.chars[p].bub;
     if (!el2) return;
-    el2.textContent = text; el2.classList.remove('on'); void el2.offsetWidth; el2.classList.add('on');
-    clearTimeout(el2._t); el2._t = setTimeout(() => el2.classList.remove('on'), 2200);
+    el2.textContent = text; el2.classList.toggle('largo', !!largo); el2.classList.remove('on'); void el2.offsetWidth; el2.classList.add('on');
+    clearTimeout(el2._t); el2._t = setTimeout(() => el2.classList.remove('on'), ms || 2200);
     // quien habla mueve la boca y reacciona; los demás lo miran
     const speaker = yoSentado(p) ? humanSeat() : charHead(p);
     Lay.chars.forEach(c => { if (c && c.p !== p && !c.gest) { c.lookTo = speaker; c.lookUntil = now + 1.6; } });
@@ -8649,7 +8871,7 @@ const V3 = (function(){
       if (partner && R.senasShown[p] && G.rules.senas && !R.leyPhase && !R.duel && !R.hands[ME].some(c => c.hidden)) sen += senaGroups(R.senasShown[p]).map(([k, n]) => `<span class="sena">${senaTxt(k, n)}</span>`).join('');
       if (!R.leyPhase) senaGroups((R.seen[ME] || []).filter(v => v.p === p).map(v => v.s)).forEach(([k, n]) => { sen += `<span class="sena caught">👀 ${senaTxt(k, n)}</span>`; });
       const mic = NET && NET.talking && NET.talking[p] ? ' 🎙' : '';
-      const html = `<div class="nm">${esc(G.names[p])}${mic}${G.n >= 4 ? `<small>${mirando() ? colorEq(team(p)) : partner ? 'compañero' : 'rival'}</small>` : ''}</div>`
+      const html = `<div class="nm">${esc(G.names[p])}${fuego(p)}${mic}${G.n >= 4 ? `<small>${mirando() ? colorEq(team(p)) : partner ? 'compañero' : 'rival'}</small>` : ''}</div>`
         + (tags.length ? `<div class="tags">${tags.join('')}</div>` : '') + (sen ? `<div class="senas">${sen}</div>` : '');
       if (html !== c.lblHTML) { c.lblIn.innerHTML = html; c.lblHTML = html; }
       c.lbl.classList.toggle('inactive', !R.active[p]);
@@ -8963,6 +9185,15 @@ const V3 = (function(){
     available: () => init(),
     retrato,
     update, pause,
+    // un gesto, un sonido o un dicho del frasero (extras.part.js): la burbuja y el movimiento del personaje
+    gesto(p, text, react, ms, largo){
+      if (!Lay || !G) return;
+      showBubble(p, text, ms, largo);
+      const c = Lay.chars[p]; if (!c) return;
+      if (react === 'talk') return;   // el dicho: habla y reacciona como cuando canta
+      c.talkTo = 0;
+      c.react = react ? { type: react, t0: now, d: react === 'slump' ? 1.2 : .9 } : null;
+    },
     debug: () => ({ CARDS, S, CAM, Lay, camera, setView, renderer, queue: (p, l, k) => { queueSenas(p, l, k || 'partner'); S.jobs[S.jobs.length-1].notBefore = now; } }),
   };
 })();
@@ -9015,8 +9246,8 @@ function howToModal(){
   <p><b>A ley de juego:</b> en parejas y tercetos, cuando algún equipo ya entró en buenas, el equipo que va perdiendo (o el del mano, si van iguales) puede imponerla en cada mano antes de ver las cartas y la muestra (nadie ve sus cartas mientras se decide), o jugar normal. Los rivales, ya con sus cartas a la vista, dicen cada uno en su turno "con ley" si tienen flor o "a punto" si no, y después el pie de su equipo contesta todo de una vez. Los que la impusieron ven sus cartas cuando llega la respuesta. Si hay flor y no se quiere el envite, se cobra la flor y el envite no querido no suma para nadie. Es una versión simplificada del Cap. 7: no incluye los reenvites del Art. 76 ni el Art. 79.</p>
   <p><b>Reglas de la mesa:</b> en Configuración, desde el menú: puntos por chico, cantidad de chicos, tiempo para decidir, con o sin flor, qué pasa con tu flor si tu compañero toca o grita, cartas iguales, señas y dificultad.</p>
   <p class="small">Tocar es envido, gritar es truco, cantar es flor. Reglas según el Reglamento del Truco Uruguayo.</p>
-  <div class="row"><button class="act" id="mOk">Entendido</button></div>`);
-  $('mOk').onclick = closeTool;
+  <div class="row"><button class="act" id="mOk">Entendido</button><button class="act sec" id="mRegl">Ver el reglamento completo</button></div>`);
+  $('mOk').onclick = closeTool; $('mRegl').onclick = reglamentoModal;
 }
 // Escape cierra el menú abierto; en Configuración vuelve al inicio
 document.addEventListener('keydown', e => {
@@ -9178,7 +9409,7 @@ function pintarInicio(){
   h += '</section>';
   h += `<nav class="hlinks" aria-label="Más opciones">
     <button class="tool" id="hCfg">Configuración</button><button class="tool" id="hPj">Tu personaje</button><button class="tool" id="hDeck">Tu mazo</button>
-    <button class="tool" id="hHow">Cómo se juega</button><button class="tool" id="hStats">Estadísticas</button>
+    <button class="tool" id="hHow">Cómo se juega</button><button class="tool" id="hRegl">Reglamento</button><button class="tool" id="hStats">Estadísticas</button>
     <button class="tool" id="hInstalar"${comoInstalar() ? '' : ' hidden'}>Instalar el juego</button></nav>
     <p class="hcred">Cartas: baraja española libre de <a href="https://commons.wikimedia.org/wiki/Category:Spanish_playing_cards" target="_blank" rel="noopener">Basquetteur</a> (Wikimedia Commons), con licencia <a href="https://creativecommons.org/licenses/by-sa/3.0/deed.es" target="_blank" rel="noopener">CC BY-SA 3.0</a>.</p>`;
   box.innerHTML = h;
@@ -9199,6 +9430,7 @@ function pintarInicio(){
   $('hPj').onclick = pjModal;
   $('hInstalar').onclick = instalarJuego;
   $('hHow').onclick = howToModal;
+  $('hRegl').onclick = reglamentoModal;
   $('hStats').onclick = statsModal;
   bindCuenta();
   if (conGente && !NET) bindPublicasHome();
@@ -9629,6 +9861,12 @@ function onHostMsg(m){
       recibirMirada(r); netPost(r);
     } return;
     case 'talk': if (s >= 0 && mesaCfg().voz) { setTalking(s, !!m.on); netPost({ t: 'talk', p: s, on: !!m.on }); } return;
+    case 'gesto': {   // como el servidor: solo códigos conocidos, de a uno cada un segundo y medio
+      const ga = NET.gestoAt = NET.gestoAt || {}, now = Date.now();
+      if (s < 0 || !NET.started || typeof m.k !== 'string' || !/^[gsd]:[a-z0-9-]{1,24}$/.test(m.k) || now - (ga[g] || 0) < 1500) return;
+      ga[g] = now; const r = { t: 'gesto', p: s, k: m.k }; recibirGesto(r); netPost(r);
+      return;
+    }
     case 'pong':
       if (s >= 0) NET.alive[g] = Math.max(NET.alive[g] || 0, m.s);
       else if (m.seated) netPost({ ...lobbyMsg(), to: g });   // se durmió y lo dejé afuera: que se entere y vuelva a entrar
@@ -9792,6 +10030,7 @@ function onGuestMsg(m){
     case 'chatlog': NET.chat = (m.list || []).slice(-80); renderChat(); return;
     case 'talk': if (typeof m.m === 'string') { NET.talkingM[m.m] = !!m.on; renderVoz(); renderMirones(); } else setTalking(m.p, !!m.on); return;
     case 'mirada': recibirMirada(m); return;
+    case 'gesto': recibirGesto(m); return;
     case 'mirando': NET.mira = true; NET.miraId = m.id; NET.quiereMirar = false; renderMirones(); return;
     case 'expulsado': case 'vetado': {
       const code = NET.code;
@@ -10575,7 +10814,7 @@ function renderPerfil(box){
   h += `<div class="cficha grande">${avatar(p, 'g')}<div><b>${esc(p.apodo)}</b>${p.nombre ? `<span class="cnom">${esc(p.nombre)}</span>` : ''}<span>${p.enLinea ? '<i class="dot on"></i> En línea · ' : ''}Juega desde ${new Date(p.desde).toLocaleDateString('es-UY', { month: 'long', year: 'numeric' })}${propio ? ` · cuenta n.º ${p.id}` : ''}</span>${datos ? `<span>${datos}</span>` : ''}</div></div>`;
   if (p.bio) h += `<p class="cbio">${esc(p.bio)}</p>`;
   if (propio) h += `<div class="hlinks"><button class="act flor" id="pEditar">Editar perfil</button><button class="act sec" id="pPj">Tu personaje</button></div>`;
-  h += statsHTML(p);
+  h += statsHTML(p) + logrosHTML(p);
   if (!propio && D.relacion) {
     const r = D.relacion;
     h += '<div class="hlinks">' + (r === 'no' ? '<button class="tool" id="pAm" data-a="pedir">Agregar a amigos</button>'

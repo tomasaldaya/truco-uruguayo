@@ -889,12 +889,12 @@ const V3 = (function(){
     updateLabels(act);
   }
 
-  function showBubble(p, text){
+  function showBubble(p, text, ms, largo){
     S.cnt.dichos++;
     const el2 = yoSentado(p) ? myBub : Lay.chars[p] && Lay.chars[p].bub;
     if (!el2) return;
-    el2.textContent = text; el2.classList.remove('on'); void el2.offsetWidth; el2.classList.add('on');
-    clearTimeout(el2._t); el2._t = setTimeout(() => el2.classList.remove('on'), 2200);
+    el2.textContent = text; el2.classList.toggle('largo', !!largo); el2.classList.remove('on'); void el2.offsetWidth; el2.classList.add('on');
+    clearTimeout(el2._t); el2._t = setTimeout(() => el2.classList.remove('on'), ms || 2200);
     // quien habla mueve la boca y reacciona; los demás lo miran
     const speaker = yoSentado(p) ? humanSeat() : charHead(p);
     Lay.chars.forEach(c => { if (c && c.p !== p && !c.gest) { c.lookTo = speaker; c.lookUntil = now + 1.6; } });
@@ -924,7 +924,7 @@ const V3 = (function(){
       if (partner && R.senasShown[p] && G.rules.senas && !R.leyPhase && !R.duel && !R.hands[ME].some(c => c.hidden)) sen += senaGroups(R.senasShown[p]).map(([k, n]) => `<span class="sena">${senaTxt(k, n)}</span>`).join('');
       if (!R.leyPhase) senaGroups((R.seen[ME] || []).filter(v => v.p === p).map(v => v.s)).forEach(([k, n]) => { sen += `<span class="sena caught">👀 ${senaTxt(k, n)}</span>`; });
       const mic = NET && NET.talking && NET.talking[p] ? ' 🎙' : '';
-      const html = `<div class="nm">${esc(G.names[p])}${mic}${G.n >= 4 ? `<small>${mirando() ? colorEq(team(p)) : partner ? 'compañero' : 'rival'}</small>` : ''}</div>`
+      const html = `<div class="nm">${esc(G.names[p])}${fuego(p)}${mic}${G.n >= 4 ? `<small>${mirando() ? colorEq(team(p)) : partner ? 'compañero' : 'rival'}</small>` : ''}</div>`
         + (tags.length ? `<div class="tags">${tags.join('')}</div>` : '') + (sen ? `<div class="senas">${sen}</div>` : '');
       if (html !== c.lblHTML) { c.lblIn.innerHTML = html; c.lblHTML = html; }
       c.lbl.classList.toggle('inactive', !R.active[p]);
@@ -1238,6 +1238,15 @@ const V3 = (function(){
     available: () => init(),
     retrato,
     update, pause,
+    // un gesto, un sonido o un dicho del frasero (extras.part.js): la burbuja y el movimiento del personaje
+    gesto(p, text, react, ms, largo){
+      if (!Lay || !G) return;
+      showBubble(p, text, ms, largo);
+      const c = Lay.chars[p]; if (!c) return;
+      if (react === 'talk') return;   // el dicho: habla y reacciona como cuando canta
+      c.talkTo = 0;
+      c.react = react ? { type: react, t0: now, d: react === 'slump' ? 1.2 : .9 } : null;
+    },
     debug: () => ({ CARDS, S, CAM, Lay, camera, setView, renderer, queue: (p, l, k) => { queueSenas(p, l, k || 'partner'); S.jobs[S.jobs.length-1].notBefore = now; } }),
   };
 })();
