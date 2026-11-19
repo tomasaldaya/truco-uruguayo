@@ -33,6 +33,40 @@ function loadSavedGame(){
   } catch (e) { store.del('truco.partida'); return null; }
 }
 
+// ---------- Instalar el juego como app (compu, celular o tablet) ----------
+// Chrome y Edge avisan cuando se puede instalar (beforeinstallprompt) y el botón abre su ventanita. En el
+// iPhone, el iPad y el Safari de la Mac no hay aviso: el botón explica cómo agregarlo. Ya instalado, no aparece.
+let avisoInstalar = null;
+const yaInstalado = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+const esIOS = () => /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const esSafariMac = () => /Macintosh/.test(navigator.userAgent) && /Version\/[\d.]+ Safari\//.test(navigator.userAgent) && navigator.maxTouchPoints <= 1;
+function comoInstalar(){
+  if (yaInstalado()) return null;
+  if (avisoInstalar) return 'aviso';
+  if (esIOS()) return 'ios';
+  if (esSafariMac()) return 'mac';
+  return null;
+}
+function pintarInstalar(){ const b = $('hInstalar'); if (b) b.hidden = !comoInstalar(); }
+addEventListener('beforeinstallprompt', e => { e.preventDefault(); avisoInstalar = e; pintarInstalar(); });
+addEventListener('appinstalled', () => { avisoInstalar = null; pintarInstalar(); });
+async function instalarJuego(){
+  const k = comoInstalar();
+  if (k === 'aviso') {
+    const e = avisoInstalar; avisoInstalar = null;
+    e.prompt(); try { await e.userChoice; } catch (_) {}
+    pintarInstalar(); return;
+  }
+  toolModal(`<h3>Instalar el juego</h3>${k === 'ios'
+    ? '<p>En Safari, tocá el botón de compartir (el cuadrado con la flecha para arriba) y elegí <b>Agregar a inicio</b>. Queda con su ícono, como una app.</p>'
+    : '<p>En Safari, abrí el menú <b>Archivo</b> y elegí <b>Agregar al Dock</b>. Queda con su ícono, como una app.</p>'}
+    <div class="row"><button class="act" id="iOk">Listo</button></div>`);
+  $('iOk').onclick = closeTool;
+}
+// lo que hace falta para instalarlo y abrirlo sin internet (sw.js); no funciona abriendo el archivo suelto
+if ('serviceWorker' in navigator && (location.protocol === 'https:' || ['localhost', '127.0.0.1'].includes(location.hostname)))
+  addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+
 function showHome(view){
   // un partido online que ya terminó: al ir al menú, la mesa se cierra (no queda nada pendiente)
   if (NET && G && G.phase === 'matchEnd' && view !== 'lobby') { closeModal(); leaveNet(); }
@@ -116,7 +150,8 @@ function pintarInicio(){
   h += '</section>';
   h += `<nav class="hlinks" aria-label="Más opciones">
     <button class="tool" id="hCfg">Configuración</button><button class="tool" id="hPj">Tu personaje</button><button class="tool" id="hDeck">Tu mazo</button>
-    <button class="tool" id="hHow">Cómo se juega</button><button class="tool" id="hStats">Estadísticas</button></nav>
+    <button class="tool" id="hHow">Cómo se juega</button><button class="tool" id="hStats">Estadísticas</button>
+    <button class="tool" id="hInstalar"${comoInstalar() ? '' : ' hidden'}>Instalar el juego</button></nav>
     <p class="hcred">Cartas: baraja española libre de <a href="https://commons.wikimedia.org/wiki/Category:Spanish_playing_cards" target="_blank" rel="noopener">Basquetteur</a> (Wikimedia Commons), con licencia <a href="https://creativecommons.org/licenses/by-sa/3.0/deed.es" target="_blank" rel="noopener">CC BY-SA 3.0</a>.</p>`;
   box.innerHTML = h;
   if ($('hCont')) $('hCont').onclick = () => {
@@ -134,6 +169,7 @@ function pintarInicio(){
   $('hCfg').onclick = () => { homeView = 'config'; renderHome(); $('hBack').focus(); };
   $('hDeck').onclick = deckModal;
   $('hPj').onclick = pjModal;
+  $('hInstalar').onclick = instalarJuego;
   $('hHow').onclick = howToModal;
   $('hStats').onclick = statsModal;
   bindCuenta();

@@ -363,3 +363,18 @@ y la mano no se cierra por detrás). Escape los cierra.
   navegador y en la cuenta (columna `pj`), se manda al sentarse (`pj` en `hello`) y llega a todos en
   `G.pjs`. Los de la computadora tienen cada uno su cara. Para sumar personajes hechos con otro programa, la
   idea es que un personaje pueda traer su propio modelo `.glb` en vez de armarse con piezas.
+
+## Instalar el juego en la compu (o el celular)
+
+El juego se puede instalar como app desde el navegador, sin tienda: queda con su ícono y su ventana, y abre
+sin internet para jugar contra la computadora. Lo hacen tres archivos al lado de `index.html`:
+
+- `manifest.webmanifest`: el nombre, los colores y los íconos (`icono-*.png`, armados por
+  `tools/icono/icono.py` con tres cartas de la baraja: el ancho de espada, el de basto y el siete de espada).
+- `sw.js`: guarda la página para abrirla sin internet. La pide siempre primero a la red, así cada vez que hay
+  conexión llega la última versión; lo del servidor (`/api/`) nunca se guarda.
+- En el inicio, "Instalar el juego" (en Más opciones) aparece cuando el navegador lo permite (Chrome y Edge);
+  en el iPhone, el iPad y el Safari de la Mac explica cómo agregarlo. Ya instalado, no aparece.
+
+Se instala desde la dirección publicada (GitHub Pages o el servidor de Cloudflare), no abriendo el archivo
+suelto. Para jugar online hace falta internet, como siempre.

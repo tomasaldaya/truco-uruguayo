@@ -2,7 +2,12 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 100 100%27%3E%3Ctext y=%27.9em%27 font-size=%2790%27%3E%F0%9F%83%8F%3C/text%3E%3C/svg%3E">
+<link rel="icon" href="icono-192.png" type="image/png">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#140e09">
+<link rel="apple-touch-icon" href="icono-apple-180.png">
+<meta name="apple-mobile-web-app-title" content="Truco">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Truco Uruguayo</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -72,6 +77,7 @@ h1 small{font-family:'Alegreya Sans',sans-serif;font-size:15px;font-weight:500;c
 .hand.mini{gap:0}
 .hand.mini .back{width:44px;height:66px;border-width:3px;margin-left:-18px}
 .hand.mini .back:first-child{margin-left:0}
+@keyframes pop{from{transform:scale(.6);opacity:0}to{transform:scale(1);opacity:1}}   /* carteles y avisos al aparecer */
 /* lo que dice cada uno: la misma etiqueta chica de la mesa 3D, pegada al nombre; aparece, queda un momento y se va */
 .who,.hand.me{position:relative}
 /* las cartas del envite, dadas vuelta al final de la mano */

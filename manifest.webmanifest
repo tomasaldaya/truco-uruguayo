@@ -1,0 +1,18 @@
+{
+  "name": "Truco Uruguayo",
+  "short_name": "Truco",
+  "description": "Truco uruguayo con muestra y flor: mano a mano, en parejas o en tercetos, contra la computadora o con gente.",
+  "lang": "es-UY",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#140e09",
+  "theme_color": "#140e09",
+  "categories": ["games"],
+  "icons": [
+    { "src": "icono-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icono-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icono-mascara-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

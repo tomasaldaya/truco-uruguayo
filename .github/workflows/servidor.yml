@@ -22,7 +22,7 @@ jobs:
       - name: Pruebas de las cuentas
         run: node server/prueba-cuentas.mjs
       - name: Preparar la página
-        run: mkdir -p public && cp index.html public/
+        run: mkdir -p public && cp index.html privacidad.html manifest.webmanifest sw.js icono-*.png public/
       - name: Dirección en workers.dev
         # La primera vez la cuenta de Cloudflare no tiene subdominio en workers.dev y wrangler no puede
         # elegirlo solo; acá se registra uno (se puede cambiar después en el panel de Cloudflare).
