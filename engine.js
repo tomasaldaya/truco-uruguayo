@@ -23,6 +23,7 @@
     chicosToWin: 2,           // al mejor de tres chicos (1 = un solo chico)
     flor: true,               // con o sin flor
     florCompanero: 'niega',   // si tu compañero toca o grita antes de que cantes tu flor: 'niega' (se anula) o 'tengo' (decís "tengo flor")
+    achique: false,           // con flor envido no querido: el que envidó cobra su flor (Art. 32) y, con achique, un punto más
     iguales: 'parda',         // cartas iguales de rivales: 'parda' (Art. 57) o 'mano' (Art. 12, gana el más mano)
     senas: true,              // señas entre compañeros (Art. 102)
     mazo: 'solo',             // irse al mazo sin ser el pie: 'solo' (sale ese jugador) o 'equipo' (Art. 90)
@@ -805,19 +806,26 @@
     }
     startCanto(G, 'env', { type: 'env' }, betTotal(bets, R.falta));
   }
+  // Envite con flor no querido (Art. 32): el que envidó cobra las flores de su equipo; en un reenvite, además
+  // lo envidado antes (y las flores del rival si ya había contra flor). Con achique, el primer envite no
+  // querido vale un punto más (como el envido no querido); el reenvite no querido, no (Art. 35).
+  function florNoQuerida(G, bets) {
+    const R = G.round, last = bets[bets.length - 1], t = team(last.by), F = florCount(G);
+    let pts = 3 * F[t], stake = 0, achique = 0;
+    if (bets.length > 1) { stake = betTotal(bets.slice(0, -1), R.falta); pts += stake + (bets.slice(0, -1).some(b => b.contra) ? 3 * F[1 - t] : 0); }
+    else if (G.rules.achique) { achique = 1; pts += 1; }
+    return { by: last.by, t, pts, stake, achique };
+  }
   function resolveFlorEnv(G, bets, accepted) {
     const R = G.round;
     R.florEnv.done = true;
     if (!accepted) {
-      const last = bets[bets.length - 1], t = team(last.by);
-      const contraPrev = bets.slice(0, -1).some(b => b.contra);
-      const F = florCount(G);
-      let pts = 3 * F[t], stake = 0;
-      if (bets.length > 1) { stake = betTotal(bets.slice(0, -1), R.falta); pts += stake + (contraPrev ? 3 * F[1 - t] : 0); }
-      R.florEnv.result = { winner: last.by, pts, stake };
+      const { by, t, pts, stake, achique } = florNoQuerida(G, bets);
+      R.florEnv.result = { winner: by, pts, stake, achique };
       R.wonEnvite[t] = true;
       fromMano(G).filter(q => team(q) === t && R.flor.sung[q]).forEach(q => R.mustShow[q] = true);
-      addPoints(G, t, pts, 'flor, envite no querido', 'flor');
+      addPoints(G, t, pts - achique, 'flor, envite no querido', 'flor');
+      if (achique) addPoints(G, t, achique, 'el achique', 'flor');
       afterPoints(G);
       return;
     }
@@ -1120,7 +1128,7 @@
   const Truco = {
     setRng, makeDeck, shuffle, piezaRole, isPieza, rank, category, envVal, hasFlor,
     florPoints, envidoPoints, cardName, roundWinner, newMatch, startRound, actor,
-    legal, label, apply, nextRound, betTotal, validCanto, setSenas, senasFor, senasMinus, SENAS, SENA_MAX, PEDIDOS, pedir,
+    legal, label, apply, nextRound, betTotal, florNoQuerida, validCanto, setSenas, senasFor, senasMinus, SENAS, SENA_MAX, PEDIDOS, pedir,
     team, pos, inGame, esPie, leyDisponible, TRUCO_NAMES, SUITS, NUMS, DEFAULT_RULES, LEY_FORMS,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = Truco;

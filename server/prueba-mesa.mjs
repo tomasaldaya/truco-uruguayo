@@ -293,6 +293,50 @@ t('si un jugador realista se va y la computadora sigue en su lugar, ese lugar de
   assert.equal(m.GM.manual[sb], false);
 });
 
+t('reglas de la mesa: las elige quien la crea, las ven todos y solo el dueño las cambia hasta empezar', () => {
+  const W = mundo(), m = new Mesa(W.io, null);
+  m.onOpen('a'); m.onMessage('a', { t: 'hello', name: 'Ana', pid: 'pa', crear: { n: 4, key: 'k', cfg: { target: 20, chicos: 2, achique: true, chat: true, voz: false } } });
+  m.onOpen('b'); m.onMessage('b', { t: 'hello', name: 'Juan', pid: 'pb' });
+  assert.deepEqual(last(W.inbox, 'b', 'lobby').cfg, { target: 20, chicos: 2, achique: true, chat: true, voz: false });
+  m.onMessage('b', { t: 'cfg', cfg: { target: 40 } });                      // el invitado no puede
+  assert.equal(m.cfg.target, 20);
+  m.onMessage('a', { t: 'cfg', cfg: { target: 10, chicos: 7, voz: 'sí', hackeo: true } });   // lo que no vale queda como estaba
+  assert.deepEqual(last(W.inbox, 'b', 'lobby').cfg, { target: 10, chicos: 2, achique: true, chat: true, voz: false });
+  // empieza con esas reglas, aunque el dueño mande otras, y con todas las personas en modo realista
+  m.onMessage('a', { t: 'start', rules: { target: 40, chicosToWin: 1, achique: false, tiempo: 60 } });
+  assert.equal(m.GM.rules.target, 10); assert.equal(m.GM.target, 10); assert.equal(m.GM.chicosToWin, 2);
+  assert.equal(m.GM.rules.achique, true); assert.equal(m.GM.rules.tiempo, 60);
+  const sb = m.seats.findIndex(x => x.cid === 'b');
+  assert.deepEqual(m.GM.manual.map(Boolean), m.seats.map((x, p) => p === 0 || p === sb));
+  // con el partido empezado ya no se cambian
+  m.onMessage('a', { t: 'cfg', cfg: { target: 40 } });
+  assert.equal(m.cfg.target, 10);
+  // se guardan con la mesa
+  const m2 = new Mesa(mundo().io, JSON.parse(JSON.stringify(m.data())));
+  assert.deepEqual(m2.cfg, m.cfg);
+  // sin reglas (un navegador viejo): las de siempre
+  const W3 = mundo(), m3 = new Mesa(W3.io, null);
+  m3.onOpen('a'); m3.onMessage('a', { t: 'hello', name: 'Ana', pid: 'pa', crear: { n: 2, key: 'k' } });
+  assert.deepEqual(last(W3.inbox, 'a', 'lobby').cfg, { target: 30, chicos: 1, achique: false, chat: true, voz: true });
+});
+
+t('reglas de la mesa: sin chat de texto o sin voz, el servidor no los reparte', () => {
+  const W = mundo(), m = new Mesa(W.io, null);
+  m.onOpen('a'); m.onMessage('a', { t: 'hello', name: 'Ana', pid: 'pa', crear: { n: 2, key: 'k', cfg: { chat: false, voz: false } } });
+  m.onOpen('b'); m.onMessage('b', { t: 'hello', name: 'Juan', pid: 'pb' });
+  m.onMessage('b', { t: 'chat', text: 'hola' }); m.onMessage('b', { t: 'talk', on: true });
+  assert(!last(W.inbox, 'a', 'chat')); assert(!last(W.inbox, 'a', 'talk')); assert.equal(m.chat.length, 0);
+  // el dueño prende el chat antes de empezar: ahí sí
+  m.onMessage('a', { t: 'cfg', cfg: { chat: true } });
+  W.run(700); m.onMessage('b', { t: 'chat', text: 'hola' });
+  assert.equal(last(W.inbox, 'a', 'chat').text, 'hola');
+  assert(!last(W.inbox, 'a', 'talk'), 'la voz sigue apagada');
+  // y si lo vuelve a apagar, lo que se habló no le llega al que entra
+  m.onMessage('a', { t: 'cfg', cfg: { chat: false } });
+  m.onOpen('c'); m.onMessage('c', { t: 'hello', name: 'Ceci', pid: 'pc' });
+  assert(!last(W.inbox, 'c', 'chatlog'));
+});
+
 await ta('abandono: el que se va a propósito pierde enseguida (y en el ranking)', async () => {
   const W = mundo(), reg = conCuentas(W), m = new Mesa(W.io, null);
   m.onOpen('a'); m.onMessage('a', { t: 'hello', name: 'Ana', pid: 'pa', crear: { n: 2, key: 'k' }, token: 'tA' });
@@ -388,6 +432,22 @@ await ta('pública: empieza sola al llenarse (a 30, un chico); si alguien se va 
   W.run(3500); vivo(m, W, 'a'); vivo(m, W, 'b');
   assert(m.started); assert.equal(m.GM.rules.target, 30); assert.equal(m.GM.rules.chicosToWin, 1);
   assert(last(W.inbox, 'b', 'state'));
+});
+
+await ta('pública: quien la arma elige las reglas; se juegan con ellas y el salón las muestra', async () => {
+  const W = mundo(); conCuentas(W); const salon = conSalon(W); const m = new Mesa(W.io, null);
+  m.onOpen('a'); m.onMessage('a', { t: 'hello', name: 'A', pid: 'pa', code: 'REGL', crear: { n: 2, key: 'k', publica: true, cfg: { target: 40, chicos: 2, achique: true, chat: false, voz: true } }, token: 'tA' }); await pausa();
+  W.run(500);
+  assert.deepEqual(salon[salon.length - 1].cfg, { target: 40, chicos: 2, achique: true, chat: false, voz: true });
+  m.onMessage('a', { t: 'cfg', cfg: { target: 10 } });                 // en la pública no hay dueño: no se cambian
+  assert.equal(m.cfg.target, 40);
+  m.onOpen('b'); m.onMessage('b', { t: 'hello', name: 'B', pid: 'pb', token: 'tB' }); await pausa();
+  assert.equal(last(W.inbox, 'b', 'lobby').cfg.target, 40);
+  W.run(3500); vivo(m, W, 'a'); vivo(m, W, 'b');
+  assert(m.started); assert.equal(m.GM.rules.target, 40); assert.equal(m.GM.rules.chicosToWin, 2); assert.equal(m.GM.rules.achique, true);
+  assert.deepEqual(m.GM.manual, [true, true]);
+  m.onMessage('b', { t: 'chat', text: 'buenas' });
+  assert(!last(W.inbox, 'a', 'chat'));
 });
 
 await ta('pública: con dos o más, si todos quieren empezar ya, la computadora completa; y al final, otro partido', async () => {

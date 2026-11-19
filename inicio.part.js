@@ -118,6 +118,7 @@ function pintarInicio(){
   if (homeView === 'config') return renderConfig(box);
   if (homeView === 'lobby') return renderLobby(box);
   if (homeView === 'join') return renderJoin(box);
+  if (homeView === 'crear') return renderCrear(box);
   if (homeView === 'perfil') return renderPerfil(box);
   if (homeView === 'ranking') return renderRanking(box);
   if (homeView === 'amigos') return renderAmigos(box);
@@ -159,7 +160,7 @@ function pintarInicio(){
   };
   if ($('hLobby')) $('hLobby').onclick = () => { homeView = 'lobby'; renderHome(); };
   if ($('hLeave')) $('hLeave').onclick = () => confirmarSalida($('hLeave'), () => { leaveNet(); renderHome(); });
-  if ($('hHost')) $('hHost').onclick = () => hostTable(GM && !NET ? GM.n : players);
+  if ($('hHost')) $('hHost').onclick = () => abrirCrear(false, GM && !NET ? GM.n : players);
   if ($('hJoin')) $('hJoin').onclick = () => { homeView = 'join'; renderHome(); };
   box.querySelectorAll('.hmode[data-n]').forEach(b => b.onclick = () => {
     const n = +b.dataset.n;
@@ -203,10 +204,10 @@ function renderConfig(box){
     </div></section>
     <section class="cfgsec"><h3>Partido</h3><div class="cfg">
       ${row('level', 'Dificultad', [['facil', 'Fácil'], ['normal', 'Normal'], ['dificil', 'Difícil']], level, 'En difícil la computadora se acuerda de tus mentiras y tus faroles.')}
-      ${row('real', 'Modo realista', [['0', 'No'], ['1', 'Sí']], realista ? '1' : '0', 'Cantás tus puntos a mano y podés equivocarte o negar la flor, con las penas del reglamento. Rige desde la próxima mano.')}
+      ${row('real', 'Modo realista', [['0', 'No'], ['1', 'Sí']], realista ? '1' : '0', 'Cantás tus puntos a mano y podés equivocarte o negar la flor, con las penas del reglamento. Rige desde la próxima mano. Es para jugar contra la computadora: en las mesas online se juega siempre en modo realista.')}
     </div></section>
     <section class="cfgsec"><h3>Reglas de la mesa</h3><div class="cfg">${rules}</div>
-      <p class="cfgnote">En cada lugar se juega un poco distinto. Estas reglas se aplican desde el próximo partido.</p></section>`;
+      <p class="cfgnote">En cada lugar se juega un poco distinto. Estas reglas se aplican desde el próximo partido. En una mesa online, los puntos, los chicos y el achique los elige quien crea la mesa; lo demás sale de acá.</p></section>`;
   $('hBack').onclick = () => { homeView = 'main'; renderHome(); $('hCfg').focus(); };
   box.querySelectorAll('.seg button').forEach(b => b.onclick = () => {
     setCfg(b.parentNode.dataset.k, b.dataset.v);

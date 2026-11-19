@@ -411,3 +411,28 @@ mano imaginada imposible. Contra la versión anterior juega parejo en general (4
 partidos, 50 % en parejas en 200, 51 % en tercetos en 800) y deja de suicidarse en esas manos.
 Herramientas: `tools/ia/lalo.js` (esa mano, con lo que decide la computadora) y `tools/ia/relleno.js`
 (cuántas manos imaginadas contradicen lo cantado).
+
+## Reglas de cada mesa online, achique y modo realista para todos (19/11)
+
+- **Crear una mesa** (privada o pública) abre primero una pantalla para elegir el modo y las reglas de toda
+  la mesa: a cuántos puntos es el chico (10, 20, 30 o 40), uno o tres chicos, achique sí o no (con un **?**
+  que explica qué es cobrar el achique) y si hay chat de texto y chat de voz. Se recuerdan las últimas que
+  elegiste (`truco.mesacfg`). En la mesa privada el dueño las puede cambiar hasta que empieza el partido; los
+  demás las ven como fichas. En las públicas quedan fijas y se ven en la lista ("Ver las mesas"), que tiene
+  además "Armar una mesa nueva". Si tocás un modo y no hay nadie esperando, también pasás por esa pantalla.
+- Viajan como `cfg` (`{ target, chicos, achique, chat, voz }`) al crear la mesa y en cada `lobby`; el dueño
+  las cambia con el mensaje `cfg`. Las valida `limpiarCfg` (servidor, `server/mesa.mjs`) y `limpiarCfgMesa`
+  (navegador, `red.part.js`). Al empezar, mandan sobre las reglas que mande el dueño; lo demás (flor, señas,
+  tiempo...) sale de la configuración del dueño, y en las públicas, lo de siempre.
+- **Sin chat de texto** o **sin voz**: el servidor (o el anfitrión, entre navegadores) no reparte esos
+  mensajes, y la pantalla no muestra el chat o el micrófono. Con el servidor, la sala de voz se abre solo si la
+  mesa tiene voz (`vozSync`).
+- **Achique** (`rules.achique`, también en Reglas de la mesa para jugar solo): cuando los dos cantaron flor y
+  uno envida (con flor envido o contra flor) y el otro no quiere, el que envidó cobra su flor y un punto más
+  (4 en vez de 3). En un reenvite no querido no se suma, como en el envido (`florNoQuerida` en `engine.js`).
+- **Modo realista obligatorio online**: en todas las mesas online, todas las personas juegan en modo
+  realista (cantan sus puntos y su flor), así nadie tiene la ventaja de que el juego se los cante. El lugar
+  que queda a cargo de la computadora juega sin el modo realista, y vuelve a serlo cuando vuelve la persona.
+- El tanteador dibuja bien los chicos a 10 y a 30 (malas arriba de la raya, buenas abajo).
+- Pruebas: `server/prueba-mesa.mjs` (reglas, chat y voz, públicas), `server/prueba-cuentas.mjs` (la lista
+  guarda las reglas) y `test.js` (achique).

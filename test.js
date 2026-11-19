@@ -204,6 +204,40 @@ t('con flor envido no querido: solo la flor propia (Art. 32)', () => {
   act(G, 1, typ('noquiero'));
   assert.deepEqual(G.scores, [3, 0]);
 });
+t('con achique, el con flor envido (o contra flor) no querido cobra la flor y un punto; el reenvite no querido no', () => {
+  const H0 = [C(1, 'oro'), C(3, 'oro'), C(6, 'oro')], H1 = [C(6, 'basto'), C(1, 'basto'), C(3, 'basto')], M = C(4, 'espada');
+  let G = setup(H0, H1, M, null, false, false, { achique: true });
+  act(G, 0, typ('flor')); act(G, 1, typ('flor'));
+  act(G, 0, a => a.type === 'fenv' && !a.contra && a.amt === 2);
+  act(G, 1, typ('noquiero'));
+  assert.deepEqual(G.scores, [4, 0]);
+  assert.deepEqual(G.round.gained[0].map(g => g.pts), [3, 1]);
+  assert.equal(G.round.gained[0][1].why, 'el achique');
+  G = setup(H0, H1, M, null, false, false, { achique: true });
+  act(G, 0, typ('flor')); act(G, 1, typ('flor'));
+  act(G, 0, a => a.type === 'fenv' && a.contra && a.amt === 2);
+  act(G, 1, typ('noquiero'));
+  assert.deepEqual(G.scores, [4, 0]);
+  // el que se achicó antes y después no quiere: también se cobra el achique
+  G = setup(H0, H1, M, null, false, false, { achique: true });
+  act(G, 0, typ('flor')); act(G, 1, typ('flor'));
+  act(G, 0, typ('chica'));
+  act(G, 1, a => a.type === 'fenv' && !a.contra && a.amt === 2);
+  act(G, 0, typ('noquiero'));
+  assert.deepEqual(G.scores, [0, 4]);
+  // reenvite no querido: lo envidado antes y la flor, sin achique (como el envido, Art. 35)
+  G = setup(H0, H1, M, null, false, false, { achique: true });
+  act(G, 0, typ('flor')); act(G, 1, typ('flor'));
+  act(G, 0, a => a.type === 'fenv' && !a.contra && a.amt === 2);
+  act(G, 1, a => a.type === 'fenv' && a.contra && a.amt === 2);
+  act(G, 0, typ('noquiero'));
+  assert.deepEqual(G.scores, [0, 3 + 2]);
+  // los dos se achican: se comparan las flores, sin achique
+  G = setup(H0, [C(6, 'basto'), C(7, 'basto'), C(3, 'basto')], M, null, false, false, { achique: true });
+  act(G, 0, typ('flor')); act(G, 1, typ('flor'));
+  act(G, 0, typ('chica')); act(G, 1, typ('chica'));
+  assert.deepEqual(G.scores, [0, 3]);
+});
 t('ambos se achican: gana la flor mayor', () => {
   const G = setup([C(1, 'oro'), C(3, 'oro'), C(6, 'oro')], [C(6, 'basto'), C(7, 'basto'), C(3, 'basto')], C(4, 'espada'));
   act(G, 0, typ('flor')); act(G, 1, typ('flor'));
@@ -931,7 +965,7 @@ t('parejas: equipo de IA contra equipo al azar gana la gran mayoría', () => {
   assert(ai >= n * 0.8);
 });
 t('6000 partidos al azar con reglas variadas y tercetos terminan sin errores', () => {
-  const opts = [{}, { ley: true }, { florCompanero: 'tengo' }, { iguales: 'mano' }, { flor: false }, { target: 30, chicosToWin: 1, ley: true, florCompanero: 'tengo' }];
+  const opts = [{}, { ley: true }, { florCompanero: 'tengo' }, { iguales: 'mano' }, { flor: false }, { target: 30, chicosToWin: 1, ley: true, florCompanero: 'tengo' }, { achique: true, target: 10 }, { achique: true, target: 20, chicosToWin: 1 }];
   let k = 0;
   for (const players of [2, 4, 6]) for (const manual of [false, true]) for (let s = 1; s <= 1000; s++) {
     const rules = opts[(s + k) % opts.length];

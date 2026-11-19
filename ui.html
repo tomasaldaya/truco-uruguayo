@@ -361,6 +361,17 @@ aside{display:flex;flex-direction:column;gap:14px;margin-top:13px}
 .seg button:disabled{opacity:.4;cursor:not-allowed}
 .cfg select{font:inherit;font-size:14px;padding:6px 8px;border-radius:9px;border:1px solid rgba(255,255,255,.2);background:#2a1d13;color:var(--ink);justify-self:start;max-width:100%}
 .cfgnote{font-size:13.5px;color:var(--muted);margin:8px 0 0}
+/* reglas de una mesa online: para elegir (filas de .cfg, con un ? que explica el achique) y para leer (fichas) */
+.ayuda{width:22px;height:22px;border-radius:50%;border:1px solid rgba(232,177,58,.6);background:transparent;color:var(--gold);font-family:inherit;font-weight:700;font-size:13px;line-height:1;cursor:pointer;margin-left:4px;vertical-align:1px;padding:0}
+.ayuda[aria-expanded="true"]{background:var(--gold);color:#2b1d10}
+.ayuda:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.cfg.crear{margin:4px 0 6px}
+.reglas{display:flex;flex-wrap:wrap;gap:6px;list-style:none;margin:0 0 4px;padding:0}
+.reglas li{font-size:13.5px;padding:4px 11px;border-radius:999px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);display:inline-flex;align-items:center}
+.reglas li .ayuda{width:19px;height:19px;font-size:12px}
+.ayudatxt{margin:6px 0 0;max-width:62ch;line-height:1.4}
+.amg small.mreg{flex:1 1 100%;order:5;margin:0;font-size:12.5px}
+.amg+.hlinks{margin-top:12px}
 .home :focus-visible,.tools :focus-visible{outline:3px solid var(--gold);outline-offset:2px}
 .hnote{background:rgba(199,65,47,.16);border:1px solid rgba(199,65,47,.5);border-radius:12px;padding:10px 14px;margin:0}
 .hnote.ok{background:rgba(127,191,142,.14);border-color:rgba(127,191,142,.5)}
@@ -1410,12 +1421,13 @@ function statsModal(){
 // ---------- Reglas de la mesa ----------
 const RULE_OPTS = [
   ['h', 'Partido'],
-  ['target', 'Puntos por chico', [[40,'40 (reglamento)'],[30,'30']]],
+  ['target', 'Puntos por chico', [[40,'40 (reglamento)'],[30,'30'],[20,'20'],[10,'10']]],
   ['chicosToWin', 'Chicos', [[2,'Al mejor de tres'],[1,'Un solo chico']]],
   ['tiempo', 'Tiempo para decidir', [[30,'30 segundos'],[60,'60 segundos'],[0,'Sin límite']]],
   ['h', 'Flor y envido'],
   ['flor', 'Flor', [[true,'Se juega con flor'],[false,'Sin flor']]],
   ['florCompanero', 'Si tu compañero toca o grita antes de que cantes tu flor', [['niega','Tu flor queda anulada'],['tengo','Decís "tengo flor" y se juega la flor']]],
+  ['achique', 'Con flor envido no querido', [[false,'Sin achique: el que envidó cobra su flor (3)'],[true,'Con achique: cobra su flor y un punto más (4)']]],
   ['h', 'Bazas y señas'],
   ['iguales', 'Cartas iguales de rivales', [['parda','Parda (Art. 57)'],['mano','Gana la del más mano (Art. 12)']]],
   ['senas', 'Señas entre compañeros', [[true,'Permitidas'],[false,'No se usan']]],
@@ -1644,8 +1656,8 @@ const newMatchId = () => Date.now().toString(36) + Math.random().toString(36).sl
 // siguiente mano (o duelo) del partido que lleva esta pantalla
 function advanceRound(){
   if (!GM) return;
-  GM.manual[ME] = realista;
-  if (NET) GM.humans.forEach(p => { if (p !== ME) GM.manual[p] = !!NET.prefs[p]; });
+  // online, todas las personas en modo realista (también quien volvió a su lugar); jugando solo, como lo tengas
+  if (NET) GM.humans.forEach(p => { GM.manual[p] = true; }); else GM.manual[ME] = realista;
   T.nextRound(GM); startRoundHook(); step();
 }
 function newGame(n){
@@ -1676,8 +1688,8 @@ $('btnSpeed').onclick = () => { const keys = Object.keys(SPEEDS); setSpeed(keys[
 function setRealista(v){
   if (v === realista) return;
   realista = v; store.set('truco.real', realista?'1':'0');
-  if (isGuest()) netSend({ t: 'pref', realista });
-  else if (GM && GM.phase !== 'matchEnd') GM.log.push({who:null, kind:'info', round:GM.roundNo, text: realista ? 'Modo realista activado: rige desde la próxima mano.' : 'Modo realista desactivado desde la próxima mano.'});
+  if (NET) return;   // en las mesas online se juega siempre en modo realista
+  if (GM && GM.phase !== 'matchEnd') GM.log.push({who:null, kind:'info', round:GM.roundNo, text: realista ? 'Modo realista activado: rige desde la próxima mano.' : 'Modo realista desactivado desde la próxima mano.'});
 }
 function setHelp(v){ showHelp = v; $('btnHelp').setAttribute('aria-pressed', String(showHelp)); store.set('truco.help', showHelp?'1':'0'); }
 function setSpeed(v){ speed = v; store.set('truco.speed', speed); $('btnSpeed').textContent = 'Velocidad: ' + speed; }
@@ -1687,9 +1699,10 @@ $('btnRanks').onclick = () => { showRanks=!showRanks; $('btnRanks').setAttribute
 $('btnMenu').onclick = () => showHome();
 function howToModal(){
   toolModal(`<h3>Cómo se juega</h3>
-  <p>Partido al mejor de tres chicos. Cada chico es a 40 puntos: los primeros 20 son <b>malas</b> y los otros 20 <b>buenas</b>.</p>
+  <p>Partido al mejor de tres chicos. Cada chico es a 40 puntos: los primeros 20 son <b>malas</b> y los otros 20 <b>buenas</b>. En Reglas de la mesa se puede jugar a menos puntos o a un solo chico.</p>
   <p>Después de repartir se da vuelta la <b>muestra</b>. Del palo de la muestra, el 2, el 4, el 5, el caballo y la sota son <b>piezas</b>, las cartas más altas. Si la muestra es una de ellas, el rey toma su lugar.</p>
   <p><b>Flor:</b> tres cartas del mismo palo, una pieza con dos del mismo palo, o dos piezas. Se canta cuando te toca; si alguien la cantó, los demás que tengan la cantan en orden. Vale 3 cada una y anula el envido.</p>
+  <p><b>Achique:</b> si los dos equipos cantaron flor y uno envida (con flor envido o contra flor) y el otro no quiere, el que envidó cobra su flor (3). Si la mesa juega <i>con achique</i>, cobra además un punto: 4. En un reenvite no querido no se suma, como pasa con el envido.</p>
   <p><b>Envido:</b> se canta antes de jugar tu primera carta. Envido 2, real envido 3, falta envido lo que le falta al que va ganando. No querido vale 1.</p>
   <p><b>Truco:</b> truco 2, retruco 3, vale cuatro 4. Gana la mano quien gane dos bazas. Si dos rivales tiran cartas iguales la baza es parda; si las iguales son de compañeros, la baza es de ese equipo (Arts. 57 a 59).</p>
   <p><b>Parejas:</b> se juega hacia la derecha. Si un rival te canta truco o envido y podés contestar, contestás vos. Las señas del Art. 102 te las hace tu compañero al empezar la mano, y vos se las hacés a él con los botones de abajo. Con <b>Ayudas</b> se ve qué significa cada seña. Si tenés dos cartas iguales (dos matas, dos tres), la seña se hace dos veces: tocá el botón otra vez. Si tu compañero toca o grita antes de que cantes tu flor, te la anula: por eso la computadora deja tocar y gritar al que ya tiene a sus compañeros jugados.</p>
@@ -1697,6 +1710,7 @@ function howToModal(){
   <p><b>Tiempo:</b> tenés 30 segundos para cada decisión (se cambia en Reglas de la mesa). Si se te acaba, decide la computadora por vos. Con el menú abierto la cuenta se frena.</p>
   <p><b>Señas pescadas:</b> de cada 50 señas que se hacen, una la ve algún rival. Te puede pasar a vos con las señas de Tito y Nacho, y a ellos con las tuyas o las de Pocho. Lo que se ve es siempre verdad, y la computadora también lo usa.</p>
   <p><b>Modo realista:</b> la flor no se canta sola y los puntos los cantás vos. Si jugás o cantás otra cosa sin cantar tu flor, la negás. Las faltas se descubren cuando se ven tus cartas. Cantar errado se descubre si ganás un envite (tenés que mostrarlas) o si jugás las tres, y te hace perder todo lo de la mano (Art. 46). La flor negada se descubre si ganás un envite o cuando las cartas que jugaste la muestran (con dos piezas alcanza; si no, hacen falta las tres): el rival cobra los 3 de la flor y el truco que se esté jugando, se termina la mano, y el envido que haya cobrado tu equipo no vale. Cantar flor sin tenerla se descubre enseguida. Si ganaste el envido o cantaste flor y te vas al mazo, tirás tus cartas sin mostrarlas y esos puntos van para el rival: para salir de la mano sin perderlos, decí <i>paso</i> y las mostrás al final. Si se te acaba el tiempo para cantar tus puntos, esos puntos son para el rival; si se te acaba en otra decisión, la computadora decide por vos sin hacer trampa (canta tu flor y dice la verdad).</p>
+  <p><b>Mesas online:</b> quien crea la mesa elige a cuántos puntos se juega, cuántos chicos, si se cobra el achique y si hay chat de texto y de voz. Se juega siempre en modo realista, para que nadie tenga la ventaja de que el juego le cante los puntos.</p>
   <p><b>Mostrar las cartas:</b> al terminar la mano, el que ganó el envido o cantó flor da vuelta sus cartas sobre la mesa para que se vea que tenía lo que cantó (Art. 45).</p>
   <p><b>Paso y mazo:</b> en parejas y tercetos, si decís "paso" salís de la mano y no jugás más bazas, pero te quedás con tus cartas por si tenés que mostrarlas (Arts. 88 y 92). Si te vas al mazo sin ser el pie de tu equipo, te vas solo y tu equipo sigue; si se va el pie, pierde el equipo. En Reglas de la mesa podés elegir en cambio que irse al mazo saque a todo el equipo (Art. 90). Si un equipo se va en la primera baza sin que nadie haya tocado ni gritado, y al otro todavía le quedaba tocar, el otro cobra <b>dos</b> puntos.</p>
   <p><b>Atajos al compañero:</b> en parejas y tercetos, abajo tenés <i>¡Vení!</i> (que juegue su carta más baja, que la baza la hacés vos), <i>¡Jugá algo!</i> (que no tire la peor), <i>¡Gritá!</i> (que cante truco) y <i>Tengo algo para el tanto</i> (que toque o quiera el envido). Los oye toda la mesa, como si lo dijeras en voz alta; la computadora compañera te hace caso.</p>
@@ -1718,7 +1732,7 @@ document.addEventListener('keydown', e => {
 
 window.__trucoGame = () => GM || G; window.__trucoView = () => G;
 window.__trucoAct = a => human(a); window.__trucoLegal = () => legalNow(); window.__trucoMe = () => ME; window.__trucoActor = () => actorNow();
-window.__trucoNet = () => NET && { role: NET.role, code: NET.code, started: NET.started, seat: NET.seat, seats: NET.seats || (NET.lobby && NET.lobby.seats) }; window.__trucoStep = () => { busy = false; step(); };
+window.__trucoNet = () => NET && { role: NET.role, code: NET.code, started: NET.started, seat: NET.seat, seats: NET.seats || (NET.lobby && NET.lobby.seats), kind: NET.tr && NET.tr.kind, voz: !!vozRoom(), cfg: mesaCfg() }; window.__trucoStep = () => { busy = false; step(); };
 window.__trucoNew = n => startGame(n); window.__v3 = V3;
 // Al abrir: pantalla de inicio, con el partido guardado listo para continuar si había uno
 GM = loadSavedGame();
@@ -1726,7 +1740,7 @@ if (GM) { players = GM.n; refreshView(); }
 /*RED*/
 /*CUENTAS*/
 $('chatBox').innerHTML = chatUI('ch'); bindChat('ch'); bindPtt($('pttFab'));
-window.__trucoSnd = SND; window.__trucoVoz = VOZ; window.__trucoChat = t => chatSend(t);
+window.__trucoSnd = SND; window.__trucoVoz = VOZ; window.__trucoChat = t => chatSend(t); window.__trucoPost = m => netPost(m);   // para las pruebas: un mensaje crudo a la mesa
 if (netBack && NET && NET.role === 'host' && NET.started) { showHome(); continueGame(); }
 else if (netBack) showHome('lobby');
 else if (netOK() && invitedCode()) { joinCode = invitedCode(); showHome('join'); }

@@ -235,6 +235,15 @@ await t('salón de mesas públicas: lista las que esperan gente y se olvida de l
   W.c.salon({ codigo: 'zzz', n: 4, personas: 1 });
   l = (await W.pedir('GET', 'publicas', null)).lista;
   assert.deepEqual(l.map(x => x.codigo), ['CCCC']); assert.deepEqual(l[0].nombres, ['Ceci', 'Dani']);
+  assert.deepEqual(l[0].cfg, { target: 30, chicos: 1, achique: false, chat: true, voz: true });   // sin reglas: las de siempre
+  // las reglas de la mesa llegan a la lista (solo lo que se puede elegir) y cambiarlas avisa
+  const antes = todos.length;
+  W.c.salon({ codigo: 'CCCC', n: 4, personas: 2, nombres: ['Ceci', 'Dani'], cfg: { target: 20, chicos: 2, achique: true, chat: false, voz: false, hackeo: 1 } });
+  assert.equal(todos.length, antes + 1);
+  l = (await W.pedir('GET', 'publicas', null)).lista;
+  assert.deepEqual(l[0].cfg, { target: 20, chicos: 2, achique: true, chat: false, voz: false });
+  W.c.salon({ codigo: 'CCCC', n: 4, personas: 2, nombres: ['Ceci', 'Dani'], cfg: { target: 15 } });
+  assert.equal((await W.pedir('GET', 'publicas', null)).lista[0].cfg.target, 30);
   W.avanzar(4 * 60e3);
   assert.equal((await W.pedir('GET', 'publicas', null)).lista.length, 0);
 });

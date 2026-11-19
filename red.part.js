@@ -6,9 +6,11 @@
 // El anfitrión tiene el partido completo (GM): corre el motor y a la computadora, valida cada jugada
 // con el motor y le manda a cada invitado su vista recortada (TV.viewFor), así nadie recibe cartas
 // ajenas. El invitado solo dibuja lo que le llega y manda sus jugadas, sus señas y "listo".
-// Mensajes: hello, sit, bye, act, senas, ready, pref, pong (invitado → anfitrión);
+// Mensajes: hello, sit, bye, act, senas, ready, pong (invitado → anfitrión);
 //           lobby, state, err, full, closed, away, ping (anfitrión → invitados; con "to" si es para uno solo).
 // Chat y voz: chat, talk (invitado → anfitrión, que los reparte a todos), chatlog (al que llega).
+// Reglas de la mesa (cfg): las elige quien la crea y viajan en "lobby"; con el servidor, el dueño las cambia con "cfg".
+// En las mesas online se juega siempre en modo realista: cada persona canta sus puntos y su flor.
 const NETV = 1, AI_NAMES = { 2: ['Vos', 'Computadora'], 4: ['Vos', 'Tito', 'Pocho', 'Nacho'], 6: ['Vos', 'Tito', 'Pocho', 'Nacho', 'Lalo', 'Beto'] };
 const APP_ID = 'tomasaldaya/truco-uruguayo/1';
 // Relevo para redes que no dejan conectarse directo (datos del celular, redes de empresa). Ejemplo:
@@ -71,6 +73,25 @@ const CUENTA = { token: store.get('truco.sesion') || null, yo: guardado('truco.y
 function myName(){ if (CUENTA.token && CUENTA.yo) return CUENTA.yo.apodo; let s = null; try { s = sessionStorage.getItem('truco.nombre'); } catch (e) {} return (s !== null ? s : store.get('truco.nombre') || '').trim(); }
 function setMyName(v){ v = (v || '').trim().slice(0, 20); try { sessionStorage.setItem('truco.nombre', v); } catch (e) {} store.set('truco.nombre', v); }
 function newCode(){ const L = 'ABCDEFGHJKLMNPQRSTUVWXYZ'; let s = ''; for (let i = 0; i < 4; i++) s += L[Math.floor(Math.random() * L.length)]; return s; }
+// ---------- Reglas de la mesa ----------
+// A cuántos puntos es cada chico, cuántos chicos, si se cobra el achique y si hay chat de texto y de voz
+// (las mismas que valida el servidor, server/mesa.mjs). Se recuerdan las últimas que elegiste.
+const CFG_MESA0 = { target: 30, chicos: 1, achique: false, chat: true, voz: true };
+function limpiarCfgMesa(x, base){
+  const b = base || CFG_MESA0, o = x && typeof x === 'object' ? x : {};
+  const bool = k => typeof o[k] === 'boolean' ? o[k] : b[k];
+  return { target: [10, 20, 30, 40].includes(o.target) ? o.target : b.target, chicos: [1, 2].includes(o.chicos) ? o.chicos : b.chicos,
+    achique: bool('achique'), chat: bool('chat'), voz: bool('voz') };
+}
+function cfgGuardada(){ let c = null; try { c = JSON.parse(store.get('truco.mesacfg') || 'null'); } catch (e) {} return limpiarCfgMesa(c); }
+function guardarCfg(c){ store.set('truco.mesacfg', JSON.stringify(limpiarCfgMesa(c))); }
+// las de la mesa en la que estás (mientras no llegan, las que se pidieron al crearla, o las de siempre)
+function mesaCfg(){
+  if (!NET) return CFG_MESA0;
+  return limpiarCfgMesa(NET.role === 'host' ? NET.cfg : (NET.lobby && NET.lobby.cfg) || (NET.crear && NET.crear.cfg));
+}
+// las reglas de la mesa sobre las de tu configuración (lo demás: flor, señas, tiempo...)
+const reglasConCfg = c => Object.assign({}, tableRules, { target: c.target, chicosToWin: c.chicos, achique: c.achique });
 function netPost(msg){
   if (!NET || !NET.tr || NET.mute) return;
   msg.v = NETV; msg.code = NET.code; msg.from = NET.role === 'host' ? 'host' : NET.cid;
@@ -106,10 +127,10 @@ function openTransport(code, onMsg, onPeer){
   };
 }
 function openNet(role, code, kind){
-  const me = NET = { role, code, cid: role === 'host' ? 'host' : 'g' + Math.random().toString(36).slice(2, 10), prefs: {}, ready: new Set(), readyKey: null, hostPeer: null, lastHost: Date.now(), alive: {}, pingSeq: 0, chat: [], chatAt: {}, talking: {} };
+  const me = NET = { role, code, cid: role === 'host' ? 'host' : 'g' + Math.random().toString(36).slice(2, 10), ready: new Set(), readyKey: null, hostPeer: null, lastHost: Date.now(), alive: {}, pingSeq: 0, chat: [], chatAt: {}, talking: {} };
   if (kind === 'server') {
     me.tr = openServerTransport(code, m => { if (NET === me && !me.mute && m && m.v === NETV && m.code === code) onGuestMsg(m); }, ev => { if (NET === me) onServerLink(ev); });
-    me.vr = voiceRoom(code);
+    me.vr = null;      // la sala de voz se abre cuando se sabe que la mesa tiene voz (vozSync)
     setTimeout(renderChat, 0);
     me.beat = setInterval(() => { if (NET === me && !me.mute) heartbeat(); }, 4000);
     return;
@@ -135,8 +156,8 @@ const NET_ERR = {
   p2p: 'Encontré la mesa pero no pude conectarme. Pasa con algunas redes, sobre todo con datos del celular: probá desde un wifi.',
 };
 function onPeerEvent(ev, peer, err){
-  if (ev === 'stream') { vozAttach(peer, err); return; }
-  if (ev === 'join' && VOZ.stream && vozRoom()) try { vozRoom().addStream(VOZ.stream, { target: peer }); } catch (e) {}
+  if (ev === 'stream') { if (mesaCfg().voz) vozAttach(peer, err); return; }
+  if (ev === 'join' && VOZ.stream && vozRoom() && mesaCfg().voz) try { vozRoom().addStream(VOZ.stream, { target: peer }); } catch (e) {}
   if (ev === 'leave') vozDetach(peer);
   if (ev === 'error') {
     const k = err && err.code === 'relay-failed' ? 'relay' : err && err.code === 'peer-connect-failed' && NET.role === 'guest' && !NET.lobby ? 'p2p' : null;
@@ -152,7 +173,7 @@ function onPeerEvent(ev, peer, err){
 }
 function serverHello(){
   if (!NET || NET.tr.kind !== 'server') return;
-  NET.tr.post({ t: 'hello', v: NETV, code: NET.code, from: NET.cid, name: NET.name, pid: myPid(), realista, pj: miPj() || undefined, key: NET.ownerKey || undefined, crear: NET.crear || undefined, token: CUENTA.token || undefined });
+  NET.tr.post({ t: 'hello', v: NETV, code: NET.code, from: NET.cid, name: NET.name, pid: myPid(), pj: miPj() || undefined, key: NET.ownerKey || undefined, crear: NET.crear || undefined, token: CUENTA.token || undefined });
 }
 // el servidor se cortó o volvió (se reconecta solo)
 function onServerLink(ev){
@@ -160,7 +181,7 @@ function onServerLink(ev){
 }
 function sayHello(peer){
   if (NET && NET.tr.kind === 'server') return serverHello();
-  const go = () => { if (!NET || NET.role !== 'guest') return; try { NET.tr.post({ t: 'hello', name: NET.name, realista, pj: miPj() || undefined, v: NETV, code: NET.code, from: NET.cid }, peer || NET.hostPeer); } catch (e) {} };
+  const go = () => { if (!NET || NET.role !== 'guest') return; try { NET.tr.post({ t: 'hello', name: NET.name, pj: miPj() || undefined, v: NETV, code: NET.code, from: NET.cid }, peer || NET.hostPeer); } catch (e) {} };
   if (!NET.tr.self || NET.ready0) go(); else NET.onSelf = go;
 }
 // el anfitrión pregunta "¿seguís ahí?" cada 4 segundos; quien no contesta tres seguidas se fue
@@ -212,7 +233,7 @@ function netRemember(){
   if (!NET) return;
   try {
     const d = NET.role === 'host'
-      ? { role: 'host', code: NET.code, n: NET.n, started: NET.started, seats: NET.seats.map(s => s.kind === 'guest' ? { kind: 'ai', name: s.name, left: true } : s), prefs: NET.prefs, G: NET.started ? GM : null, at: Date.now() }
+      ? { role: 'host', code: NET.code, n: NET.n, started: NET.started, seats: NET.seats.map(s => s.kind === 'guest' ? { kind: 'ai', name: s.name, left: true } : s), cfg: NET.cfg, G: NET.started ? GM : null, at: Date.now() }
       : { role: 'guest', code: NET.code, name: NET.name, key: NET.ownerKey || null, server: NET.tr.kind === 'server', publica: !!NET.publica, at: Date.now() };
     sessionStorage.setItem('truco.mesa', JSON.stringify(d));
   } catch (e) {}
@@ -224,7 +245,7 @@ function netRestore(){
   if (!d || Date.now() - d.at > 6 * 3600e3) { netForget(); return false; }
   if (d.role === 'guest') { joinTable(d.code, d.name, true, d.publica ? { publica: true } : d.server ? (d.key ? { key: d.key } : {}) : { p2p: true }); return true; }
   openNet('host', d.code);
-  NET.n = d.n; NET.seats = d.seats; NET.prefs = d.prefs || {}; NET.started = !!(d.started && d.G);
+  NET.n = d.n; NET.seats = d.seats; NET.cfg = limpiarCfgMesa(d.cfg); NET.started = !!(d.started && d.G);
   if (NET.started) {
     GM = d.G; if (GM.phase === 'play') T.legal(GM, T.actor(GM));
     GM.humans = [0]; needStep = true;
@@ -237,20 +258,21 @@ const inviteURL = code => /^https?:$/.test(location.protocol) ? location.origin 
 function invitedCode(){ const m = /mesa=([A-Za-z]{4})/.exec(location.hash || ''); return m ? m[1].toUpperCase() : ''; }
 
 // ---------- Anfitrión ----------
-function hostTable(n, p2p, publica){
+function hostTable(n, p2p, publica, cfg){
   leaveNet();
+  cfg = limpiarCfgMesa(cfg || cfgGuardada());
   if (publica) {            // mesa pública: solo en el servidor y con cuenta
     const key = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
-    joinTable(newCode(), myName(), false, { key, crear: { n, key, publica: true }, publica: true });
+    joinTable(newCode(), myName(), false, { key, crear: { n, key, publica: true, cfg }, publica: true });
     return;
   }
   if (serverOK() && !p2p) {
     const key = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
-    joinTable(newCode(), myName() || 'Anfitrión', false, { key, crear: { n, key } });
+    joinTable(newCode(), myName() || 'Anfitrión', false, { key, crear: { n, key, cfg } });
     return;
   }
   openNet('host', newCode());
-  NET.n = n; NET.started = false;
+  NET.n = n; NET.started = false; NET.cfg = cfg;
   NET.seats = seatsFor(n);
   homeView = 'lobby'; renderHome();
 }
@@ -268,7 +290,19 @@ function freeSeatFor(){
   return free.find(p => team(p) === 0) ?? (free.length ? free[0] : -1);
 }
 const seatOfCid = cid => NET.seats.findIndex(s => s.kind === 'guest' && s.cid === cid);
-function lobbyMsg(){ return { t: 'lobby', n: NET.n, started: NET.started, seats: NET.seats.map(s => ({ kind: s.kind, name: s.name, cid: s.cid || null })) }; }
+function lobbyMsg(){ return { t: 'lobby', n: NET.n, started: NET.started, cfg: NET.cfg, seats: NET.seats.map(s => ({ kind: s.kind, name: s.name, cid: s.cid || null })) }; }
+// el dueño cambia una regla de la mesa antes de empezar (con el servidor, se la pide a él)
+function cambiarCfgMesa(k, v){
+  if (!NET) return;
+  const c = limpiarCfgMesa({ ...mesaCfg(), [k]: v });
+  guardarCfg(c);
+  if (NET.role === 'host') {
+    if (NET.started && !(GM && GM.phase === 'matchEnd')) return;
+    NET.cfg = c;
+    if (!c.chat) NET.chat = [];
+    lobbyChanged(); vozSync(); renderChat();
+  } else if (NET.owner) netPost({ t: 'cfg', cfg: { [k]: v } });   // solo lo que cambió: el servidor lo suma a lo que tiene
+}
 function lobbyChanged(){ netPost(lobbyMsg()); netRemember(); if (!$('home').hidden && homeView === 'lobby') renderHome(); }
 
 function onHostMsg(m){
@@ -281,12 +315,12 @@ function onHostMsg(m){
       if (NET.started) {
         // partido empezado: si vuelve alguien que se había ido, recupera su lugar; si no, elige uno libre
         const back = NET.seats.findIndex(x => x.kind === 'ai' && x.left && x.name === who.name);
-        if (back >= 0) takeSeat(back, who, m.realista); else netPost(lobbyMsg());
+        if (back >= 0) takeSeat(back, who); else netPost(lobbyMsg());
         return;
       }
       const p = freeSeatFor();
       if (p < 0) { netPost({ t: 'full', to: g }); return; }
-      takeSeat(p, who, m.realista);
+      takeSeat(p, who);
       return;
     }
     case 'sit': {
@@ -294,7 +328,7 @@ function onHostMsg(m){
       if (p === s || !NET.seats[p] || NET.seats[p].kind !== 'ai') return;
       const who = s >= 0 ? NET.seats[s] : { kind: 'guest', cid: g, name: cleanName(m.name), pj: pjValido(m.pj) };
       if (s >= 0) freeSeat(s);
-      takeSeat(p, who, m.realista);
+      takeSeat(p, who);
       return;
     }
     case 'bye': if (s >= 0) { freeSeat(s); lobbyChanged(); } return;
@@ -308,15 +342,15 @@ function onHostMsg(m){
     case 'senas': if (s >= 0 && NET.started && GM && GM.phase === 'play') { T.setSenas(GM, s, Array.isArray(m.list) ? m.list.filter(k => T.SENAS[k]) : []); render(); } return;
     case 'pedido': if (s >= 0 && NET.started && GM && GM.phase === 'play' && T.PEDIDOS[m.k] && T.pedir(GM, s, m.k)) render(); return;
     case 'ready': if (s >= 0 && NET.started && m.key === roundKey(GM)) { NET.ready.add(s); checkReady(); } return;
-    case 'pref': if (s >= 0) NET.prefs[s] = !!m.realista; return;
     case 'chat': {
+      if (!mesaCfg().chat) return;
       const now = Date.now(), name = s >= 0 ? NET.seats[s].name : cleanName(m.name);
       if (now - (NET.chatAt[g] || 0) < 600) return;      // de a un mensaje por vez
       NET.chatAt[g] = now;
       chatAdd({ p: s, name, text: m.text }, true);
       return;
     }
-    case 'talk': if (s >= 0) { setTalking(s, !!m.on); netPost({ t: 'talk', p: s, on: !!m.on }); } return;
+    case 'talk': if (s >= 0 && mesaCfg().voz) { setTalking(s, !!m.on); netPost({ t: 'talk', p: s, on: !!m.on }); } return;
     case 'pong':
       if (s >= 0) NET.alive[g] = Math.max(NET.alive[g] || 0, m.s);
       else if (m.seated) netPost({ ...lobbyMsg(), to: g });   // se durmió y lo dejé afuera: que se entere y vuelva a entrar
@@ -324,11 +358,10 @@ function onHostMsg(m){
   }
 }
 const cleanName = v => (v || '').trim().slice(0, 20) || 'Invitado';
-function takeSeat(p, who, realista){
+function takeSeat(p, who){
   NET.seats[p] = who;
   if (who.cid && NET.chat.length) netPost({ t: 'chatlog', to: who.cid, list: NET.chat.slice(-40) });
   if (who.cid) NET.alive[who.cid] = NET.pingSeq;
-  if (realista !== undefined) NET.prefs[p] = !!realista;
   if (NET.started && GM) {
     if (!GM.humans.includes(p)) GM.humans.push(p);
     GM.names[p] = who.name;
@@ -358,7 +391,8 @@ function startTable(){
   const teamNames = n === 2 ? names.slice() : [0, 1].map(t => joinY(names.filter((_, q) => team(q) === t)));
   clearTimeout(timer); busy = false; deferred = null;
   ME = 0;
-  GM = T.newMatch({ players: n, names, humans, rules: tableRules, manual: NET.seats.map((s, p) => p === 0 ? realista : s.kind === 'guest' && !!NET.prefs[p]), teamNames });
+  // las reglas de la mesa, y todas las personas en modo realista
+  GM = T.newMatch({ players: n, names, humans, rules: reglasConCfg(mesaCfg()), manual: NET.seats.map(s => s.kind !== 'ai'), teamNames });
   GM.id = newMatchId();
   GM.pjs = NET.seats.map((s, p) => p === 0 ? miPj() : s.kind === 'guest' ? s.pj || null : null);
   T.startRound(GM); startRoundHook(); lastRoundNo = null;
@@ -429,7 +463,7 @@ function joinTable(code, name, back, opts){
     }
     if (viaServer) {      // el servidor no contestó: como antes, de navegador a navegador
       leaveNet();
-      if (opts.crear) hostTable(opts.crear.n, true); else joinTable(code, name, back, { p2p: true });
+      if (opts.crear) hostTable(opts.crear.n, true, false, opts.crear.cfg); else joinTable(code, name, back, { p2p: true });
       return;
     }
     const err = NET.netErr;
@@ -466,6 +500,8 @@ function onGuestMsg(m){
       // si quedé sin lugar con el partido empezado (se cortó un rato), vuelvo a saludar y lo recupero
       if (NET.seat >= 0) NET.hadSeat = true;
       else if (NET.hadSeat && m.started) { NET.hadSeat = false; sayHello(); }
+      if (m.cfg && !m.cfg.chat) NET.chat = [];
+      vozSync(); renderChat();
       if (!$('home').hidden && (homeView === 'lobby' || homeView === 'main')) renderHome();
       return;
     }
@@ -498,6 +534,61 @@ function onState(m){
 }
 
 // ---------- Pantallas: crear, unirse y la mesa antes de empezar ----------
+const ACHIQUE_AYUDA = 'Cobrar el achique: cuando los dos cantan flor, uno le dice envido al otro y el otro no quiere. Con achique, el que envidó cobra 4 puntos (su flor y uno más); sin achique, cobra solo los 3 de su flor.';
+let ayudaAchique = false;   // la explicación del achique queda abierta aunque se vuelva a dibujar la pantalla
+const ayudaBtn = () => `<button type="button" class="ayuda" data-ayuda="ayAchique" aria-expanded="${ayudaAchique}" aria-controls="ayAchique" aria-label="Qué es cobrar el achique">?</button>`;
+// las reglas para elegir (al crear la mesa, y el dueño antes de empezar), como filas de .cfg
+function cfgFilasHTML(c){
+  const seg = (k, lbl, opts) => `<div class="seg" role="group" aria-label="${lbl}" data-mk="${k}">${opts.map(([v, l]) => `<button type="button" data-v="${v}" aria-pressed="${String(c[k]) === String(v)}">${l}</button>`).join('')}</div>`;
+  const sn = [[true, 'Sí'], [false, 'No']];
+  return `<span class="lbl">Puntos</span>${seg('target', 'Puntos', [[10, '10'], [20, '20'], [30, '30'], [40, '40']])}<div class="desc">A cuántos puntos es el chico.</div>
+    <span class="lbl">Chicos</span>${seg('chicos', 'Chicos', [[1, 'Uno solo'], [2, 'Al mejor de tres']])}
+    <span class="lbl">Achique ${ayudaBtn()}</span>${seg('achique', 'Achique', sn)}<div class="desc" id="ayAchique"${ayudaAchique ? '' : ' hidden'}>${ACHIQUE_AYUDA}</div>
+    <span class="lbl">Chat de texto</span>${seg('chat', 'Chat de texto', sn)}
+    <span class="lbl">Chat de voz</span>${seg('voz', 'Chat de voz', sn)}`;
+}
+function bindCfgFilas(box, cambiar){
+  box.querySelectorAll('[data-mk] button').forEach(b => b.onclick = () => {
+    const raw = b.dataset.v, v = raw === 'true' ? true : raw === 'false' ? false : +raw;
+    b.parentNode.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+    cambiar(b.parentNode.dataset.mk, v);
+  });
+  bindAyuda(box);
+}
+function bindAyuda(box){
+  box.querySelectorAll('[data-ayuda]').forEach(b => b.onclick = () => {
+    const t = $(b.dataset.ayuda); if (!t) return;
+    ayudaAchique = t.hidden; t.hidden = !ayudaAchique; b.setAttribute('aria-expanded', String(ayudaAchique));
+  });
+}
+// las reglas para leer (los invitados, y todos con el partido empezado)
+function reglasHTML(c){
+  const it = [`A ${c.target} puntos`, c.chicos === 2 ? 'Al mejor de tres chicos' : 'Un solo chico', `${c.achique ? 'Con' : 'Sin'} achique ${ayudaBtn()}`,
+    c.chat ? 'Chat de texto' : 'Sin chat de texto', c.voz ? 'Chat de voz' : 'Sin chat de voz', 'Modo realista'];
+  return `<ul class="reglas" aria-label="Reglas de la mesa">${it.map(x => `<li>${x}</li>`).join('')}</ul><p class="hkey ayudatxt" id="ayAchique"${ayudaAchique ? '' : ' hidden'}>${ACHIQUE_AYUDA}</p>`;
+}
+// en la lista de mesas públicas, corto
+const cfgCorto = c => `A ${c.target} puntos, ${c.chicos === 2 ? 'al mejor de tres' : 'un chico'}, ${c.achique ? 'con' : 'sin'} achique${!c.chat && !c.voz ? ', sin chat ni voz' : !c.chat ? ', sin chat de texto' : !c.voz ? ', sin voz' : ''}`;
+const REALISTA_ONLINE = 'En las mesas online se juega siempre en modo realista: cada uno canta sus puntos y su flor, como en la mesa de verdad.';
+
+// Crear una mesa (privada o pública): el modo y las reglas, antes de abrirla
+let crearMesa = { publica: false, n: 4, volver: 'main' };
+function abrirCrear(publica, n){ crearMesa = { publica: !!publica, n: [2, 4, 6].includes(n) ? n : 4, volver: homeView === 'publicas' ? 'publicas' : 'main' }; homeView = 'crear'; renderHome(); window.scrollTo(0, 0); }
+function renderCrear(box){
+  const c = cfgGuardada(), pub = crearMesa.publica;
+  box.innerHTML = `<div class="hbar"><button class="tool" id="hBack">Volver</button><h2>${pub ? 'Armar una mesa pública' : 'Crear una mesa'}</h2></div>
+    <p class="lob">${pub ? 'Elegí cómo se juega. La mesa aparece en la lista y se sienta cualquiera con cuenta; empieza sola cuando se llena.' : 'Elegí cómo se juega en tu mesa. Después le pasás el código o el link a quien quieras.'}</p>
+    <div class="cfg crear">
+      <span class="lbl">Modo</span><div class="seg" role="group" aria-label="Modo" data-cn>${MODES.map(([n, nm]) => `<button type="button" data-n="${n}" aria-pressed="${crearMesa.n === n}">${nm}</button>`).join('')}</div>
+      ${cfgFilasHTML(c)}
+    </div>
+    <p class="hkey">${REALISTA_ONLINE}</p>
+    <div class="row"><button class="act flor" id="hCrear">${pub ? 'Armar la mesa' : 'Crear la mesa'}</button></div>`;
+  $('hBack').onclick = () => { homeView = crearMesa.volver; renderHome(); };
+  box.querySelectorAll('[data-cn] button').forEach(b => b.onclick = () => { crearMesa.n = +b.dataset.n; b.parentNode.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x === b))); });
+  bindCfgFilas(box, (k, v) => guardarCfg({ ...cfgGuardada(), [k]: v }));
+  $('hCrear').onclick = () => hostTable(crearMesa.n, false, pub, cfgGuardada());
+}
 function seatsHTML(seats, opts){
   const mine = p => NET && NET.role === 'guest' ? p === NET.seat : p === 0;
   const row = (s, p) => {
@@ -537,7 +628,7 @@ function renderPublicLobby(box, L){
     const falta = typeof L.empiezaEn === 'number' ? Math.max(1, Math.ceil((L.empiezaEn - (Date.now() - NET.lobbyAt)) / 1000)) : null;
     const estado = enJuego ? 'El partido ya empezó.' : falta ? `<b class="cuenta-atras">¡Arranca en ${falta}…!</b>`
       : L.fin ? 'Terminó el partido. Si todos quieren, juegan otro.' : g < L.n ? `Esperando gente: <b>${g} de ${L.n}</b>. Empieza sola cuando se llena.` : '';
-    h += `<p class="lob"><b>${esc(modeName(L.n))}</b>, a 30 puntos y un solo chico. ${estado}</p>
+    h += `<p class="lob"><b>${esc(modeName(L.n))}</b>. ${estado}</p>${reglasHTML(mesaCfg())}
       ${seatsHTML(L.seats, { canSit: !enJuego })}${rankNote(L)}`;
     const btns = [];
     if (!enJuego && g >= 2) btns.push(`<button class="act ${yoVote ? 'sec' : 'flor'}" id="hVote">${yoVote ? 'Ya no' : L.fin ? 'Jugar otro partido' : 'Empezar ya'}</button>`);
@@ -554,15 +645,15 @@ function renderPublicLobby(box, L){
       el.textContent = `¡Arranca en ${Math.max(1, Math.ceil((Lb.empiezaEn - (Date.now() - NET.lobbyAt)) / 1000))}…!`;
     }, 250);
   }
-  h += `<section class="lchat"><h3>Chat de la mesa</h3>${chatUI('lc')}</section>`;
+  h += chatSeccion('lc');
   box.innerHTML = h;
-  bindChat('lc'); renderChat();
+  bindChat('lc'); renderChat(); bindAyuda(box);
   $('hBack').onclick = () => { homeView = 'main'; renderHome(); };
   if ($('hInvAm')) $('hInvAm').onclick = () => cuentaIr('amigos', { volver: 'lobby' });
   if ($('hVote')) $('hVote').onclick = () => netPost({ t: 'empezar', si: !(L.votos || []).includes(NET.seat) });
   if ($('hGo')) $('hGo').onclick = () => continueGame();
   if ($('hClose')) $('hClose').onclick = () => confirmarSalida($('hClose'), () => { leaveNet(); homeView = 'main'; renderHome(); });
-  box.querySelectorAll('[data-sit]').forEach(b => b.onclick = () => netPost({ t: 'sit', seat: +b.dataset.sit, name: NET.name, realista }));
+  box.querySelectorAll('[data-sit]').forEach(b => b.onclick = () => netPost({ t: 'sit', seat: +b.dataset.sit, name: NET.name }));
 }
 function renderLobby(box){
   if (!NET) { homeView = 'main'; return renderHome(); }
@@ -584,7 +675,9 @@ function renderLobby(box){
     if (!L) h += '<p class="lob">Abriendo la mesa…</p>';
     else h += `
       <div class="cfg"><label for="hName">Tu nombre</label><input id="hName" maxlength="20" value="${esc(myName())}" placeholder="Anfitrión" ${L.started || CUENTA.yo && CUENTA.token ? 'disabled' : ''}>
-      <span class="lbl">Modo</span><div class="seg" role="group" aria-label="Modo">${MODES.map(([n, nm]) => `<button type="button" data-mode="${n}" aria-pressed="${L.n === n}" ${L.started ? 'disabled' : ''}>${nm}</button>`).join('')}</div></div>
+      <span class="lbl">Modo</span><div class="seg" role="group" aria-label="Modo">${MODES.map(([n, nm]) => `<button type="button" data-mode="${n}" aria-pressed="${L.n === n}" ${L.started ? 'disabled' : ''}>${nm}</button>`).join('')}</div>
+      ${L.started ? '' : cfgFilasHTML(mesaCfg())}</div>
+      ${L.started ? reglasHTML(mesaCfg()) : `<p class="hkey">${REALISTA_ONLINE} Las reglas las podés cambiar hasta que empiece el partido.</p>`}
       ${seatsHTML(L.seats, { canSit: false })}
       ${rankNote(L)}
       <p class="hkey">Los lugares sin persona los juega la computadora. Si alguien se va en medio del partido, la computadora sigue por él.</p>`;
@@ -595,12 +688,14 @@ function renderLobby(box){
       const host = (L.seats.find(s => s.kind === 'host' || s.host) || {}).name || 'el anfitrión';
       const sentado = NET.seat >= 0;
       h += `<p class="lob">${MODES.find(m => m[0] === L.n)[1]}, mesa de ${esc(host)}. ${L.started ? (sentado ? 'El partido ya empezó.' : 'El partido ya empezó: elegí un lugar libre para entrar.') : `Esperando a que ${esc(host)} empiece el partido.`}</p>
+        ${reglasHTML(mesaCfg())}
         ${seatsHTML(L.seats, { canSit: true })}${rankNote(L)}${viaServer && CUENTA.token && CUENTA.yo ? '<div class="hlinks"><button class="tool" id="hInvAm">Invitar amigos</button></div>' : ''}`;
     }
     h += `<div class="row">${G ? '<button class="act flor" id="hGo">Volver a la mesa</button>' : ''}<button class="act mazo" id="hClose">Salir de la mesa</button></div>`;
   }
-  h += `<section class="lchat"><h3>Chat de la mesa</h3>${chatUI('lc')}</section>`;
+  h += chatSeccion('lc');
   box.innerHTML = h;
+  bindCfgFilas(box, cambiarCfgMesa);
   if ($('hInvAm')) $('hInvAm').onclick = () => cuentaIr('amigos', { volver: 'lobby' });
   bindChat('lc'); renderChat();
   $('hBack').onclick = () => { homeView = 'main'; renderHome(); };
@@ -610,7 +705,7 @@ function renderLobby(box){
     else if (NET && NET.owner) { NET.name = myName() || 'Anfitrión'; netPost({ t: 'name', name: NET.name }); }
   };
   box.querySelectorAll('[data-mode]').forEach(b => b.onclick = () => NET.role === 'host' ? setTableMode(+b.dataset.mode) : netPost({ t: 'mode', n: +b.dataset.mode }));
-  box.querySelectorAll('[data-sit]').forEach(b => b.onclick = () => netPost({ t: 'sit', seat: +b.dataset.sit, name: NET.name, realista }));
+  box.querySelectorAll('[data-sit]').forEach(b => b.onclick = () => netPost({ t: 'sit', seat: +b.dataset.sit, name: NET.name }));
   if ($('hGo')) $('hGo').onclick = () => {
     if (NET.role === 'host' && !NET.started) startTable();
     else if (NET.owner && L && !L.started) netPost({ t: 'start', rules: tableRules, speed, level });
@@ -647,7 +742,7 @@ window.__trucoMute = v => { if (NET) NET.mute = !!v; };   // para las pruebas: l
 // Cada mensaje va al anfitrión, que lo reparte a todos (así el orden es el mismo para todos).
 function chatSend(text){
   text = String(text || '').replace(/\s+/g, ' ').trim().slice(0, 200);
-  if (!text || !NET) return;
+  if (!text || !NET || !mesaCfg().chat) return;
   if (NET.role === 'host') chatAdd({ p: 0, name: NET.seats[0].name, text }, true);
   else netPost({ t: 'chat', text, name: NET.name });
 }
@@ -665,22 +760,33 @@ function chatLine(m){
   const cls = m.p < 0 || seat < 0 || seat === undefined ? '' : mine ? 'yo' : team(m.p) === team(seat) ? 'nos' : 'ellos';
   return `<div class="cm ${cls}"><b>${esc(mine ? 'Vos' : m.name)}</b> ${esc(m.text)}</div>`;
 }
+// el chat de texto y la voz se muestran según la mesa (renderChat los prende y apaga)
 function chatUI(k){
-  return `<div class="chatlog" id="${k}Log" aria-live="polite"></div>
-    <form class="chatf" id="${k}Form"><input id="${k}In" maxlength="200" autocomplete="off" placeholder="Escribí algo y apretá Enter" aria-label="Mensaje para la mesa"><button class="tool" type="submit">Enviar</button></form>
+  return `<div data-chattxt><div class="chatlog" id="${k}Log" aria-live="polite"></div>
+    <form class="chatf" id="${k}Form"><input id="${k}In" maxlength="200" autocomplete="off" placeholder="Escribí algo y apretá Enter" aria-label="Mensaje para la mesa"><button class="tool" type="submit">Enviar</button></form></div>
     <div class="voz" data-voz></div>`;
+}
+const chatTitulo = c => c.chat ? 'Chat de la mesa' : c.voz ? 'Voz de la mesa' : 'Chat de la mesa';
+// la parte de abajo de la mesa antes de empezar: el chat, la voz o, si la mesa no tiene ninguno, un aviso
+function chatSeccion(k){
+  const c = mesaCfg();
+  if (!c.chat && !c.voz) return '<p class="hkey">En esta mesa no hay chat de texto ni de voz.</p>';
+  return `<section class="lchat"><h3>${chatTitulo(c)}</h3>${chatUI(k)}</section>`;
 }
 function bindChat(k){
   const f = $(k + 'Form'); if (!f) return;
   f.onsubmit = e => { e.preventDefault(); const i = $(k + 'In'); chatSend(i.value); i.value = ''; };
 }
 function renderChat(){
+  const c = mesaCfg();
+  document.querySelectorAll('[data-chattxt]').forEach(x => { x.hidden = !c.chat; });
   document.querySelectorAll('.chatlog').forEach(box => {
     const list = NET ? NET.chat : [];
     box.innerHTML = list.length ? list.map(chatLine).join('') : '<div class="cm vacio">Todavía no hay mensajes.</div>';
     box.scrollTop = box.scrollHeight;
   });
-  const p = $('chatPanel'); if (p) p.hidden = !NET;
+  const p = $('chatPanel');
+  if (p) { p.hidden = !NET || (!c.chat && !c.voz); const h = p.querySelector('h2'); if (h) h.textContent = chatTitulo(c); }
   renderVoz();
 }
 // si el chat no está a la vista (en el celular queda abajo), el mensaje aparece un momento arriba
@@ -696,7 +802,19 @@ function chatToast(m){
 // Por la misma conexión directa entre navegadores (WebRTC). El micrófono se pide la primera vez que
 // se pulsa, y solo manda sonido mientras se mantiene apretado el botón (o la tecla V).
 const VOZ = { stream: null, on: false, audios: {}, mute: store.get('truco.voces') === '0', err: '' };
-const vozOK = () => online() && !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia) && !!(vozRoom() && vozRoom().addStream);
+const vozOK = () => online() && mesaCfg().voz && !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia) && !!(vozRoom() && vozRoom().addStream);
+// la voz, según la mesa: con el servidor, la sala de voz se abre si la mesa tiene voz y se cierra si no;
+// sin voz, se apaga el micrófono y no se escucha a nadie
+function vozSync(){
+  if (!NET || !NET.tr) return;
+  const si = mesaCfg().voz;
+  if (!si) vozStop();
+  if (NET.tr.kind === 'server') {
+    if (si && !NET.vr) NET.vr = voiceRoom(NET.code);
+    else if (!si && NET.vr) { const vr = NET.vr; NET.vr = null; try { vr.leave().catch(() => {}); } catch (e) {} }
+  }
+  renderVoz();
+}
 async function vozMic(){
   if (VOZ.stream) return true;
   try {

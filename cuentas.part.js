@@ -223,7 +223,7 @@ function modosPublicosHTML(){
 function clavePublicasHTML(){
   const lista = CUENTA.publicas || [], gente = CUENTA.conectados || 0;
   return `<span class="hpg"><i class="dot${gente ? ' on' : ''}"></i> ${gente ? `${gente} ${gente === 1 ? 'persona conectada' : 'personas conectadas'} ahora` : 'Todavía no hay nadie más conectado'}</span>
-    <span>A 30 puntos y un solo chico. Cuentan para el ranking. <button class="lnk" id="hPubVer">Ver las mesas${lista.length ? ` (${lista.length})` : ''}</button> · <button class="lnk" id="hRankVer">Ranking</button></span>`;
+    <span>Cada mesa tiene sus reglas: las elige quien la arma. Cuentan para el ranking. <button class="lnk" id="hPubVer">Ver las mesas${lista.length ? ` (${lista.length})` : ''}</button> · <button class="lnk" id="hRankVer">Ranking</button></span>`;
 }
 function publicasHomeHTML(){
   let h = `<section class="hpub"><h2>Jugar con gente</h2>
@@ -549,14 +549,14 @@ async function buscarPublica(n){
   try { CUENTA.publicas = (await api('publicas')).lista; } catch (e) {}
   const m = esperandoEn(n).filter(x => !(NET && NET.code === x.codigo))[0];   // la que tiene más gente (la lista viene ordenada así)
   if (m) joinTable(m.codigo, myName(), false, { publica: true });
-  else hostTable(n, false, true);
+  else abrirCrear(true, n);      // no hay nadie esperando: se arma una, eligiendo las reglas
 }
 function renderPublicas(box){
   const lista = CUENTA.publicas;
   let h = barra('Mesas públicas');
   if (netNote) { h += `<p class="hnote" role="alert">${esc(netNote)}</p>`; netNote = ''; }
   h += avisoHTML();
-  h += '<p class="lob">Jugá con cualquiera que tenga cuenta. Elegí el modo: si hay una mesa esperando gente te sentás ahí, y si no, se arma una nueva y esperás a que llegue alguien.</p>';
+  h += '<p class="lob">Jugá con cualquiera que tenga cuenta. Elegí el modo: si hay una mesa esperando gente te sentás ahí, y si no, armás una nueva con las reglas que quieras y esperás a que llegue alguien.</p>';
   if (!conCuenta()) {
     h += '<p class="hnote">Para las mesas públicas tenés que entrar con tu cuenta.</p>';
     if (CUENTA.cfg && CUENTA.cfg.google) h += '<div id="hGsi" class="gsi"></div>';
@@ -568,13 +568,15 @@ function renderPublicas(box){
   h += '<section><h2 class="h3">Mesas esperando gente</h2>';
   if (!lista) h += '<p class="lob">Cargando…</p>';
   else if (!lista.length) h += '<p class="hkey">Ahora no hay ninguna. Elegí un modo y sé el primero: la mesa aparece acá para los demás.</p>';
-  else h += '<ul class="amg">' + lista.map(m => `<li><b>${esc(modeName(m.n))}</b><small>${esc(m.nombres.join(', '))} · ${m.personas} de ${m.n}</small>${conCuenta() ? `<button class="tool" data-pc="${m.codigo}">Sentarme</button>` : ''}</li>`).join('') + '</ul>';
-  h += '</section><p class="hkey">Se juegan a 30 puntos y un solo chico, con flor y 30 segundos por jugada. Empiezan solas cuando se llenan; si ya son dos o más y todos quieren, pueden empezar antes y la computadora completa los lugares libres. Cuentan para el ranking cuando hay gente en los dos equipos.</p>';
+  else h += '<ul class="amg">' + lista.map(m => `<li><b>${esc(modeName(m.n))}</b><small>${esc(m.nombres.join(', '))} · ${m.personas} de ${m.n}</small><small class="mreg">${esc(cfgCorto(limpiarCfgMesa(m.cfg)))}</small>${conCuenta() ? `<button class="tool" data-pc="${m.codigo}">Sentarme</button>` : ''}</li>`).join('') + '</ul>';
+  if (conCuenta()) h += `<div class="hlinks"><button class="tool" id="hPubNueva">Armar una mesa nueva</button></div>`;
+  h += '</section><p class="hkey">Las reglas (a cuántos puntos, cuántos chicos, el achique, el chat y la voz) las elige quien arma la mesa. Todas se juegan con flor, 30 segundos por jugada y en modo realista. Empiezan solas cuando se llenan; si ya son dos o más y todos quieren, pueden empezar antes y la computadora completa los lugares libres. Cuentan para el ranking cuando hay gente en los dos equipos.</p>';
   box.innerHTML = h;
   $('hBack').onclick = () => { homeView = 'main'; renderHome(); };
   if ($('hGsi')) gsiBoton($('hGsi'));
   box.querySelectorAll('[data-pn]').forEach(b => b.onclick = () => buscarPublica(+b.dataset.pn));
   box.querySelectorAll('[data-pc]').forEach(b => b.onclick = () => joinTable(b.dataset.pc, myName(), false, { publica: true }));
+  if ($('hPubNueva')) $('hPubNueva').onclick = () => abrirCrear(true, players);
   if (!lista) cuentaPublicas();
 }
 

@@ -235,8 +235,8 @@
     const contra = top.bets.some(b => b.contra);
     const big = top.bets.some(b => b.amt === 'falta' || b.amt === 'resto');
     let need = big ? (R.falta <= 6 ? 34 : 38) : contra ? 35 : 33;
-    const F = R.flor.sung.filter((s, q) => s && team(q) === team(top.by)).length;
-    if (rivalScore(G, p) + 3 * F >= G.target) need = 0;
+    // si no querer le da el chico al rival (sus flores, lo envidado antes y el achique), se quiere igual
+    if (rivalScore(G, p) + T.florNoQuerida(G, top.bets).pts >= G.target) need = 0;
     const raises = acts.filter(a => a.type === 'fenv');
     if (raises.length && fp >= need + 5 && rng() < 0.6) return raises.find(a => a.amt === 'resto') || raises[raises.length - 1];
     return find(acts, a => a.type === (fp >= need ? 'quiero' : 'noquiero'));

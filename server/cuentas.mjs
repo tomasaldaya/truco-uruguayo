@@ -56,6 +56,7 @@ export class Cuentas {
     this.q(`CREATE INDEX IF NOT EXISTS amigos_para ON amigos (para)`);
     this.q(`CREATE TABLE IF NOT EXISTS cambios (nombre TEXT PRIMARY KEY, fecha INTEGER, hecho INTEGER)`);
     this.q(`CREATE TABLE IF NOT EXISTS publicas (codigo TEXT PRIMARY KEY, n INTEGER, personas INTEGER, nombres TEXT, creada INTEGER, actualizada INTEGER)`);
+    try { this.q(`ALTER TABLE publicas ADD COLUMN cfg TEXT`); } catch (e) {}   // las reglas de cada mesa (se agregó después)
     // lo del perfil (columnas que se agregaron después: si ya están, no pasa nada)
     for (const col of ['nombre TEXT', 'bio TEXT', 'lugar TEXT', 'cuadro TEXT', 'color INTEGER', 'foto_v INTEGER DEFAULT 0', 'pj TEXT']) {
       try { this.q(`ALTER TABLE usuarios ADD COLUMN ${col}`); } catch (e) {}
@@ -363,22 +364,25 @@ export class Cuentas {
   salon(info) {
     if (!info || !/^[A-Z]{4}$/.test(String(info.codigo || ''))) return false;
     const n = [2, 4, 6].includes(info.n) ? info.n : null, personas = int(info.personas) || 0;
-    const antes = this.q1(`SELECT personas, nombres FROM publicas WHERE codigo = ?`, info.codigo);
+    const antes = this.q1(`SELECT personas, nombres, cfg FROM publicas WHERE codigo = ?`, info.codigo);
     if (!n || personas <= 0 || personas >= n || info.empezada) {
       this.q(`DELETE FROM publicas WHERE codigo = ?`, info.codigo);
       if (antes) this.avisarTodos({ t: 'publicas' });
       return true;
     }
     const nombres = JSON.stringify((Array.isArray(info.nombres) ? info.nombres : []).slice(0, 6).map(x => String(x).slice(0, 20)));
-    if (antes) this.q(`UPDATE publicas SET n = ?, personas = ?, nombres = ?, actualizada = ? WHERE codigo = ?`, n, personas, nombres, this.now(), info.codigo);
-    else this.q(`INSERT INTO publicas (codigo, n, personas, nombres, creada, actualizada) VALUES (?, ?, ?, ?, ?, ?)`, info.codigo, n, personas, nombres, this.now(), this.now());
-    if (!antes || antes.personas !== personas || antes.nombres !== nombres) this.avisarTodos({ t: 'publicas' });
+    // las reglas de la mesa, para mostrarlas en la lista (solo lo que se puede elegir)
+    const c = info.cfg && typeof info.cfg === 'object' ? info.cfg : {};
+    const cfg = JSON.stringify({ target: [10, 20, 30, 40].includes(c.target) ? c.target : 30, chicos: c.chicos === 2 ? 2 : 1, achique: c.achique === true, chat: c.chat !== false, voz: c.voz !== false });
+    if (antes) this.q(`UPDATE publicas SET n = ?, personas = ?, nombres = ?, cfg = ?, actualizada = ? WHERE codigo = ?`, n, personas, nombres, cfg, this.now(), info.codigo);
+    else this.q(`INSERT INTO publicas (codigo, n, personas, nombres, cfg, creada, actualizada) VALUES (?, ?, ?, ?, ?, ?, ?)`, info.codigo, n, personas, nombres, cfg, this.now(), this.now());
+    if (!antes || antes.personas !== personas || antes.nombres !== nombres || antes.cfg !== cfg) this.avisarTodos({ t: 'publicas' });
     return true;
   }
   publicas() {
     this.q(`DELETE FROM publicas WHERE actualizada < ?`, this.now() - 3 * 60e3);   // una mesa que no avisa hace tres minutos ya no está
-    return this.q(`SELECT codigo, n, personas, nombres, creada FROM publicas ORDER BY personas DESC, creada ASC LIMIT 50`)
-      .map(r => ({ codigo: r.codigo, n: r.n, personas: r.personas, nombres: JSON.parse(r.nombres || '[]'), creada: r.creada }));
+    return this.q(`SELECT codigo, n, personas, nombres, cfg, creada FROM publicas ORDER BY personas DESC, creada ASC LIMIT 50`)
+      .map(r => ({ codigo: r.codigo, n: r.n, personas: r.personas, nombres: JSON.parse(r.nombres || '[]'), cfg: r.cfg ? JSON.parse(r.cfg) : null, creada: r.creada }));
   }
 
   // ---------- presencia: avisa a los amigos cuando alguien se conecta o se va ----------
