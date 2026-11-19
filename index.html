@@ -82,7 +82,7 @@ h1 small{font-family:'Alegreya Sans',sans-serif;font-size:15px;font-weight:500;c
 .who,.hand.me{position:relative}
 /* las cartas del envite, dadas vuelta al final de la mano */
 .hand.mostradas{gap:4px}
-.hand.mostradas .card{animation:voltear .55s cubic-bezier(.2,.8,.3,1) both}
+.hand.mostradas .card{animation:voltear .4s cubic-bezier(.2,.8,.3,1) both}
 .seat:not(.s-bottom) .hand.mostradas .card{--cw:46px;--ch:70px;border-radius:6px}
 @keyframes voltear{from{transform:perspective(500px) rotateY(90deg) translateY(-6px);opacity:.3}to{transform:none;opacity:1}}
 @media (prefers-reduced-motion:reduce){.hand.mostradas .card{animation:none}}
@@ -6750,7 +6750,7 @@ function mostradasEl(p, cls){
   const R = G.round, k = G.id + ':' + G.roundNo + ':' + p, t0 = mostr2d[k] || (mostr2d[k] = Date.now()), pasó = Date.now() - t0;
   const h = el('div', (cls || 'hand') + ' mostradas');
   h.title = (p === ME ? 'Mostrás' : G.names[p] + ' muestra') + ' las cartas del envite (Art. 45)';
-  R.initial[p].forEach((c, i) => { const e = cardEl(c); e.style.animationDelay = (i * 160 - pasó) + 'ms'; h.appendChild(e); });
+  R.initial[p].forEach((c, i) => { const e = cardEl(c); e.style.animationDelay = (i * 110 - pasó) + 'ms'; h.appendChild(e); });
   return h;
 }
 function otherSeat(p, act){
@@ -7442,7 +7442,7 @@ function step(){
         step();
       }), delay);
     }
-  } else timer = setTimeout(() => whenFree(showRoundEnd), ((GM.n>=4 ? 2200 : 1600) + (GM.round && GM.round.mustShow.some(Boolean) ? 1300 : 0)) * delayScale());
+  } else timer = setTimeout(() => whenFree(showRoundEnd), ((GM.n>=4 ? 2200 : 1600) + (GM.round && GM.round.mustShow.some(Boolean) ? 700 : 0)) * delayScale());
 }
 // Pausas para ver lo que pasa: al empezar la mano y al cerrarse cada baza (devuelve cuánto esperar de más)
 function notePauses(S){
@@ -9507,7 +9507,7 @@ function onState(m){
   render();
   if (!$('home').hidden) return;
   if (G.phase !== 'play') {
-    if (NET.shownEnd !== m.key && !$('mNext')) { NET.shownEnd = m.key; const k = m.key; setTimeout(() => { if (NET && NET.key === k && $('home').hidden && !$('mNext')) showRoundEnd(); }, ((G.n >= 4 ? 2200 : 1600) + (G.round && G.round.mustShow && G.round.mustShow.some(Boolean) ? 1300 : 0)) * delayScale()); }
+    if (NET.shownEnd !== m.key && !$('mNext')) { NET.shownEnd = m.key; const k = m.key; setTimeout(() => { if (NET && NET.key === k && $('home').hidden && !$('mNext')) showRoundEnd(); }, ((G.n >= 4 ? 2200 : 1600) + (G.round && G.round.mustShow && G.round.mustShow.some(Boolean) ? 700 : 0)) * delayScale()); }
   } else if ($('mNext')) closeModal();
 }
 

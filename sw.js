@@ -1,25 +1,42 @@
-// Truco Uruguayo instalado como app: guarda la página para poder abrirla (y jugar contra la computadora)
-// sin internet. La página se pide siempre primero a la red, así cada vez que hay conexión llega la última
-// versión; si no hay internet, se abre la guardada. Lo del servidor (cuentas, mesas) nunca se guarda.
-const CACHE = 'truco-v1';
-const BASE = ['./', './manifest.webmanifest', './icono-192.png', './icono-512.png', './icono-mascara-512.png'];
+// Truco Uruguayo instalado como app: guarda la página del juego para poder abrirla (y jugar contra la
+// computadora) sin internet. Solo se mete al abrir la página y con unos pocos archivos fijos; durante el
+// partido no interviene. La página se pide siempre primero a la red, así llega la última versión; si no hay
+// internet, se abre la guardada. Lo del servidor (cuentas, mesas) nunca se guarda.
+const CACHE = 'truco-v2';
+const FIJOS = ['./manifest.webmanifest', './icono-192.png', './icono-512.png', './icono-mascara-512.png', './icono-apple-180.png'];
+const RAIZ = new URL('./', self.registration.scope).pathname;
+const esLaPagina = u => u.pathname === RAIZ || u.pathname === RAIZ + 'index.html';
+const firma = r => r && (r.headers.get('etag') || r.headers.get('last-modified'));
 
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(BASE)).then(() => self.skipWaiting()));
+  e.waitUntil(caches.open(CACHE).then(c => Promise.all([
+    c.addAll(FIJOS),
+    // la página se guarda de lo que el navegador ya bajó al abrirla: no se descarga otra vez
+    fetch(new Request('./', { cache: 'force-cache' })).then(res => res.ok && c.put('./', res)).catch(() => {}),
+  ])).then(() => self.skipWaiting()));
 });
 self.addEventListener('activate', e => {
   e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim()));
 });
+// la página nueva se guarda solo si cambió (son casi 2 MB: no se reescriben cada vez que se abre)
+async function guardar(res){
+  const c = await caches.open(CACHE), vieja = await c.match('./');
+  if (vieja && firma(vieja) && firma(vieja) === firma(res)) return;
+  await c.put('./', res);
+}
 self.addEventListener('fetch', e => {
-  const r = e.request, u = new URL(r.url);
+  const r = e.request;
   if (r.method !== 'GET') return;
-  if (u.origin === location.origin) {
-    if (u.pathname.includes('/api/')) return;                          // el servidor: siempre a la red
-    const clave = r.mode === 'navigate' ? './' : r;                     // la página, con o sin ?mesa=...
+  const u = new URL(r.url);
+  if (u.origin === location.origin && esLaPagina(u)) {
     e.respondWith(fetch(r).then(res => {
-      if (res.ok) { const copia = res.clone(); caches.open(CACHE).then(c => c.put(clave, copia)); }
+      if (res.ok) e.waitUntil(guardar(res.clone()));
       return res;
-    }).catch(() => caches.match(clave, { ignoreSearch: true }).then(x => x || caches.match('./'))));
+    }).catch(() => caches.match('./').then(x => x || Response.error())));
+    return;
+  }
+  if (u.origin === location.origin && FIJOS.some(f => u.pathname === RAIZ + f.slice(2))) {
+    e.respondWith(caches.match(r).then(x => x || fetch(r)));
     return;
   }
   if (u.hostname === 'fonts.googleapis.com' || u.hostname === 'fonts.gstatic.com') {
@@ -29,4 +46,5 @@ self.addEventListener('fetch', e => {
       return hit || red;
     })));
   }
+  // todo lo demás (el servidor, Google, otras páginas como la de privacidad) va directo, sin tocarlo
 });

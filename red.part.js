@@ -492,7 +492,7 @@ function onState(m){
   render();
   if (!$('home').hidden) return;
   if (G.phase !== 'play') {
-    if (NET.shownEnd !== m.key && !$('mNext')) { NET.shownEnd = m.key; const k = m.key; setTimeout(() => { if (NET && NET.key === k && $('home').hidden && !$('mNext')) showRoundEnd(); }, ((G.n >= 4 ? 2200 : 1600) + (G.round && G.round.mustShow && G.round.mustShow.some(Boolean) ? 1300 : 0)) * delayScale()); }
+    if (NET.shownEnd !== m.key && !$('mNext')) { NET.shownEnd = m.key; const k = m.key; setTimeout(() => { if (NET && NET.key === k && $('home').hidden && !$('mNext')) showRoundEnd(); }, ((G.n >= 4 ? 2200 : 1600) + (G.round && G.round.mustShow && G.round.mustShow.some(Boolean) ? 700 : 0)) * delayScale()); }
   } else if ($('mNext')) closeModal();
 }
 
