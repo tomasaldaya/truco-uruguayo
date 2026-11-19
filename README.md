@@ -472,3 +472,17 @@ Herramientas: `tools/ia/lalo.js` (esa mano, con lo que decide la computadora) y 
   6), `server/prueba-mesa.mjs` (mirar, chat y voz de quien mira, echar por mayoría, vetado por identificador
   y por cuenta, votos de quien se va, lista de voces) y `server/prueba-cuentas.mjs` (partidos en juego en la
   lista). Algunas pruebas del servidor que esperaban partidos largos ahora fijan el chico a 40.
+
+## La mesa 3D más ordenada (19/11)
+
+- La cámara de los ojos mira un poco más hacia abajo (`OJOS.pitch` .38), así se ve más mesa.
+- Las cartas jugadas van más cerca de cada jugador (`rr`, `rrS` más grandes) y ya no se amontonan en el
+  medio; las tuyas un poco más adelante, para que tu mano no las tape (`ojoFila`). Las que quedan boca abajo
+  se abren a lo largo de la fila de cada uno.
+- El mazo va cruzado sobre la muestra (girado 90°): la muestra queda igual y asoma por el lado largo del mazo.
+  Con las filas más afuera, el mazo va al rincón entre el que dio y el de su derecha; los lugares (`dk`,
+  `dk0`) están calculados para que ni el mazo ni la muestra pisen ninguna fila ni las cartas boca abajo, dé
+  quien dé (con el temblor de las cartas incluido).
+- El borde dorado ahora marca las cartas de la baza que se está jugando (o la que se acaba de cerrar, hasta
+  que alguien tira la próxima), en la 3D y en la 2D de mano a mano (`bazaEnJuego`); quién ganó cada baza se
+  sigue viendo arriba (1ª, 2ª, 3ª).

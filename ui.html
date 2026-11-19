@@ -906,16 +906,22 @@ function otherSeat(p, act){
   return s;
 }
 
+// la baza que se está jugando; si no hay ninguna carta todavía, la que se acaba de cerrar (hasta que alguien
+// tira la próxima). Sus cartas llevan el borde dorado, para no confundirlas con las de las bazas anteriores.
+function bazaEnJuego(R){
+  if (R.cur.some(Boolean)) return R.cur;
+  return R.tricks.length ? R.tricks[R.tricks.length - 1].cards : [];
+}
 function center2(){
   const R = G.round, c = el('section','center');
-  const tr = el('div','tricks');
+  const tr = el('div','tricks'), enJuego = bazaEnJuego(R);
   for (let i=0;i<3;i++){
     const s = el('div','slot'); const t = R.tricks[i];
     const cards = t ? t.cards : (i===R.tricks.length ? R.cur : [null,null]);
     s.appendChild(el('div','lbl',['1ª','2ª','3ª'][i]+' baza'));
-    const op = otherOf2();
-    s.appendChild(cards[op] ? cardEl(cards[op], {cls: t && t.winnerPlayer===op ? 'winner-card':''}) : ph());
-    s.appendChild(cards[ME] ? cardEl(cards[ME], {cls: t && t.winnerPlayer===ME ? 'winner-card':''}) : ph());
+    const op = otherOf2(), viva = cards === enJuego ? 'winner-card' : '';
+    s.appendChild(cards[op] ? cardEl(cards[op], {cls: viva}) : ph());
+    s.appendChild(cards[ME] ? cardEl(cards[ME], {cls: viva}) : ph());
     if (t) s.appendChild(resChip(t));
     tr.appendChild(s);
   }

@@ -288,15 +288,16 @@ const V3 = (function(){
   // rr: radio de la fila de cartas jugadas del que está enfrente o de vos; rrS: de los de los costados.
   // En mano a mano las bazas quedan en columnas (la compu arriba, vos abajo).
   // dk: dónde va el mazo, a la derecha del que dio: [distancia al centro, corrimiento hacia su derecha].
-  // Están calculados para que el mazo no pise ninguna fila ni las cartas boca abajo, dé quien dé.
+  // Están calculados para que el mazo y la muestra no pisen ninguna fila ni las cartas boca abajo, dé quien dé
+  // (con las filas cerca de cada jugador, el mazo va al rincón entre el que dio y el de su derecha).
   // dk0: lo mismo cuando das vos, elegido además para que tu mano no tape la muestra.
   // ojoFila: cuánto más hacia el centro va tu fila, para que sentado (con los ojos de tu personaje) tu mano no la tape.
   const PARAMS = {
-    2: { TR: 4.8, ojoFila: .2, rr: .9, rrS: .9, hs: .22, opp: .22, sp: 1.3, inact: 2.4, dk: [1.5, 2.6], dk0: [0.6, 3.2],
+    2: { TR: 4.8, ojoFila: .48, rr: 1.4, rrS: 1.4, hs: .22, opp: .22, sp: 1.3, inact: 2.0, dk: [0.68, 3.84], dk0: [0.68, 3.84],
          cam: { beta: .8, rho: 14.2, tx: .35, ty: 2.0, tz: -1.9 } },
-    4: { TR: 5.8, ojoFila: 1.1, rr: 2.15, rrS: 2.65, hs: .25, opp: 0, sp: 1.18, inact: 1.65, dk: [3.3, 3.0], dk0: [3.6, 2.6],
+    4: { TR: 5.8, ojoFila: 1.05, rr: 2.8, rrS: 3.5, hs: .25, opp: 0, sp: 1.18, inact: 1.35, dk: [3.52, 3.4], dk0: [3.64, 3.28],
          cam: { beta: .84, rho: 18.6, tx: 0, ty: 1.7, tz: -1.7 } },
-    6: { TR: 6.4, ojoFila: .9, rr: 2.6, rrS: 3.1, hs: .25, opp: 0, sp: .8, inact: 1.45, dk: [4.7, 2.1], dk0: [4.1, 2.6],
+    6: { TR: 6.4, ojoFila: .85, rr: 3.3, rrS: 3.7, hs: .25, opp: 0, sp: .8, inact: 1.3, dk: [4.76, 2.75], dk0: [4.66, 2.91],
          cam: { beta: .86, rho: 20.5, tx: 0, ty: 1.8, tz: -1.9 } },
   };
   const ang = p => -PI/2 + ((p - ME + Lay.n) % Lay.n) * 2*PI / Lay.n; // vos abajo, y sigue hacia la derecha
@@ -329,7 +330,11 @@ const V3 = (function(){
     // mazo y muestra en el medio
     Lay.deckPos = deckSpot(G.dealer); Lay.dealer = G.dealer;
     const edge = std(0xece2c8, .7);
-    Lay.deck = mesh(new THREE.BoxGeometry(CW*.98, .48, CH*.98), [edge, edge, new THREE.MeshStandardMaterial({ map: TEX.back, roughness: .55 }), edge, edge, edge]);
+    // el mazo va cruzado sobre la muestra: la muestra (que apunta al centro) asoma por el lado largo del mazo.
+    // Lay.deck gira con la muestra (su rotation.y es hacia dónde apunta ella); la caja va girada 90° adentro.
+    const caja = mesh(new THREE.BoxGeometry(CW*.98, .48, CH*.98), [edge, edge, new THREE.MeshStandardMaterial({ map: TEX.back, roughness: .55 }), edge, edge, edge]);
+    caja.rotation.y = PI/2;
+    Lay.deck = new THREE.Group(); Lay.deck.add(caja);
     Lay.deck.position.copy(Lay.deckPos); Lay.deck.rotation.y = deckYaw(Lay.deckPos); root.add(Lay.deck);
     Lay.glow = new THREE.Mesh(GEO.glow, new THREE.MeshBasicMaterial({ map: glowTex(), transparent: true, depthWrite: false, opacity: 0 }));
     Lay.glow.rotation.x = -PI/2; Lay.glow.position.y = .012; Lay.glow.scale.set(1.9, 1.3, 1); root.add(Lay.glow);
@@ -619,8 +624,8 @@ const V3 = (function(){
     return flat(c.x + d.x*(b-1)*sp + hashJ(id, 'x')*.06, .02 + b*.007, c.z + d.z*(b-1)*sp + hashJ(id, 'z')*.08, true, hashJ(id, 'r')*.14);
   }
   function downPose(p, i, k, up, id){
-    const c = onCircle(ang(p), rowRad(p) + Lay.inact), d = i - (k-1)/2;
-    return flat(c.x + d*.45, .02 + i*.007, c.z, up, hashJ(id, 'r')*.12 + d*.12);
+    const c = onCircle(ang(p), rowRad(p) + Lay.inact), d = i - (k-1)/2, r = rowDir(p);   // abiertas a lo largo de su fila
+    return flat(c.x + r.x*d*.45, .02 + i*.007, c.z + r.z*d*.45, up, hashJ(id, 'r')*.12 + d*.12);
   }
   function fanPose(p, i, k){
     const c = Lay.chars[p], d = i - (k-1)/2;
@@ -645,9 +650,11 @@ const V3 = (function(){
   const MUE_Y = .014;   // el mazo apoya sobre la muestra
   function deckH(){ return .48*deckCount()/40 + MUE_Y; }
   function deckYaw(pos){ return Math.atan2(-pos.x, -pos.z); }   // el largo de la carta apunta al centro
-  function deckTop(){ const d = Lay.deck.position; return flat(d.x, deckH() + .01, d.z, false, Lay.deck.rotation.y); }
+  function deckTop(){ const d = Lay.deck.position; return flat(d.x, deckH() + .01, d.z, false, Lay.deck.rotation.y + PI/2); }
+  // la muestra asoma lo mismo que antes, ahora por el lado largo del mazo (que es menos profundo hacia el centro)
+  const MUE_K = CH*.78 - (CH - CW)*.49;
   function muePose(up){
-    const d = Lay.deck.position, y = Lay.deck.rotation.y, k = CH*.78;
+    const d = Lay.deck.position, y = Lay.deck.rotation.y, k = MUE_K;
     const negra = G && G.round && G.round.muestra && G.round.muestra.n >= 10;   // sota, caballo o rey: que asome el palo
     return flat(d.x + Math.sin(y)*k, .006, d.z + Math.cos(y)*k, up, y + .05 + (negra ? PI : 0));
   }
@@ -836,17 +843,10 @@ const V3 = (function(){
     else if (snap) { S.dealEnd = now; S.cnt.ubicar++; }
     S.rk = rk;
 
-    // bazas ganadas: borde dorado (o gris si fue parda)
+    // la baza que se está jugando (o la que se acaba de cerrar, hasta que alguien tira la próxima): borde
+    // dorado, así se distingue de las cartas de las bazas anteriores
     for (const id in CARDS) { const o = CARDS[id]; if (o.where !== 'hand' && !(o.slot && o.slot.hand)) o.outline.visible = false; }
-    R.tricks.forEach(t => {
-      const best = Math.max(...t.cards.filter(c => c && !c.hidden).map(c => T.rank(c, R.muestra)));
-      t.cards.forEach((c, p) => {
-        if (!c) return; const o = CARDS[c.id];
-        if (!o) return;
-        if (t.winnerTeam === -1 && !c.hidden && T.rank(c, R.muestra) === best) { o.outline.visible = true; o.outline.material.color.setHex(0xb9c2c2); }
-        else if (t.winnerPlayer === p) { o.outline.visible = true; o.outline.material.color.setHex(0xe8b13a); }
-      });
-    });
+    bazaEnJuego(R).forEach(c => { const o = c && CARDS[c.id]; if (o) { o.outline.visible = true; o.outline.material.color.setHex(0xe8b13a); } });
     // insignias de pieza, mata y fío en tus cartas
     for (const id in CARDS) {
       const o = CARDS[id], inHand = o.slot && o.slot.hand;
@@ -949,7 +949,7 @@ const V3 = (function(){
   // rueda o el pellizco lo inclinan hacia la mesa o hacia atrás (el mismo margen que tenía la cámara de
   // antes para acercarse o alejarse). Así no da la vuelta a la mesa ni ve la espalda de nadie.
   // ojo: { yaw (hacia la izquierda), pitch (hacia abajo), z (1 = sentado derecho; menos, inclinado hacia la mesa) }
-  const OJOS = { y: 4.5, afuera: 1.4, mira: 9, pitch: .3, fov: 1.18 };
+  const OJOS = { y: 4.5, afuera: 1.4, mira: 9, pitch: .38, fov: 1.18 };
   const LIM = { giro: PI/6, arriba: .14, abajo: .2, cerca: .86, lejos: 1.1 };
   const ojo0 = () => ({ yaw: 0, pitch: OJOS.pitch, z: 1 });
   function ojosCam(o){
