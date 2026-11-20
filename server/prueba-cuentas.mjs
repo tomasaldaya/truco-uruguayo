@@ -418,5 +418,37 @@ await t('visitas y errores: se cuentan por día, sin datos de nadie y con tope',
   assert.equal(JSON.stringify(u).includes('10.0.0'), false);
 });
 
+await t('mensajes privados: solo entre amigos, con no leídos, avisos y los últimos 200', async () => {
+  const W = mundo();
+  const A = await W.alta('Ana'), B = await W.alta('Beto'), C = await W.alta('Ceci');
+  assert.equal((await W.pedir('POST', 'mensajes', A.token, { para: B.yo.id, texto: 'hola' })).s, 403);   // todavía no son amigos
+  await W.pedir('POST', 'amigos/pedir', A.token, { id: B.yo.id });
+  await W.pedir('POST', 'amigos/aceptar', B.token, { id: A.yo.id });
+  assert.equal((await W.pedir('POST', 'mensajes', A.token, { para: B.yo.id, texto: '   ' })).s, 400);
+  const r = await W.pedir('POST', 'mensajes', A.token, { para: B.yo.id, texto: ' ¿jugamos un truco? ' });
+  assert.equal(r.m && r.m.texto, '¿jugamos un truco?', JSON.stringify(r));
+  assert(W.avisos.some(m => m.uid === B.yo.id && m.t === 'mensaje' && m.de.apodo === 'Ana' && m.m.texto === '¿jugamos un truco?'));
+  let am = await W.pedir('GET', 'amigos', B.token);
+  assert.equal(am.amigos.find(x => x.id === A.yo.id).sinLeer, 1);
+  const conv = await W.pedir('GET', 'mensajes?con=' + A.yo.id, B.token);
+  assert.equal(conv.lista.length, 1); assert.equal(conv.lista[0].de, A.yo.id); assert.equal(conv.amigos, true);
+  am = await W.pedir('GET', 'amigos', B.token);
+  assert.equal(am.amigos.find(x => x.id === A.yo.id).sinLeer, 0);                       // al abrirla, quedan leídos
+  assert.equal((await W.pedir('GET', 'mensajes?con=' + A.yo.id, C.token)).lista.length, 0);   // nadie más los ve
+  // tope por minuto
+  let s429 = 0; for (let i = 0; i < 25; i++) if ((await W.pedir('POST', 'mensajes', B.token, { para: A.yo.id, texto: 'm' + i })).s === 429) s429++;
+  assert(s429 >= 5);
+  // se guardan los últimos 200
+  for (let i = 0; i < 230; i++) { W.avanzar(61e3); await W.pedir('POST', 'mensajes', A.token, { para: B.yo.id, texto: 'n' + i }); }
+  const todos = W.c.q(`SELECT COUNT(*) AS n FROM mensajes`)[0].n; assert.equal(todos, 200);
+  const ult = await W.pedir('GET', 'mensajes?con=' + B.yo.id, A.token); assert.equal(ult.lista.length, 50); assert.equal(ult.mas, true); assert.equal(ult.lista[49].texto, 'n229');
+  const prev = await W.pedir('GET', `mensajes?con=${B.yo.id}&antes=${ult.lista[0].id}`, A.token); assert.equal(prev.lista[49].id < ult.lista[0].id, true);
+  // al dejar de ser amigos ya no se puede escribir; al borrar la cuenta se van sus mensajes
+  await W.pedir('POST', 'amigos/borrar', B.token, { id: A.yo.id });
+  assert.equal((await W.pedir('POST', 'mensajes', A.token, { para: B.yo.id, texto: 'chau' })).s, 403);
+  await W.pedir('POST', 'cuenta/borrar', A.token, {});
+  assert.equal(W.c.q(`SELECT COUNT(*) AS n FROM mensajes`)[0].n, 0);
+});
+
 console.log(fails ? `\n${fails} pruebas fallaron` : '\nTodo OK');
 process.exit(fails ? 1 : 0);

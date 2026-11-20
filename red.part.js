@@ -61,7 +61,7 @@ function openServerTransport(code, onMsg, onLink){
       const pin = () => { if (este.readyState !== 1) return; if (Date.now() - ultimo > 15000) { try { este.close(); } catch (e) {} return; } try { este.send('ping'); } catch (e) {} };
       clearInterval(latido); latido = setInterval(pin, 4000); pin();
     };
-    ws.onmessage = e => { ultimo = Date.now(); if (e.data === 'pong') return; let m; try { m = JSON.parse(e.data); } catch (x) { return; } onMsg(m); };
+    ws.onmessage = e => { ultimo = Date.now(); if (e.data === 'pong') { onLink('vivo'); return; } let m; try { m = JSON.parse(e.data); } catch (x) { return; } onMsg(m); };
     ws.onclose = () => { if (ws === este) ws = null; clearInterval(latido); if (closed) return; onLink('down'); setTimeout(connect, Math.min(10000, 800 * Math.pow(2, tries++))); };
   };
   connect();
@@ -210,6 +210,9 @@ function serverHello(){
 // el servidor se cortó o volvió (se reconecta solo)
 function onServerLink(ev){
   if (ev === 'down') { NET.hostLost = true; netStatus(); }
+  // el "pong" de Cloudflare dice que la conexión anda aunque la mesa no mande nada (esperando gente en la sala,
+  // la mesa duerme y no habla): sin esto, a los 15 s se mostraba "se cortó la conexión" sin que se hubiera cortado
+  if (ev === 'vivo' && NET) { NET.lastHost = Date.now(); if (NET.hostLost) { NET.hostLost = false; netStatus(); } }
 }
 function sayHello(peer){
   if (NET && NET.tr.kind === 'server') return serverHello();

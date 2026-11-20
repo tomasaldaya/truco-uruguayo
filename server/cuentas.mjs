@@ -9,6 +9,7 @@
 export const ELO0 = 1000, K = 32;
 const SESION_MS = 120 * 864e5;           // una sesión dura cuatro meses (se renueva al usarla)
 const MAX_AMIGOS = 200;
+const MAX_MENSAJES = 200, MENSAJE_LARGO = 400, MENSAJES_MIN = 20;   // por conversación; letras; por minuto
 export const mesDe = t => new Date(t - 3 * 3600e3).toISOString().slice(0, 7);   // el mes en hora de Uruguay
 // de dónde sos (los 19 departamentos, o fuera de Uruguay)
 export const LUGARES = ['Artigas', 'Canelones', 'Cerro Largo', 'Colonia', 'Durazno', 'Flores', 'Florida', 'Lavalleja', 'Maldonado', 'Montevideo', 'Paysandú',
@@ -62,6 +63,10 @@ export class Cuentas {
     this.q(`CREATE INDEX IF NOT EXISTS jugadas_usuario ON jugadas (usuario, fecha)`);
     this.q(`CREATE INDEX IF NOT EXISTS usuarios_elo ON usuarios (elo)`);
     this.q(`CREATE INDEX IF NOT EXISTS amigos_para ON amigos (para)`);
+    // mensajes privados entre amigos: se guardan los últimos MAX_MENSAJES de cada conversación
+    this.q(`CREATE TABLE IF NOT EXISTS mensajes (id INTEGER PRIMARY KEY AUTOINCREMENT, de INTEGER, para INTEGER, texto TEXT, creado INTEGER, leido INTEGER DEFAULT 0)`);
+    this.q(`CREATE INDEX IF NOT EXISTS mensajes_par ON mensajes (de, para, id)`);
+    this.q(`CREATE INDEX IF NOT EXISTS mensajes_para ON mensajes (para, leido)`);
     this.q(`CREATE TABLE IF NOT EXISTS cambios (nombre TEXT PRIMARY KEY, fecha INTEGER, hecho INTEGER)`);
     this.q(`CREATE TABLE IF NOT EXISTS publicas (codigo TEXT PRIMARY KEY, n INTEGER, personas INTEGER, nombres TEXT, creada INTEGER, actualizada INTEGER)`);
     try { this.q(`ALTER TABLE publicas ADD COLUMN cfg TEXT`); } catch (e) {}   // las reglas de cada mesa (se agregó después)
@@ -104,7 +109,7 @@ export class Cuentas {
       this.q(`UPDATE ${tabla} SET ${col} = ? WHERE ${col} = ?`, a, b);
       this.q(`UPDATE ${tabla} SET ${col} = ? WHERE ${col} = ?`, b, T);
     };
-    cambiar('usuarios', 'id'); cambiar('sesiones', 'usuario'); cambiar('jugadas', 'usuario'); cambiar('amigos', 'de'); cambiar('amigos', 'para');
+    cambiar('usuarios', 'id'); cambiar('sesiones', 'usuario'); cambiar('jugadas', 'usuario'); cambiar('amigos', 'de'); cambiar('amigos', 'para'); cambiar('mensajes', 'de'); cambiar('mensajes', 'para');
     for (const p of this.q(`SELECT id, equipos FROM partidos`)) {
       let eq; try { eq = JSON.parse(p.equipos || '[]'); } catch (e) { continue; }
       let cambio = false;
@@ -294,7 +299,7 @@ export class Cuentas {
           this.q(`DELETE FROM amigos WHERE de = ? OR para = ?`, yo.id, yo.id);
           this.q(`DELETE FROM jugadas WHERE usuario = ?`, yo.id);
           this.q(`DELETE FROM fotos WHERE usuario = ?`, yo.id);
-          this.q(`DELETE FROM reportes WHERE de = ?`, yo.id); this.q(`UPDATE reportes SET a = NULL WHERE a = ?`, yo.id);
+          this.q(`DELETE FROM reportes WHERE de = ?`, yo.id); this.q(`DELETE FROM mensajes WHERE de = ? OR para = ?`, yo.id, yo.id); this.q(`UPDATE reportes SET a = NULL WHERE a = ?`, yo.id);
           this.salirDeGremio(yo);
           this.q(`DELETE FROM usuarios WHERE id = ?`, yo.id);
           amigos.forEach(a => this.avisar(a, { t: 'amigos' }));
@@ -453,7 +458,9 @@ export class Cuentas {
           const amigos = this.q(`SELECT u.id, u.apodo, u.elo, u.foto_v, u.color FROM usuarios u WHERE u.id IN (SELECT para FROM amigos WHERE de = ? AND estado = 'si' UNION SELECT de FROM amigos WHERE para = ? AND estado = 'si') ORDER BY u.apodo_min`, yo.id, yo.id).map(fila);
           const recibidas = this.q(`SELECT u.id, u.apodo, u.elo, u.foto_v, u.color FROM amigos a JOIN usuarios u ON u.id = a.de WHERE a.para = ? AND a.estado = 'pendiente' ORDER BY a.desde DESC`, yo.id).map(fila);
           const enviadas = this.q(`SELECT u.id, u.apodo, u.elo, u.foto_v, u.color FROM amigos a JOIN usuarios u ON u.id = a.para WHERE a.de = ? AND a.estado = 'pendiente' ORDER BY a.desde DESC`, yo.id).map(fila);
-          amigos.sort((a, b) => (b.enLinea - a.enLinea) || 0);
+          const sinLeer = new Map(this.q(`SELECT de, COUNT(*) AS n FROM mensajes WHERE para = ? AND leido = 0 GROUP BY de`, yo.id).map(r => [r.de, r.n]));
+          amigos.forEach(a => { a.sinLeer = sinLeer.get(a.id) || 0; });
+          amigos.sort((a, b) => (b.sinLeer > 0) - (a.sinLeer > 0) || (b.enLinea - a.enLinea) || 0);
           return ok({ amigos, recibidas, enviadas });
         }
         case 'GET amigos/buscar': {
@@ -495,6 +502,42 @@ export class Cuentas {
           this.avisar(id, { t: 'amigos' });
           return ok({ relacion: 'no' });
         }
+        // ---------- mensajes privados: solo entre amigos ----------
+        case 'GET mensajes': {
+          if (!yo) return conSesion();
+          const con = int(url.searchParams.get('con')), antes = int(url.searchParams.get('antes')) || Number.MAX_SAFE_INTEGER;
+          const otro = this.q1(`SELECT id, apodo, foto_v, color, elo FROM usuarios WHERE id = ?`, con);
+          if (!otro) return mal(404, 'No existe esa cuenta.');
+          const amigos = this.relacion(yo.id, con) === 'amigos';
+          const lista = this.q(`SELECT id, de, texto, creado FROM mensajes WHERE ((de = ? AND para = ?) OR (de = ? AND para = ?)) AND id < ? ORDER BY id DESC LIMIT 50`, yo.id, con, con, yo.id, antes).reverse();
+          const leidos = this.q1(`SELECT COUNT(*) AS n FROM mensajes WHERE de = ? AND para = ? AND leido = 0`, con, yo.id).n;
+          if (leidos) this.q(`UPDATE mensajes SET leido = 1 WHERE de = ? AND para = ? AND leido = 0`, con, yo.id);
+          if (leidos) this.avisar(yo.id, { t: 'leidos', con });   // las otras pestañas también
+          return ok({ con: { id: otro.id, apodo: otro.apodo, ...this.cara(otro), enLinea: this.enLinea().has(otro.id) }, amigos, lista, mas: lista.length === 50 });
+        }
+        case 'POST mensajes': {
+          if (!yo) return conSesion();
+          const para = int(cuerpo.para), texto = String(cuerpo.texto || '').replace(/[\u0000-\u0008\u000b-\u001f\u007f]/g, '').trim().slice(0, MENSAJE_LARGO);
+          if (!texto) return mal(400, 'El mensaje está vacío.');
+          if (this.relacion(yo.id, para) !== 'amigos') return mal(403, 'Solo podés escribirle a tus amigos.');
+          if (!this.topeIP('m' + yo.id, MENSAJES_MIN)) return mal(429, 'Estás mandando muchos mensajes seguidos: esperá un poquito.');
+          const creado = this.now();
+          this.q(`INSERT INTO mensajes (de, para, texto, creado) VALUES (?, ?, ?, ?)`, yo.id, para, texto, creado);
+          const id = this.q1(`SELECT MAX(id) AS id FROM mensajes WHERE de = ? AND para = ?`, yo.id, para).id;
+          // se guardan los últimos MAX_MENSAJES de la conversación
+          const corte = this.recorte(yo.id, para);
+          if (corte) this.q(`DELETE FROM mensajes WHERE ((de = ? AND para = ?) OR (de = ? AND para = ?)) AND id <= ?`, yo.id, para, para, yo.id, corte);
+          const m = { id, de: yo.id, texto, creado };
+          this.avisar(para, { t: 'mensaje', de: { id: yo.id, apodo: yo.apodo }, m });
+          this.avisar(yo.id, { t: 'mensaje', con: para, m });   // las otras pestañas de quien lo mandó
+          return ok({ m });
+        }
+        case 'POST mensajes/leido': {
+          if (!yo) return conSesion();
+          const con = int(cuerpo.con);
+          this.q(`UPDATE mensajes SET leido = 1 WHERE de = ? AND para = ? AND leido = 0`, con, yo.id);
+          return ok({});
+        }
         case 'POST amigos/invitar': {
           if (!yo) return conSesion();
           const id = int(cuerpo.id), codigo = String(cuerpo.codigo || '');
@@ -511,7 +554,7 @@ export class Cuentas {
       }
       return mal(404, 'No existe.');
     } catch (e) {
-      return mal(500, 'Algo falló en el servidor de cuentas.');
+      if (globalThis.DEPURAR) console.log(e); return mal(500, 'Algo falló en el servidor de cuentas.');
     }
   }
 
@@ -565,6 +608,11 @@ export class Cuentas {
   contar(tabla, dia, a, b, ejemplo) {
     if (tabla === 'visitas') this.q(`INSERT INTO visitas (dia, tipo, clave, n) VALUES (?, ?, ?, 1) ON CONFLICT (dia, tipo, clave) DO UPDATE SET n = n + 1`, dia, a, b);
     else this.q(`INSERT INTO errores (dia, firma, n, ejemplo) VALUES (?, ?, 1, ?) ON CONFLICT (dia, firma) DO UPDATE SET n = n + 1`, dia, a, ejemplo);
+  }
+  // hasta qué id borrar para que la conversación quede con los últimos MAX_MENSAJES (0: nada que borrar)
+  recorte(a, b) {
+    const r = this.q1(`SELECT id FROM mensajes WHERE (de = ? AND para = ?) OR (de = ? AND para = ?) ORDER BY id DESC LIMIT 1 OFFSET ?`, a, b, b, a, MAX_MENSAJES);
+    return r ? r.id : 0;
   }
   // un tope por dirección (solo en memoria, no se guarda): para que nadie llene las tablas de visitas o errores
   topeIP(ip, max) {

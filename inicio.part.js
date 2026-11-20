@@ -126,6 +126,7 @@ function pintarInicio(){
   if (homeView === 'gremios') return renderGremios(box);
   if (homeView === 'gremio') return renderGremio(box);
   if (homeView === 'amigos') return renderAmigos(box);
+  if (homeView === 'charla') return renderCharla(box);
   if (homeView === 'admin') return renderAdmin(box);
   if (homeView === 'publicas') return renderPublicas(box);
   if (homeView === 'editar') return renderEditar(box);
