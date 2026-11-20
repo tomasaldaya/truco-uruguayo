@@ -5797,6 +5797,14 @@ const APP_ID = 'tomasaldaya/truco-uruguayo/1';
 // Relevo para redes que no dejan conectarse directo (datos del celular, redes de empresa). Ejemplo:
 // [{ urls: 'turn:global.relay.metered.ca:80', username: '...', credential: '...' }]
 const NET_TURN = [];
+// TURN que da el servidor (Cloudflare Realtime): si en Cloudflare están los secretos TURN_KEY_ID y TURN_KEY_TOKEN,
+// /api/turn devuelve credenciales que duran un día; si no, una lista vacía y la voz sigue directa como siempre
+let TURN_SERVIDOR = null;
+function pedirTurn(){
+  if (TURN_SERVIDOR || !serverOK()) return;
+  fetch(serverURL() + '/api/turn').then(r => r.ok ? r.json() : null).then(j => { if (j && Array.isArray(j.iceServers) && j.iceServers.length) TURN_SERVIDOR = j.iceServers; }).catch(() => {});
+}
+const turnDeLaVoz = () => NET_TURN.length ? NET_TURN : TURN_SERVIDOR || [];
 let netNote = '';   // aviso para mostrar en la pantalla de inicio (mesa cerrada, código inexistente...)
 let joinCode = '';  // código ya escrito en "Unirme a una mesa" (por ejemplo, el del link de invitación)
 const netOK = () => typeof BroadcastChannel !== 'undefined' || typeof Trystero !== 'undefined';
@@ -5817,18 +5825,25 @@ const serverOK = () => !!serverURL() && typeof WebSocket !== 'undefined';
 function myPid(){ let p = null; try { p = sessionStorage.getItem('truco.pid'); if (!p) { p = Math.random().toString(36).slice(2) + Date.now().toString(36); sessionStorage.setItem('truco.pid', p); } } catch (e) { p = p || 'p' + Math.random().toString(36).slice(2); } return p; }
 function openServerTransport(code, onMsg, onLink){
   const url = serverURL().replace(/^http/, 'ws') + '/api/mesa/' + code;
-  let ws = null, closed = false, tries = 0;
+  // cada 4 s un "ping" que contesta Cloudflare solo (sin despertar la mesa, que puede estar durmiendo): así la mesa
+  // sabe que seguimos, y nosotros que la conexión anda (sin "pong" en 15 s, se cierra y se vuelve a conectar)
+  let ws = null, closed = false, tries = 0, latido = null, ultimo = 0;
   const tr = {
     kind: 'server',
     post: m => { if (ws && ws.readyState === 1) try { ws.send(JSON.stringify(m)); } catch (e) {} },
-    close: () => { closed = true; try { if (ws) ws.close(); } catch (e) {} },
+    close: () => { closed = true; clearInterval(latido); try { if (ws) ws.close(); } catch (e) {} },
   };
   const connect = () => {
     if (closed) return;
     try { ws = new WebSocket(url); } catch (e) { onLink('fail'); return; }
-    ws.onopen = () => { tries = 0; onLink('open'); };
-    ws.onmessage = e => { let m; try { m = JSON.parse(e.data); } catch (x) { return; } onMsg(m); };
-    ws.onclose = () => { ws = null; if (closed) return; onLink('down'); setTimeout(connect, Math.min(10000, 800 * Math.pow(2, tries++))); };
+    const este = ws;
+    ws.onopen = () => {
+      tries = 0; ultimo = Date.now(); onLink('open');
+      const pin = () => { if (este.readyState !== 1) return; if (Date.now() - ultimo > 15000) { try { este.close(); } catch (e) {} return; } try { este.send('ping'); } catch (e) {} };
+      clearInterval(latido); latido = setInterval(pin, 4000); pin();
+    };
+    ws.onmessage = e => { ultimo = Date.now(); if (e.data === 'pong') return; let m; try { m = JSON.parse(e.data); } catch (x) { return; } onMsg(m); };
+    ws.onclose = () => { if (ws === este) ws = null; clearInterval(latido); if (closed) return; onLink('down'); setTimeout(connect, Math.min(10000, 800 * Math.pow(2, tries++))); };
   };
   connect();
   return tr;
@@ -5838,7 +5853,7 @@ function voiceRoom(code){
   if (typeof Trystero === 'undefined' || typeof RTCPeerConnection === 'undefined' || store.get('truco.red') === 'local') return null;
   const relays = (store.get('truco.relays') || '').split(',').filter(Boolean);
   try {
-    const room = Trystero.joinRoom({ appId: APP_ID, identity: 'none', password: 'voz-' + code, ...(relays.length ? { relayConfig: { urls: relays } } : {}), ...(NET_TURN.length ? { turnConfig: NET_TURN } : {}) }, 'voz-' + code);
+    const room = Trystero.joinRoom({ appId: APP_ID, identity: 'none', password: 'voz-' + code, ...(relays.length ? { relayConfig: { urls: relays } } : {}), ...(turnDeLaVoz().length ? { turnConfig: turnDeLaVoz() } : {}) }, 'voz-' + code);
     // solo se escucha (y se le manda la voz) a quien la mesa dice que está en ella: así a alguien que la
     // mesa echó, o que entra a la sala sabiendo el código, no se lo oye ni oye a nadie (vozPermitido)
     room.onPeerStream((stream, c) => { if (vozPermitido(c.peerId)) vozAttach(c.peerId, stream); else VOZ.pend[c.peerId] = stream; });
@@ -5848,6 +5863,15 @@ function voiceRoom(code){
     Promise.resolve(room.getSelf && room.getSelf()).then(me => {
       if (!me || !me.peerId || !NET || NET.vr !== room) return;
       NET.vozId = me.peerId; netPost({ t: 'vozid', id: me.peerId });
+      // medir la voz: a los 20 s, ¿con cuántos de los que la mesa dice que están en la voz se pudo conectar?
+      // (solo los números; el servidor lo anota en los registros para saber si hace falta TURN)
+      setTimeout(() => {
+        if (!NET || NET.vr !== room) return;
+        const esperados = ((NET.lobby && NET.lobby.voces) || []).filter(id => id !== me.peerId);
+        if (!esperados.length) return;
+        let pares = []; try { pares = Object.keys(room.getPeers()); } catch (e) {}
+        netPost({ t: 'voz', esperados: esperados.length, conectados: esperados.filter(id => pares.includes(id)).length, turn: turnDeLaVoz().length > 0 });
+      }, 20000);
     }).catch(() => {});
     return room;
   } catch (e) { return null; }
@@ -6702,6 +6726,7 @@ function vozSync(){
   const si = mesaCfg().voz;
   if (!si) vozStop();
   if (NET.tr.kind === 'server') {
+    pedirTurn();
     if (si && !NET.vr) NET.vr = voiceRoom(NET.code);
     else if (!si && NET.vr) { const vr = NET.vr; NET.vr = null; try { vr.leave().catch(() => {}); } catch (e) {} }
   }

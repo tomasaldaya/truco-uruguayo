@@ -28,6 +28,7 @@ const SPEEDS = { lenta: 1.6, normal: 1, 'rápida': 0.55 };
 const LEVELS = ['facil', 'normal', 'dificil'];
 const END_WAIT = 17000, CLOCK_GRACE = 2000, PING_MS = 4000;
 const MAX_MIRAN = 20, MAX_VETADOS = 100;
+const SIN_SENAL_MS = 15000;   // con io.vivo: más que esto sin ping ni mensajes, se fue
 const VOZ_RE = /^[A-Za-z0-9_-]{8,40}$/;
 const GESTO_RE = /^[gs]:[a-z0-9-]{1,24}$/, GESTO_MS = 1500;   // el identificador de cada uno en la sala de voz
 // mesas públicas: cualquiera con cuenta entra; sin dueño; empieza sola al llenarse (o cuando todos los
@@ -70,7 +71,8 @@ export class Mesa {
   // io: { send(cid, msg), close(cid), now(), setTimeout, clearTimeout, setInterval, clearInterval, save(data), end(), idle(),
   //       cuenta(token) -> Promise<{id, apodo}|null>, registrar(resumen) -> Promise, salon(info), despertar(ms), log(obj) }
   //       (los cinco últimos pueden faltar)
-  constructor(io, saved) {
+  // vivos: al despertar de la hibernación, las conexiones que siguen abiertas ({ cid, ...lo que se recordó de cada una })
+  constructor(io, saved, vivos) {
     this.io = io;
     this.conns = new Map();            // cid -> { pid, alive, chatAt, msgs, name, mira: { id, name, echar } | null, vozId }
     this.timer = null; this.clockT = null; this.endT = null; this.beat = null; this.saveT = null;
@@ -86,14 +88,21 @@ export class Mesa {
     this.speed = s.speed || 'normal'; this.level = s.level || 'normal';
     this.chat = s.chat || []; this.GM = s.GM || null;
     this.vetados = Array.isArray(s.vetados) ? s.vetados.slice(-MAX_VETADOS) : [];   // echados de esta mesa: { pid, uid }
-    // al despertar, nadie está conectado: los lugares de personas pasan a la computadora hasta que vuelvan
-    this.seats = (s.seats || []).map((x, p) => x.kind === 'ai' ? x
+    // si despierta de la hibernación, las conexiones que siguen abiertas vuelven con lo que se sabía de cada una
+    const vivas = new Map((vivos || []).filter(v => v && typeof v.cid === 'string').map(v => [v.cid, v]));
+    for (const [cid, v] of vivas) this.conns.set(cid, { pid: v.pid || null, alive: 0, chatAt: 0, msgs: [], abierto: io.now(), ultimo: io.now(),
+      name: v.name, uid: v.uid || undefined, apodo: v.apodo, racha: v.racha || 0, pj: v.pj || null, vozId: v.vozId,
+      mira: v.mira ? { id: v.mira.id, name: v.mira.name, echar: new Set(v.mira.echar || []) } : null });
+    // al despertar, los lugares de personas que no siguen conectadas pasan a la computadora hasta que vuelvan
+    this.seats = (s.seats || []).map((x, p) => x.kind !== 'ai' && x.cid && vivas.has(x.cid) ? { kind: x.kind, name: x.name, cid: x.cid, pid: x.pid, uid: x.uid || null, pj: x.pj || null, racha: x.racha || 0 }
+      : x.kind === 'ai' ? x
       : this.publica && !this.started ? { kind: 'ai', name: AI_NAMES[this.n][p] }
       : p === 0 && !this.started ? { ...x, cid: null }
       : { kind: 'ai', name: x.name, left: true, pid: x.pid, host: p === 0 && !this.publica, uid: x.uid || null, racha: x.racha || 0 });
-    if (this.GM) this.GM.humans = [];
+    if (this.GM) this.GM.humans = this.seats.map((x, p) => x.kind !== 'ai' && x.cid ? p : -1).filter(p => p >= 0);
     // cuentas que juegan este partido: uid -> { equipo, abandono, stats }; hasta que vuelvan, figuran como que se fueron
-    this.cuentas = new Map((s.cuentas || []).map(([uid, c]) => [uid, { ...c, abandono: true }]));
+    const presentes = new Set(this.seats.filter(x => x.kind !== 'ai' && x.cid && x.uid).map(x => x.uid));
+    this.cuentas = new Map((s.cuentas || []).map(([uid, c]) => [uid, { ...c, abandono: !presentes.has(uid) }]));
     this.anotada = s.anotada ?? null; this.registrado = !!s.registrado;
     // el resultado del partido que todavía no confirmaron las cuentas (se reintenta al despertar)
     this.pendiente = s.pendiente || null; this.intentos = 0; this.resT = null; this.enviando = false;
@@ -102,9 +111,9 @@ export class Mesa {
 
   // ---------- conexión ----------
   onOpen(cid) {
-    this.conns.set(cid, { pid: null, alive: this.pingSeq, chatAt: 0, msgs: [] });
+    this.conns.set(cid, { pid: null, alive: this.pingSeq, chatAt: 0, msgs: [], abierto: this.io.now(), ultimo: this.io.now() });
     this.send(cid, { t: 'hola', cid });
-    if (!this.beat) this.beat = this.io.setInterval(() => this.heartbeat(), PING_MS);
+    this.latido();
   }
   onClose(cid) {
     const c0 = this.conns.get(cid);
@@ -120,11 +129,12 @@ export class Mesa {
     }
     if (!this.conns.size) { this.io.clearInterval(this.beat); this.beat = null; this.stopTimers(); this.saveNow(); this.avisarSalon(true); this.io.idle(); }
   }
-  onMessage(cid, m) {
+  onMessage(cid, m) { this.onMessage0(cid, m); this.latido(); }
+  onMessage0(cid, m) {
     const c = this.conns.get(cid);
     if (!c || !m || typeof m !== 'object' || typeof m.t !== 'string') return;
     // de a poco: más de 40 mensajes en 2 segundos es un error o un abuso
-    const now = this.io.now(); c.msgs = c.msgs.filter(t => now - t < 2000); c.msgs.push(now);
+    const now = this.io.now(); c.msgs = c.msgs.filter(t => now - t < 2000); c.msgs.push(now); c.ultimo = now;
     if (c.msgs.length > 40) return;
     m = validarDelJugador(m);   // solo tipos conocidos y cada campo con su clase (server/protocolo.mjs)
     if (!m) return;
@@ -159,6 +169,12 @@ export class Mesa {
         return;
       }
       case 'echar': return this.echar(s, m);
+      case 'voz': {   // cómo le fue con la voz (solo números, una vez por conexión): a los registros, para saber si hace falta TURN
+        if (c.vozMedida) return; c.vozMedida = true;
+        const n = v => Math.max(0, Math.min(10, Math.round(+v || 0)));
+        this.log({ ev: 'voz', esperados: n(m.esperados), conectados: Math.min(n(m.esperados), n(m.conectados)), turn: !!m.turn });
+        return;
+      }
       case 'gesto':
         if (s < 0 || !this.started || typeof m.k !== 'string' || !GESTO_RE.test(m.k) || now - (c.gestoAt || 0) < GESTO_MS) return;
         c.gestoAt = now; this.broadcast({ t: 'gesto', p: s, k: m.k });
@@ -654,6 +670,7 @@ export class Mesa {
   waitingNames() { return this.seats.map((s, p) => s.kind !== 'ai' && !this.ready.has(p) ? s.name : null).filter(Boolean); }
   // a cada persona, su vista del partido (sin las cartas ajenas), de quién es el turno y qué puede hacer
   publish() {
+    this.latido(); this.save();   // el latido según si hay partido en juego; y guardado, por si la mesa se duerme
     const G = this.GM;
     if (!this.started || !G) return;
     const act = T.actor(G), key = roundKey(G), now = this.io.now();
@@ -687,14 +704,42 @@ export class Mesa {
   }
   sendChatlog(cid) { if (cid && this.chat.length) this.send(cid, { t: 'chatlog', list: this.chat.slice(-40) }); }
 
-  // ---------- latidos: quien no contesta tres seguidas se fue ----------
+  // ---------- latidos: quién se fue sin avisar ----------
+  // Con el servidor de verdad (io.vivo), cada navegador manda "ping" cada 4 s y lo contesta Cloudflare sin despertar
+  // la mesa; acá solo se mira hace cuánto fue el último (o el último mensaje): más de 15 s sin nada, se fue. Y el
+  // latido corre solo con el partido en juego, así la mesa puede dormir (hibernar) mientras espera gente o terminó.
+  // Sin io.vivo (las pruebas, o un servidor viejo) es como antes: la mesa manda "ping" y quien no contesta tres, se fue.
+  latido() {
+    const hace = this.conns.size > 0 && (!this.io.vivo || (this.started && this.GM && this.GM.phase !== 'matchEnd'));
+    if (hace && !this.beat) this.beat = this.io.setInterval(() => this.heartbeat(), PING_MS);
+    else if (!hace && this.beat) { this.io.clearInterval(this.beat); this.beat = null; }
+  }
   heartbeat() {
-    const seq = ++this.pingSeq;
+    const seq = ++this.pingSeq, now = this.io.now();
     if (this.publica && seq % 15 === 0) this.avisarSalon();   // sigue esperando gente (o jugando): que no la den por perdida
     for (const [cid, c] of this.conns) {
+      const auto = this.io.vivo ? this.io.vivo(cid) : null;   // el último "ping" del navegador (si manda)
+      if (auto) {
+        if (now - Math.max(c.ultimo || 0, auto) > SIN_SENAL_MS) { this.io.close(cid); this.onClose(cid); }
+        continue;
+      }
+      if (this.io.vivo && now - (c.abierto || 0) < 9000) continue;   // recién conectado: todavía no mandó su primer ping
       if (seq - c.alive > 3) { this.io.close(cid); this.onClose(cid); continue; }
       this.send(cid, { t: 'ping', s: seq });
     }
+  }
+  // lo que hay que recordar de una conexión para cuando la mesa despierte de la hibernación
+  recuerdo(cid) {
+    const c = this.conns.get(cid); if (!c) return null;
+    return { cid, pid: c.pid || null, name: c.name, uid: c.uid || null, apodo: c.apodo, racha: c.racha || 0, pj: c.pj || null, vozId: c.vozId,
+      mira: c.mira ? { id: c.mira.id, name: c.mira.name, echar: [...c.mira.echar] } : null };
+  }
+  // cuándo tiene que despertar la mesa sola (para la alarma del Durable Object), o null
+  proximaAlarma() {
+    if (this.pendiente) return 5 * 60e3;                                       // reintentar el resultado
+    if (!this.conns.size) return 2 * 3600e3;                                   // sin nadie: se borra a las dos horas
+    if (this.publica && this.key && !this.started) return 60e3;                // la pública que espera gente: avisar al salón
+    return null;
   }
 
   // ---------- cerrar ----------
@@ -717,7 +762,7 @@ export class Mesa {
   data() {
     if (!this.key) return null;
     return { code: this.code, key: this.key, n: this.n, started: this.started, publica: this.publica, cfg: this.cfg, speed: this.speed, level: this.level, chat: this.chat, GM: this.GM,
-      seats: (this.seats || []).map(s => ({ kind: s.kind, name: s.name, pid: s.pid || null, left: !!s.left, host: !!s.host, uid: s.uid || null, racha: s.racha || 0 })),
+      seats: (this.seats || []).map(s => ({ kind: s.kind, name: s.name, pid: s.pid || null, left: !!s.left, host: !!s.host, uid: s.uid || null, racha: s.racha || 0, cid: s.kind !== 'ai' && s.cid || null, pj: s.pj || null })),
       cuentas: [...this.cuentas], anotada: this.anotada, registrado: this.registrado, vetados: this.vetados, pendiente: this.pendiente || null };
   }
   save() { if (this.saveT) return; this.saveT = this.io.setTimeout(() => { this.saveT = null; this.saveNow(); }, 800); }

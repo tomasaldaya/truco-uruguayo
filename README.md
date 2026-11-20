@@ -32,7 +32,11 @@ Juego de truco uruguayo para el navegador, según el *Reglamento del Truco Urugu
 - `server/prueba-vivo.mjs` — prueba del servidor ya publicado (dos jugadores por WebSocket).
 - `server/actividad.mjs` — cuánto se usó el juego (mesas, gente, aparatos, errores), solo totales. En GitHub: Actions → "Actividad del juego" → Run workflow.
 - `wrangler.jsonc`, `.github/workflows/servidor.yml` — configuración y publicación automática en Cloudflare.
-- `build.py` — arma `index.html` (un solo archivo; solo, anda sin internet; las tipografías se bajan de Google Fonts) a partir de lo anterior: `python3 build.py`.
+- `build.py` — arma `index.html` a partir de lo anterior: `python3 build.py`. Three.js (`three.min.js`) va al lado y se baja al entrar a la mesa 3D; con los dos archivos anda sin internet (las tipografías se bajan de Google Fonts).
+- `server/protocolo.mjs` — los tipos de los mensajes del jugador (JSDoc, revisados por `npx tsc`) y su validación.
+- `package.json`, `playwright.config.js`, `e2e/` — pruebas de navegador (Playwright contra `wrangler dev`) y herramientas: `npm install`, `npm run navegador`, `npm run local`.
+- `tsconfig.json` — TypeScript de a poco: qué archivos revisa `npx tsc`.
+- `.github/workflows/volver-atras.yml` — volver atrás una publicación del servidor.
 - `test.js` — pruebas de reglas y partidos simulados: `node test.js`.
 - `index.html` — el juego armado, listo para abrir en el navegador.
 
@@ -662,3 +666,64 @@ caro (un 37 % de cada cuadro), después la resolución, y en el bar las tres luc
   a la red y esperaba sin límite. Ahora, si en 6 segundos no contestó o contestó con un error, abre la copia guardada
   y guarda la nueva cuando llega (para la próxima vez). Probado con un servidor local que tarda 30 segundos o contesta
   503: la página abre a los 6 segundos. Vale para quien ya abrió el juego alguna vez en ese navegador.
+
+## Rama "mejoras": base más seria para publicar (20/11)
+
+Cuatro etapas, en la rama `mejoras` (no toca `main` ni el juego publicado hasta que se pase). Cada push a la rama corre
+todo y publica en el **entorno de pruebas**: https://truco-uruguayo-pruebas.tomasaldaya.workers.dev (otro Worker, con
+sus propias mesas y cuentas; el acceso con Google no anda ahí).
+
+**1. Publicación reproducible y pruebas de navegador**
+- GitHub Actions (`servidor.yml`): arma `index.html` con `build.py`, falla si el del repo no está al día (GitHub
+  Pages sirve ese), corre `tsc`, las pruebas de reglas, mesa y cuentas y las de navegador, guarda la página armada y
+  publica **exactamente esa** (en `main`, en producción; en `mejoras`, en pruebas). Si fallan las de navegador, queda
+  el informe de Playwright (videos y pasos) como archivo de la corrida.
+- Pruebas de navegador (`e2e/mesa.spec.js`, contra `wrangler dev`): dos jugadores en una mesa (cada uno ve solo sus
+  cartas y se juega), recargar y volver al mismo lugar con el reloj donde estaba, quien mira sin ninguna carta sin
+  jugar, abrir sin internet, y la mesa 3D bajada al usarla y andando sin internet. En la compu: `npm install`,
+  `npx playwright install chromium` (o `CHROME=/ruta/al/chrome`) y `npm run navegador`.
+- **Volver atrás una publicación**: Actions → "Volver atrás una publicación" → elegir producción o pruebas y, si se
+  quiere, la versión (sin versión, la anterior; la lista sale en el registro). Vuelve la página y el servidor juntos
+  (`wrangler rollback`); los datos no se tocan. GitHub Pages se vuelve atrás revirtiendo el commit en `main`.
+- Las pruebas encontraron y se corrigieron dos errores: **recargar la página en un mano a mano terminaba el partido
+  por abandono** (la página avisaba "me voy"; ahora avisa "pausa" y tiene el rato de gracia), y **al cortarse, la
+  computadora jugaba por él en el acto** (si era su turno, perdía la jugada y el reloj volvía a empezar). Ahora el
+  lugar queda reservado 10 s (`RESERVA_MS`): si vuelve antes, sigue como si nada.
+
+**2. Los resultados de los partidos no se pierden**
+- Antes, la mesa daba el partido por anotado antes de que las cuentas confirmaran, y si esa llamada fallaba (un
+  reinicio justo en ese momento) quedaba fuera del ranking. Ahora queda **pendiente**, guardado con la mesa, y se
+  reintenta (5 s, 10 s, 20 s… hasta cada 5 min; también al despertar la mesa y con su alarma) hasta que las cuentas
+  contestan. La mesa no se borra mientras tenga un resultado pendiente.
+- Las cuentas aplican cada partido **entero o nada** (una transacción: partido, jugadas, ELO, estadísticas, gremios)
+  y **una sola vez por id**, así que reintentar nunca lo anota dos veces.
+- Registros en Cloudflare (Workers → truco-uruguayo → Logs; solo estados y totales, nunca nombres): `resultado`
+  (anotado, reintento), `vuelve` (alguien recuperó su lugar), `despierta` (la mesa volvió de dormir), `voz`.
+- **Ensayo de restauración**: en el entorno de pruebas (y solo ahí: `PERMITIR_RESTAURAR=1`), quien administra puede
+  volver las cuentas a como estaban hace N minutos: `POST /api/admin/restaurar { "minutos": N }` con su sesión
+  (recuperación a un momento dado de SQLite en Cloudflare, hasta 30 días). En producción la misma recuperación existe
+  pero no está habilitada desde el juego.
+
+**3. TypeScript de a poco y la mesa 3D bajo demanda**
+- `server/protocolo.mjs`: el tipo de cada mensaje del jugador (en JSDoc, revisado por `npx tsc`, sin compilar nada) y
+  `validarDelJugador()`, que la mesa usa antes de procesar cualquier mensaje: tipos desconocidos afuera, y cada campo
+  con su clase (texto, número, sí/no, objeto) o se descarta. Para sumar archivos a la revisión: `tsconfig.json`.
+- Three.js y todo lo 3D (personajes, bar) ya no van dentro de `index.html` (de 1,9 a 1,4 MB): se bajan al entrar a la
+  mesa 3D, o en un momento libre después de abrir el juego si la vista es 3D (`V3.cargar`). El service worker guarda
+  `three.min.js` para jugar en 3D sin internet. La pantalla de inicio y la 2D abren antes.
+
+**4. Mesas que duermen y la voz medida**
+- Las mesas usan **WebSockets hibernables** (como las cuentas): sin nada que hacer, el Durable Object duerme y no se
+  cobra. El navegador manda "ping" cada 4 s y lo contesta Cloudflare sin despertarla; la mesa revisa quién se fue
+  (más de 15 s sin ping ni mensajes) solo con el partido en juego, y la alarma hace lo demás (reintentar un resultado,
+  avisar al salón que la pública sigue esperando gente, borrar la mesa vacía a las dos horas). Al despertar, vuelve de
+  lo guardado y de lo que se recordó en cada conexión. Los navegadores con la página vieja siguen andando (la mesa les
+  manda "ping" como antes).
+- **Voz**: a los 20 s de entrar a la voz, cada navegador avisa con cuántos de los que estaban en la voz se pudo conectar
+  (solo los números) y queda en los registros (`ev: voz`). Si falla seguido, se enchufa **TURN**: crear una clave en
+  Cloudflare → Realtime → TURN y cargar `TURN_KEY_ID` y `TURN_KEY_TOKEN` como secretos del Worker
+  (`npx wrangler secret put TURN_KEY_ID`, nunca en el chat ni en el repo). `/api/turn` da credenciales por un día y la
+  voz las usa sola.
+
+**Pendiente** (para cuando se decida): pasar `mejoras` a `main`; mover el cliente a módulos con Vite (hoy sigue
+armado con `build.py`, que anda bien); más archivos en la revisión de tipos; TURN si la medición lo pide.

@@ -629,6 +629,29 @@ await ta('protocolo: solo tipos de mensaje conocidos y cada campo con su clase',
   assert.deepEqual(validarDelJugador({ t: 'hello', name: 'x'.repeat(3000) }), { t: 'hello' });
 });
 
+t('hibernar: al despertar, los que siguen conectados conservan su lugar y lo que se sabía de ellos; el resto, la computadora', () => {
+  const W = mundo(), m = new Mesa(W.io, null);
+  m.onOpen('a'); m.onMessage('a', { t: 'hello', name: 'Ana', pid: 'pa', crear: { n: 4, key: 'k' } });
+  m.onOpen('b'); m.onMessage('b', { t: 'hello', name: 'Beto', pid: 'pb' });
+  m.onOpen('c'); m.onMessage('c', { t: 'hello', name: 'Ceci', pid: 'pc' });
+  m.onMessage('a', { t: 'start', rules: { target: 30 } });
+  m.saveNow();
+  const recuerdos = ['a', 'b'].map(cid => m.recuerdo(cid));   // 'c' ya no está cuando despierta
+  const W2 = mundo(); W2.io.vivo = () => W2.now;
+  const m2 = new Mesa(W2.io, W.saved.data, recuerdos);
+  const lugar = cid => m2.seats.findIndex(x => x.cid === cid);
+  assert.equal(m2.seats[lugar('a')].kind, 'host'); assert.equal(m2.seats[lugar('b')].kind, 'guest');
+  assert.equal(lugar('c'), -1); assert.equal(m2.seats[3].kind, 'ai');
+  assert.deepEqual(m2.GM.humans.sort(), [lugar('a'), lugar('b')].sort());
+  assert.equal(m2.conns.get('b').pid, 'pb');
+  m2.onMessage('b', { t: 'chat', text: 'sigo acá' }); assert.equal(last(W2.inbox, 'a', 'chat').text, 'sigo acá');
+  // sin partido en juego no hay latido (la mesa puede dormir); con partido, sí
+  const W3 = mundo(); W3.io.vivo = () => W3.now; const m3 = new Mesa(W3.io, null);
+  m3.onOpen('x'); m3.onMessage('x', { t: 'hello', name: 'X', pid: 'px', crear: { n: 2, key: 'k' } });
+  assert.equal(m3.beat, null);
+  m3.onMessage('x', { t: 'start' }); assert.notEqual(m3.beat, null);
+});
+
 t('gestos y sonidos: solo códigos válidos, solo de quien juega y de a uno cada tanto', () => {
   const W = mundo(), m = new Mesa(W.io, null);
   m.onOpen('a'); m.onMessage('a', { t: 'hello', name: 'Ana', pid: 'pa', crear: { n: 2, key: 'k' } });
