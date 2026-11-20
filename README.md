@@ -567,7 +567,7 @@ Herramientas: `tools/ia/lalo.js` (esa mano, con lo que decide la computadora) y 
 
 - **Dedito para arriba**: el puño de costado con los dedos doblados al frente (nudillos) y el pulgar arriba, del
   lado de adentro; antes el pulgar solo, en el medio del puño, parecía el dedo del medio.
-- **Te estoy mirando**: la mano al costado de la cabeza, con el índice de lado yendo al ojo (de frente, el dedo sobre
+- **Te estoy mirando**: la mano al costado de la cabeza, con el índice de lado apuntando a la parte de abajo del ojo (de frente, el dedo sobre
   la cara no se distinguía), y después te señala.
 - **Qué sé yo**: la mano a su derecha, palma para arriba, con los dedos y el pulgar apuntando para afuera (forma
   `palma`; la mano se orienta con `apuntar`: hacia dónde van los dedos y hacia dónde mira la palma).
