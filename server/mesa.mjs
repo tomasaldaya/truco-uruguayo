@@ -45,6 +45,9 @@ export function limpiarCfg(x, base) {
 }
 // irse en medio del partido lo pierde: si se va a propósito, enseguida; si se le corta, tiene este rato para volver
 export const GRACIA_MS = 60000;
+// al cortarse (recargar, dormirse el celular) el lugar lo espera este rato antes de que juegue la computadora por él:
+// si vuelve antes, sigue como si nada (su reloj siguió corriendo)
+export const RESERVA_MS = 10000;
 const team = p => p % 2;
 const joinY = l => l.length <= 1 ? l.join('') : l.slice(0, -1).join(', ') + ' y ' + l[l.length - 1];
 const cleanName = v => String(v || '').replace(/\s+/g, ' ').trim().slice(0, 20) || 'Invitado';
@@ -78,6 +81,7 @@ export class Mesa {
     this.n = s.n || 4; this.started = !!s.started; this.cfg = limpiarCfg(s.cfg);
     this.publica = !!s.publica; this.votos = new Set(); this.empiezaEn = null; this.cuentaT = null; this.salonT = null;
     this.ausentes = new Map();             // lugar -> temporizador de los que se cortaron en medio del partido
+    this.reservas = new Map();             // lugar -> temporizador del lugar reservado al que se acaba de cortar
     this.speed = s.speed || 'normal'; this.level = s.level || 'normal';
     this.chat = s.chat || []; this.GM = s.GM || null;
     this.vetados = Array.isArray(s.vetados) ? s.vetados.slice(-MAX_VETADOS) : [];   // echados de esta mesa: { pid, uid }
@@ -109,7 +113,7 @@ export class Mesa {
     const s = this.seatOf(cid);
     if (s >= 0) {
       if (s === 0 && !this.started && !this.publica) this.seats[0].cid = null;   // el dueño se fue antes de empezar: el lugar lo espera
-      else { this.freeSeat(s); this.seFue(s, false); }
+      else this.reservar(s);
       this.lobbyChanged();
       if (this.started) this.publish();
     }
@@ -127,7 +131,7 @@ export class Mesa {
       case 'pong': if (typeof m.s === 'number') c.alive = Math.max(c.alive, m.s); if (s < 0 && m.seated && this.key) this.send(cid, this.lobbyMsg()); return;
       case 'sit': return this.sit(cid, m);
       // bye con pausa: recargó o cerró la pestaña (tiene el rato de gracia para volver); sin pausa: se fue a propósito
-      case 'bye': if (s >= 0) { if (s === 0 && !this.started && !this.publica) this.seats[0].cid = null; else { this.freeSeat(s); this.seFue(s, !m.pausa); } this.lobbyChanged(); if (this.started) this.publish(); } return;
+      case 'bye': if (s >= 0) { if (s === 0 && !this.started && !this.publica) this.seats[0].cid = null; else if (m.pausa) this.reservar(s); else { this.freeSeat(s); this.seFue(s, true); } this.lobbyChanged(); if (this.started) this.publish(); } return;
       case 'empezar': return this.votar(s, m);
       case 'act': return this.act(cid, s, m.a);
       case 'senas':
@@ -274,7 +278,21 @@ export class Mesa {
     if (c) { c.equipo = team(p); c.abandono = false; }
     else this.cuentas.set(s.uid, { equipo: team(p), abandono: false, stats: { manos: 0, manosGanadas: 0, envidos: 0, flores: 0, trucos: 0, faltas: 0, falta37: 0 } });
   }
+  // se cortó: con el partido empezado, el lugar queda a su nombre RESERVA_MS (sin conexión; si le toca, su reloj sigue y
+  // al vencer decide la computadora como siempre); después lo toma la computadora y corre el rato de gracia (GRACIA_MS)
+  reservar(s) {
+    if (!this.started || !this.GM || this.GM.phase === 'matchEnd') { this.freeSeat(s); this.seFue(s, false); return; }
+    this.seats[s].cid = null;
+    this.io.clearTimeout(this.reservas.get(s));
+    this.reservas.set(s, this.io.setTimeout(() => {
+      this.reservas.delete(s);
+      const x = this.seats[s];
+      if (!x || x.kind === 'ai' || x.cid) return;
+      this.freeSeat(s); this.seFue(s, false); this.lobbyChanged(); if (this.started) this.publish();
+    }, RESERVA_MS));
+  }
   takeSeat(p, who) {
+    if (this.reservas.has(p)) { this.io.clearTimeout(this.reservas.get(p)); this.reservas.delete(p); }
     const cc = this.conns.get(who.cid);
     if (this.ausentes.has(p)) { this.io.clearTimeout(this.ausentes.get(p)); this.ausentes.delete(p); }
     this.seats[p] = { kind: who.kind, name: who.name, cid: who.cid, pid: who.pid, uid: (cc && cc.uid) || null, pj: (cc && cc.pj) || null, racha: (cc && cc.racha) || 0 };
@@ -688,6 +706,7 @@ export class Mesa {
     this.io.end();
   }
   stopTimers() { for (const tm of (this.ausentes || new Map()).values()) this.io.clearTimeout(tm); if (this.ausentes) this.ausentes.clear();
+    for (const tm of this.reservas.values()) this.io.clearTimeout(tm); this.reservas.clear();
     this.stopTimers0(); }
   stopTimers0() { this.io.clearTimeout(this.timer); this.io.clearTimeout(this.clockT); this.io.clearTimeout(this.endT); this.io.clearTimeout(this.saveT); this.io.clearTimeout(this.cuentaT); this.timer = this.clockT = this.endT = this.saveT = this.cuentaT = null; this.clock = null; this.empiezaEn = null; }
 

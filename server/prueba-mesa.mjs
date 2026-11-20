@@ -136,12 +136,15 @@ t('quien se va lo reemplaza la computadora y al volver (aunque recargue) recuper
   m.onOpen('b'); m.onMessage('b', { t: 'hello', name: 'Juan', pid: 'pb' });
   m.onMessage('a', { t: 'start' });
   m.onClose('b');
+  // primero el lugar lo espera unos segundos a su nombre (sin conexión); después lo toma la computadora
+  assert.equal(m.seats[2].kind, 'guest'); assert.equal(m.seats[2].cid, null); assert(m.GM.humans.includes(2));
+  W.run(10500);
   assert.equal(m.seats[2].kind, 'ai'); assert(!m.GM.humans.includes(2));
   m.onOpen('b2'); m.onMessage('b2', { t: 'hello', name: 'Juan Pablo', pid: 'pb' });   // mismo identificador, otro nombre
   assert.equal(m.seats[2].cid, 'b2'); assert(m.GM.humans.includes(2));
   assert.equal(last(W.inbox, 'b2', 'state').seat, 2);
   // el dueño recarga: vuelve con su llave
-  m.onClose('a'); assert.equal(m.seats[0].kind, 'ai');
+  m.onClose('a'); W.run(10500); assert.equal(m.seats[0].kind, 'ai');
   m.onOpen('a2'); m.onMessage('a2', { t: 'hello', name: 'Ana', pid: 'otro', key: 'k' });
   assert.equal(m.seats[0].kind, 'host'); assert.equal(m.seats[0].cid, 'a2');
   // alguien nuevo con el partido empezado ve la mesa y elige lugar
@@ -490,7 +493,7 @@ await ta('abandono: si se le corta, tiene un minuto para volver; si no vuelve, p
   for (let i = 0; i < 70; i++) { W.run(1000); vivo(m, W, 'a'); vivo(m, W, 'b2'); }
   assert.notEqual(m.GM.phase, 'matchEnd', 'volvió: sigue el partido');
   m.onClose('b2');
-  for (let i = 0; i < 62; i++) { W.run(1000); vivo(m, W, 'a'); }
+  for (let i = 0; i < 72; i++) { W.run(1000); vivo(m, W, 'a'); }   // 10 s de lugar reservado + 60 s de gracia
   assert.equal(m.GM.phase, 'matchEnd'); assert.equal(m.GM.matchWinner, 0);
 });
 
@@ -601,13 +604,16 @@ t('lugar de la mesa (escenario): bar por defecto, solo valores conocidos, y el d
   m.onMessage('a', { t: 'cfg', cfg: { escenario: 'clasico' } }); assert.equal(last(W.inbox, 'b', 'lobby').cfg.escenario, 'clasico');
 });
 
-t('recargar la página (bye con pausa) no es abandonar: en mano a mano el partido sigue y vuelve a su lugar', () => {
+t('recargar la página (bye con pausa) no es abandonar: el lugar lo espera, su reloj sigue y vuelve como si nada', () => {
   const W = mundo(), m = new Mesa(W.io, null);
   m.onOpen('a'); m.onMessage('a', { t: 'hello', name: 'Ana', pid: 'pa', crear: { n: 2, key: 'k' } });
   m.onOpen('b'); m.onMessage('b', { t: 'hello', name: 'Beto', pid: 'pb' });
   m.onMessage('a', { t: 'start', rules: { target: 30 } });
+  const log0 = m.GM.log.length, reloj0 = m.clock && m.clock.end;
   m.onMessage('b', { t: 'bye', pausa: true }); m.onClose('b');
   W.run(5000); assert.notEqual(m.GM.phase, 'matchEnd');
+  assert.equal(m.seats[1].kind, 'guest');                                   // la computadora todavía no juega por él
+  assert.equal(m.GM.log.length, log0); assert.equal(m.clock && m.clock.end, reloj0);   // ni se reinicia el reloj
   m.onOpen('b2'); m.onMessage('b2', { t: 'hello', name: 'Beto', pid: 'pb' });
   assert.equal(m.seatOf('b2'), 1); assert.notEqual(m.GM.phase, 'matchEnd');
   // irse a propósito sí termina el mano a mano
