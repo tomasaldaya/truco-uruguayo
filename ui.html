@@ -804,8 +804,12 @@ const $ = id => document.getElementById(id);
 let ME = 0, GM = null, NET = null;
 let G = null, busy = false, timer = null, showHelp = true, showRanks = false, realista = false, errMsg = '';
 let customDeck = null;
-let tableRules = {}, level = 'normal';
-try { tableRules = JSON.parse(store_get_raw('truco.rules') || '{}') || {}; } catch(e) { tableRules = {}; }
+// Las reglas de la mesa son fijas (ya no se cambian en Configuración): a 30 puntos, al mejor de tres, 30 segundos por
+// decisión, con flor, flor anulada si tu compañero toca o grita, sin achique, parda, con señas y mazo solo. Contra la
+// computadora en tercetos, a 40. En una mesa online, quien la crea elige los puntos, los chicos y el achique.
+const tableRules = Object.assign({}, T.DEFAULT_RULES, { target: 30, chicosToWin: 2, tiempo: 30, flor: true, florCompanero: 'niega', achique: false, iguales: 'parda', senas: true, mazo: 'solo' });
+const reglasSolo = n => n === 6 ? Object.assign({}, tableRules, { target: 40 }) : tableRules;
+let level = 'normal';
 let players = 2, speed = 'normal', holdUntil = 0, lastRoundNo = 0, lastTricks = 0, holdTimer = null;
 const SPEEDS = { lenta: 1.6, normal: 1, 'rápida': 0.55 };
 const ACCION = {'2':'levantar las cejas','4':'adelantar los labios','5':'fruncir la nariz','perico':'guiñar un ojo','mata':'torcer los labios','3':'morder el labio','dos':'abrir un poco la boca','as':'sacar un poquito la lengua','nada':'cerrar los ojos'};
@@ -1492,21 +1496,6 @@ function statsModal(){
   $('sReset').onclick = () => { store.set('truco.stats', JSON.stringify(emptyStats())); statsModal(); };
 }
 
-// ---------- Reglas de la mesa ----------
-const RULE_OPTS = [
-  ['h', 'Partido'],
-  ['target', 'Puntos por chico', [[40,'40 (reglamento)'],[30,'30'],[20,'20'],[10,'10']]],
-  ['chicosToWin', 'Chicos', [[2,'Al mejor de tres'],[1,'Un solo chico']]],
-  ['tiempo', 'Tiempo para decidir', [[30,'30 segundos'],[60,'60 segundos'],[0,'Sin límite']]],
-  ['h', 'Flor y envido'],
-  ['flor', 'Flor', [[true,'Se juega con flor'],[false,'Sin flor']]],
-  ['florCompanero', 'Si tu compañero toca o grita antes de que cantes tu flor', [['niega','Tu flor queda anulada'],['tengo','Decís "tengo flor" y se juega la flor']]],
-  ['achique', 'Con flor envido no querido', [[false,'Sin achique: el que envidó cobra su flor (3)'],[true,'Con achique: cobra su flor y un punto más (4)']]],
-  ['h', 'Bazas y señas'],
-  ['iguales', 'Cartas iguales de rivales', [['parda','Parda (Art. 57)'],['mano','Gana la del más mano (Art. 12)']]],
-  ['senas', 'Señas entre compañeros', [[true,'Permitidas'],[false,'No se usan']]],
-  ['mazo', 'Si te vas al mazo sin ser el pie', [['solo','Te vas solo y tu equipo sigue'],['equipo','Se va todo el equipo (Art. 90)']]],
-];
 // ---------- Flujo ----------
 const delayScale = () => (window.TRUCO_DELAY_SCALE || 1) * SPEEDS[speed];
 function human(a){
@@ -1762,7 +1751,7 @@ function advanceRound(){
 function newGame(n){
   clearTimeout(timer); busy = false; deferred = null; ME = 0;
   players = n; store.set('truco.players', String(n));
-  GM = T.newMatch({players:n, manual:[realista], rules: tableRules});
+  GM = T.newMatch({players:n, manual:[realista], rules: reglasSolo(n)});
   GM.pjs = Array(n).fill(null); GM.pjs[0] = miPj();
   GM.id = newMatchId();
   T.startRound(GM); startRoundHook(); lastRoundNo = null;
@@ -1798,7 +1787,7 @@ $('btnRanks').onclick = () => { showRanks=!showRanks; $('btnRanks').setAttribute
 $('btnMenu').onclick = () => showHome();
 function howToModal(){
   toolModal(`<h3>Cómo se juega</h3>
-  <p>Partido al mejor de tres chicos. Cada chico es a 40 puntos: los primeros 20 son <b>malas</b> y los otros 20 <b>buenas</b>. En Reglas de la mesa se puede jugar a menos puntos o a un solo chico.</p>
+  <p>Partido al mejor de tres chicos. Contra la computadora cada chico es a 30 puntos (en tercetos, a 40): la primera mitad son <b>malas</b> y la otra mitad <b>buenas</b>. En una mesa online, quien la crea elige a cuántos puntos y cuántos chicos.</p>
   <p>Después de repartir se da vuelta la <b>muestra</b>. Del palo de la muestra, el 2, el 4, el 5, el caballo y la sota son <b>piezas</b>, las cartas más altas. Si la muestra es una de ellas, el rey toma su lugar.</p>
   <p><b>Flor:</b> tres cartas del mismo palo, una pieza con dos del mismo palo, o dos piezas. Se canta cuando te toca; si alguien la cantó, los demás que tengan la cantan en orden. Vale 3 cada una y anula el envido.</p>
   <p><b>Achique:</b> si los dos equipos cantaron flor y uno envida (con flor envido o contra flor) y el otro no quiere, el que envidó cobra su flor (3). Si la mesa juega <i>con achique</i>, cobra además un punto: 4. En un reenvite no querido no se suma, como pasa con el envido.</p>
@@ -1806,16 +1795,16 @@ function howToModal(){
   <p><b>Truco:</b> truco 2, retruco 3, vale cuatro 4. Gana la mano quien gane dos bazas. Si dos rivales tiran cartas iguales la baza es parda; si las iguales son de compañeros, la baza es de ese equipo (Arts. 57 a 59).</p>
   <p><b>Parejas:</b> se juega hacia la derecha. Si un rival te canta truco o envido y podés contestar, contestás vos. Las señas del Art. 102 te las hace tu compañero al empezar la mano, y vos se las hacés a él con los botones de abajo. Con <b>Ayudas</b> se ve qué significa cada seña. Si tenés dos cartas iguales (dos matas, dos tres), la seña se hace dos veces: tocá el botón otra vez. Si tu compañero toca o grita antes de que cantes tu flor, te la anula: por eso la computadora deja tocar y gritar al que ya tiene a sus compañeros jugados.</p>
   <p><b>La muestra de cerca:</b> pasá el cursor por encima de la muestra (o tocala) y la cámara se acerca a mirarla; con el teclado, la tecla M.</p>
-  <p><b>Tiempo:</b> tenés 30 segundos para cada decisión (se cambia en Reglas de la mesa). Si se te acaba, decide la computadora por vos. Con el menú abierto la cuenta se frena.</p>
+  <p><b>Tiempo:</b> tenés 30 segundos para cada decisión. Si se te acaba, decide la computadora por vos. Con el menú abierto la cuenta se frena.</p>
   <p><b>Señas pescadas:</b> de cada 50 señas que se hacen, una la ve algún rival. Te puede pasar a vos con las señas de Tito y Nacho, y a ellos con las tuyas o las de Pocho. Lo que se ve es siempre verdad, y la computadora también lo usa.</p>
   <p><b>Modo realista:</b> la flor no se canta sola y los puntos los cantás vos. Si jugás o cantás otra cosa sin cantar tu flor, la negás. Las faltas se descubren cuando se ven tus cartas. Cantar errado se descubre si ganás un envite (tenés que mostrarlas) o si jugás las tres, y te hace perder todo lo de la mano (Art. 46). La flor negada se descubre si ganás un envite o cuando las cartas que jugaste la muestran (con dos piezas alcanza; si no, hacen falta las tres): el rival cobra los 3 de la flor y el truco que se esté jugando, se termina la mano, y el envido que haya cobrado tu equipo no vale. Cantar flor sin tenerla se descubre enseguida. Si ganaste el envido o cantaste flor y te vas al mazo, tirás tus cartas sin mostrarlas y esos puntos van para el rival: para salir de la mano sin perderlos, decí <i>paso</i> y las mostrás al final. Si se te acaba el tiempo para cantar tus puntos, esos puntos son para el rival; si se te acaba en otra decisión, la computadora decide por vos sin hacer trampa (canta tu flor y dice la verdad).</p>
   <p><b>Mesas online:</b> quien crea la mesa elige a cuántos puntos se juega, cuántos chicos, si se cobra el achique y si hay chat de texto y de voz. Se juega siempre en modo realista, para que nadie tenga la ventaja de que el juego le cante los puntos. Quien no tiene lugar puede <b>mirar</b> el partido: ve las cartas cuando se juegan, nunca las que están en la mano. Si alguien que mira molesta, los que juegan pueden votar echarlo y no vuelve a entrar a esa mesa.</p>
   <p><b>Mostrar las cartas:</b> al terminar la mano, el que ganó el envido o cantó flor da vuelta sus cartas sobre la mesa para que se vea que tenía lo que cantó (Art. 45).</p>
-  <p><b>Paso y mazo:</b> en parejas y tercetos, si decís "paso" salís de la mano y no jugás más bazas, pero te quedás con tus cartas por si tenés que mostrarlas (Arts. 88 y 92). Si te vas al mazo sin ser el pie de tu equipo, te vas solo y tu equipo sigue; si se va el pie, pierde el equipo. En Reglas de la mesa podés elegir en cambio que irse al mazo saque a todo el equipo (Art. 90). Si un equipo se va en la primera baza sin que nadie haya tocado ni gritado, y al otro todavía le quedaba tocar, el otro cobra <b>dos</b> puntos.</p>
+  <p><b>Paso y mazo:</b> en parejas y tercetos, si decís "paso" salís de la mano y no jugás más bazas, pero te quedás con tus cartas por si tenés que mostrarlas (Arts. 88 y 92). Si te vas al mazo sin ser el pie de tu equipo, te vas solo y tu equipo sigue; si se va el pie, pierde el equipo. Si un equipo se va en la primera baza sin que nadie haya tocado ni gritado, y al otro todavía le quedaba tocar, el otro cobra <b>dos</b> puntos.</p>
   <p><b>Atajos al compañero:</b> en parejas y tercetos, abajo tenés <i>¡Vení!</i> (que juegue su carta más baja, que la baza la hacés vos), <i>¡Jugá algo!</i> (que no tire la peor), <i>¡Gritá!</i> (que cante truco) y <i>Tengo algo para el tanto</i> (que toque o quiera el envido). Los oye toda la mesa, como si lo dijeras en voz alta; la computadora compañera te hace caso.</p>
   <p><b>Tercetos:</b> hasta que un equipo llega a la mitad del chico se alternan rondas generales y rondas mano a mano, en las que cada uno juega contra el rival de enfrente; ahí la falta tiene tope de 10 (Arts. 83 a 87). En esos duelos (el pico a pico) las piezas se juegan dadas vuelta: solo las ven los dos que juegan ese duelo. Lo mismo al final: si alguien ganó el envite o cantó flor, sus cartas se las muestra solo a su rival del duelo.</p>
   <p><b>A ley de juego:</b> en parejas y tercetos, cuando algún equipo ya entró en buenas, el equipo que va perdiendo (o el del mano, si van iguales) puede imponerla en cada mano antes de ver las cartas y la muestra (nadie ve sus cartas mientras se decide), o jugar normal. Los rivales, ya con sus cartas a la vista, dicen cada uno en su turno "con ley" si tienen flor o "a punto" si no, y después el pie de su equipo contesta todo de una vez. Los que la impusieron ven sus cartas cuando llega la respuesta. Si hay flor y no se quiere el envite, se cobra la flor y el envite no querido no suma para nadie. Es una versión simplificada del Cap. 7: no incluye los reenvites del Art. 76 ni el Art. 79.</p>
-  <p><b>Reglas de la mesa:</b> en Configuración, desde el menú: puntos por chico, cantidad de chicos, tiempo para decidir, con o sin flor, qué pasa con tu flor si tu compañero toca o grita, cartas iguales, señas y dificultad.</p>
+  <p><b>Reglas de la mesa:</b> se juega con flor; si tu compañero toca o grita antes de que cantes tu flor, queda anulada; sin achique; cartas iguales de rivales, parda (Art. 57); con señas. En Configuración elegís la dificultad.</p>
   <p class="small">Tocar es envido, gritar es truco, cantar es flor. Reglas según el Reglamento del Truco Uruguayo.</p>
   <div class="row"><button class="act" id="mOk">Entendido</button><button class="act sec" id="mRegl">Ver el reglamento completo</button></div>`);
   $('mOk').onclick = closeTool; $('mRegl').onclick = reglamentoModal;

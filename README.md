@@ -101,7 +101,7 @@ Es lo primero que aparece al abrir el juego, y se vuelve a ella con el botón **
 - **Partido nuevo:** mano a mano, parejas o tercetos. Si hay un partido sin terminar, pide
   confirmación antes de empezar otro.
 - **Configuración:** todo en un lugar y se guarda al cambiarlo. Pantalla (mesa 3D o 2D, ayudas,
-  velocidad), partido (dificultad, modo realista) y reglas de la mesa (rigen desde el próximo partido).
+  velocidad), sonido y partido (dificultad, modo realista). Las reglas de la mesa ya no se cambian ahí (ver abajo).
 - **Tu mazo**, **Cómo se juega** y **Estadísticas**.
 
 Mientras se ve la pantalla de inicio, el partido queda en pausa. Durante el juego, arriba quedan
@@ -585,3 +585,13 @@ Herramientas: `tools/ia/lalo.js` (esa mano, con lo que decide la computadora) y 
 - Al rehacer la lista de dichos se borró sin querer `const REGLAMENTO` de `extras.part.js`, y el botón "Reglamento"
   (y "Ver el reglamento completo") dejó de abrir. Volvió, y `build.py` ahora se niega a armar `index.html` si falta el
   reglamento o si quedó alguna parte sin reemplazar.
+
+## Reglas de la mesa fijas (19/11)
+
+- Se sacó "Reglas de la mesa" de Configuración. Las reglas son fijas (`tableRules` en `ui.html`): a 30 puntos, al
+  mejor de tres, 30 segundos por decisión, con flor, flor anulada si tu compañero toca o grita antes de que la cantes,
+  sin achique, cartas iguales de rivales parda (Art. 57), con señas y, si te vas al mazo sin ser el pie, te vas solo y
+  tu equipo sigue. Lo que alguien tenía guardado de antes (`truco.rules`) ya no se usa.
+- Contra la computadora en tercetos se juega a 40 (`reglasSolo`).
+- En las mesas online, quien la crea sigue eligiendo a cuántos puntos, cuántos chicos, el achique, el chat y la voz;
+  lo demás son estas reglas fijas.

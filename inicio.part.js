@@ -183,10 +183,9 @@ function pintarInicio(){
 }
 
 // ---------- Configuración ----------
-// Todo se guarda al cambiarlo. La dificultad y lo de pantalla rigen enseguida, el modo realista
-// desde la próxima mano y las reglas de la mesa desde el próximo partido.
+// Todo se guarda al cambiarlo. La dificultad y lo de pantalla rigen enseguida y el modo realista desde la próxima
+// mano. Las reglas de la mesa son fijas (tableRules en ui.html).
 function renderConfig(box){
-  const R0 = Object.assign({}, T.DEFAULT_RULES, tableRules);
   const seg = (k, lbl, opts, val, dis) => `<div class="seg" role="group" aria-label="${esc(lbl)}" data-k="${k}">`
     + opts.map(([v, l]) => `<button type="button" data-v="${String(v)}" aria-pressed="${String(v) === String(val)}"${dis ? ' disabled' : ''}>${esc(l)}</button>`).join('') + '</div>';
   const row = (k, lbl, opts, val, desc, dis) => {
@@ -196,7 +195,6 @@ function renderConfig(box){
     return `${short ? `<span class="lbl">${esc(lbl)}</span>` : `<label for="c_${k}">${esc(lbl)}</label>`}${ctl}${desc ? `<div class="desc">${desc}</div>` : ''}`;
   };
   const can3d = V3.available();
-  const rules = RULE_OPTS.filter(o => o[0] !== 'h').map(o => row(o[0], o[1], o[2], R0[o[0]])).join('');
   box.innerHTML = `<div class="hbar"><button class="tool" id="hBack">Volver</button><h2>Configuración</h2></div>
     <section class="cfgsec"><h3>Pantalla</h3><div class="cfg">
       ${row('view', 'Mesa', [['3d', '3D'], ['2d', '2D']], can3d && view3d ? '3d' : '2d', can3d ? 'La 3D tiene cámara que gira y caras que hacen las señas; la 2D es más simple.' : 'Este navegador no puede mostrar la mesa 3D.', !can3d)}
@@ -210,9 +208,7 @@ function renderConfig(box){
     <section class="cfgsec"><h3>Partido</h3><div class="cfg">
       ${row('level', 'Dificultad', [['facil', 'Fácil'], ['normal', 'Normal'], ['dificil', 'Difícil']], level, 'En difícil la computadora se acuerda de tus mentiras y tus faroles.')}
       ${row('real', 'Modo realista', [['0', 'No'], ['1', 'Sí']], realista ? '1' : '0', 'Cantás tus puntos a mano y podés equivocarte o negar la flor, con las penas del reglamento. Rige desde la próxima mano. Es para jugar contra la computadora: en las mesas online se juega siempre en modo realista.')}
-    </div></section>
-    <section class="cfgsec"><h3>Reglas de la mesa</h3><div class="cfg">${rules}</div>
-      <p class="cfgnote">En cada lugar se juega un poco distinto. Estas reglas se aplican desde el próximo partido. En una mesa online, los puntos, los chicos y el achique los elige quien crea la mesa; lo demás sale de acá.</p></section>`;
+    </div></section>`;
   $('hBack').onclick = () => { homeView = 'main'; renderHome(); $('hCfg').focus(); };
   box.querySelectorAll('.seg button').forEach(b => b.onclick = () => {
     setCfg(b.parentNode.dataset.k, b.dataset.v);
@@ -228,8 +224,4 @@ function setCfg(k, v){
   else if (k === 'vol') SND.setVol(v);
   else if (k === 'level') { level = v; store.set('truco.level', v); }
   else if (k === 'real') setRealista(v === '1');
-  else {
-    tableRules = Object.assign({}, tableRules, { [k]: v === 'true' ? true : v === 'false' ? false : /^\d+$/.test(v) ? +v : v });
-    store.set('truco.rules', JSON.stringify(tableRules));
-  }
 }
