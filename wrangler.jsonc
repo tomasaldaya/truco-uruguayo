@@ -9,5 +9,15 @@
   // el ID de cliente de Google (es público: lo ve cualquiera en la página) y los números de cuenta de
   // quienes administran el juego (ven la lista de cuentas creadas; se ve el número en "Mi perfil")
   "vars": { "GOOGLE_CLIENT_ID": "585711184422-tgds2q4ivf64q8i57pvldn9uu2l0cqgr.apps.googleusercontent.com", "ADMINS": "1" },
-  "observability": { "enabled": true }
+  "observability": { "enabled": true },
+  // Entorno de pruebas: otro Worker (truco-uruguayo-pruebas.<subdominio>.workers.dev) con sus propias mesas y
+  // cuentas (sus propios Durable Objects: no toca los datos de verdad). Lo publica GitHub Actions desde la rama
+  // "mejoras" (wrangler deploy --env pruebas). El acceso con Google no anda ahí (no es un origen autorizado).
+  "env": {
+    "pruebas": {
+      "name": "truco-uruguayo-pruebas",
+      "durable_objects": { "bindings": [{ "name": "MESAS", "class_name": "MesaDO" }, { "name": "CUENTAS", "class_name": "CuentasDO" }] },
+      "vars": { "GOOGLE_CLIENT_ID": "585711184422-tgds2q4ivf64q8i57pvldn9uu2l0cqgr.apps.googleusercontent.com", "ADMINS": "1" }
+    }
+  }
 }

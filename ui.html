@@ -1820,6 +1820,7 @@ document.addEventListener('keydown', e => {
 
 window.__trucoGame = () => GM || G; window.__trucoView = () => G;
 window.__trucoAct = a => human(a); window.__trucoLegal = () => legalNow(); window.__trucoMe = () => ME; window.__trucoActor = () => actorNow();
+window.__trucoReloj = () => { try { return clockInfo(); } catch (e) { return null; } };   // para las pruebas: { p, ms } de la jugada en curso
 window.__trucoNet = () => NET && { role: NET.role, code: NET.code, started: NET.started, seat: NET.seat, seats: NET.seats || (NET.lobby && NET.lobby.seats), kind: NET.tr && NET.tr.kind, voz: !!vozRoom(), cfg: mesaCfg() }; window.__trucoStep = () => { busy = false; step(); };
 window.__trucoNew = n => startGame(n); window.__v3 = V3;
 // Al abrir: pantalla de inicio, con el partido guardado listo para continuar si había uno

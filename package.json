@@ -1,0 +1,15 @@
+{
+  "name": "truco-uruguayo",
+  "private": true,
+  "description": "Truco uruguayo para el navegador (las herramientas de desarrollo: pruebas de navegador y wrangler)",
+  "scripts": {
+    "armar": "python3 build.py && mkdir -p public && cp index.html privacidad.html manifest.webmanifest sw.js icono-*.png public/",
+    "pruebas": "node test.js && node server/prueba-mesa.mjs && node server/prueba-cuentas.mjs",
+    "navegador": "npm run armar && playwright test",
+    "local": "npm run armar && wrangler dev --ip 127.0.0.1 --port 8787"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.57.0",
+    "wrangler": "4.50.0"
+  }
+}

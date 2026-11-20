@@ -601,6 +601,19 @@ t('lugar de la mesa (escenario): bar por defecto, solo valores conocidos, y el d
   m.onMessage('a', { t: 'cfg', cfg: { escenario: 'clasico' } }); assert.equal(last(W.inbox, 'b', 'lobby').cfg.escenario, 'clasico');
 });
 
+t('recargar la página (bye con pausa) no es abandonar: en mano a mano el partido sigue y vuelve a su lugar', () => {
+  const W = mundo(), m = new Mesa(W.io, null);
+  m.onOpen('a'); m.onMessage('a', { t: 'hello', name: 'Ana', pid: 'pa', crear: { n: 2, key: 'k' } });
+  m.onOpen('b'); m.onMessage('b', { t: 'hello', name: 'Beto', pid: 'pb' });
+  m.onMessage('a', { t: 'start', rules: { target: 30 } });
+  m.onMessage('b', { t: 'bye', pausa: true }); m.onClose('b');
+  W.run(5000); assert.notEqual(m.GM.phase, 'matchEnd');
+  m.onOpen('b2'); m.onMessage('b2', { t: 'hello', name: 'Beto', pid: 'pb' });
+  assert.equal(m.seatOf('b2'), 1); assert.notEqual(m.GM.phase, 'matchEnd');
+  // irse a propósito sí termina el mano a mano
+  m.onMessage('b2', { t: 'bye' }); assert.equal(m.GM.phase, 'matchEnd');
+});
+
 t('gestos y sonidos: solo códigos válidos, solo de quien juega y de a uno cada tanto', () => {
   const W = mundo(), m = new Mesa(W.io, null);
   m.onOpen('a'); m.onMessage('a', { t: 'hello', name: 'Ana', pid: 'pa', crear: { n: 2, key: 'k' } });

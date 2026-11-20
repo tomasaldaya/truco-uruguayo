@@ -122,7 +122,8 @@ export class Mesa {
       case 'hello': return this.hello(cid, m);
       case 'pong': if (typeof m.s === 'number') c.alive = Math.max(c.alive, m.s); if (s < 0 && m.seated && this.key) this.send(cid, this.lobbyMsg()); return;
       case 'sit': return this.sit(cid, m);
-      case 'bye': if (s >= 0) { if (s === 0 && !this.started && !this.publica) this.seats[0].cid = null; else { this.freeSeat(s); this.seFue(s, true); } this.lobbyChanged(); if (this.started) this.publish(); } return;
+      // bye con pausa: recargó o cerró la pestaña (tiene el rato de gracia para volver); sin pausa: se fue a propósito
+      case 'bye': if (s >= 0) { if (s === 0 && !this.started && !this.publica) this.seats[0].cid = null; else { this.freeSeat(s); this.seFue(s, !m.pausa); } this.lobbyChanged(); if (this.started) this.publish(); } return;
       case 'empezar': return this.votar(s, m);
       case 'act': return this.act(cid, s, m.a);
       case 'senas':

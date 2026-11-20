@@ -217,7 +217,9 @@ function netStatus(){
 function leaveNet(soft){
   if (!NET) return;
   if (!soft) { if (NET.role === 'host') netPost({ t: 'closed' }); else netPost({ t: 'bye' }); }
-  else if (NET.role === 'host') netPost({ t: 'away' }); else netPost({ t: 'bye' });
+  // recargar o cerrar la pestaña no es irse: con 'pausa' el servidor le guarda el lugar el rato de gracia (antes mandaba
+  // 'bye' y en un mano a mano el partido terminaba ahí mismo por abandono)
+  else if (NET.role === 'host') netPost({ t: 'away' }); else netPost({ t: 'bye', pausa: true });
   clearTimeout(NET.helloT); clearInterval(NET.beat);
   vozStop();
   const tr = NET.tr, vr = NET.vr;

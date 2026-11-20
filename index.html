@@ -9977,6 +9977,7 @@ function setCfg(k, v){
 
 window.__trucoGame = () => GM || G; window.__trucoView = () => G;
 window.__trucoAct = a => human(a); window.__trucoLegal = () => legalNow(); window.__trucoMe = () => ME; window.__trucoActor = () => actorNow();
+window.__trucoReloj = () => { try { return clockInfo(); } catch (e) { return null; } };   // para las pruebas: { p, ms } de la jugada en curso
 window.__trucoNet = () => NET && { role: NET.role, code: NET.code, started: NET.started, seat: NET.seat, seats: NET.seats || (NET.lobby && NET.lobby.seats), kind: NET.tr && NET.tr.kind, voz: !!vozRoom(), cfg: mesaCfg() }; window.__trucoStep = () => { busy = false; step(); };
 window.__trucoNew = n => startGame(n); window.__v3 = V3;
 // Al abrir: pantalla de inicio, con el partido guardado listo para continuar si había uno
@@ -10201,7 +10202,9 @@ function netStatus(){
 function leaveNet(soft){
   if (!NET) return;
   if (!soft) { if (NET.role === 'host') netPost({ t: 'closed' }); else netPost({ t: 'bye' }); }
-  else if (NET.role === 'host') netPost({ t: 'away' }); else netPost({ t: 'bye' });
+  // recargar o cerrar la pestaña no es irse: con 'pausa' el servidor le guarda el lugar el rato de gracia (antes mandaba
+  // 'bye' y en un mano a mano el partido terminaba ahí mismo por abandono)
+  else if (NET.role === 'host') netPost({ t: 'away' }); else netPost({ t: 'bye', pausa: true });
   clearTimeout(NET.helloT); clearInterval(NET.beat);
   vozStop();
   const tr = NET.tr, vr = NET.vr;
