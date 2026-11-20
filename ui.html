@@ -1769,6 +1769,8 @@ function viewBtn(){
 }
 $('btnView').onclick = () => { setView3d(!view3d); if (G) render(); };
 viewBtn();
+// la mesa 3D se baja en un momento libre después de abrir (si la vista es 3D), así está lista al empezar
+if (view3d && V3.available()) (window.requestIdleCallback || (f => setTimeout(f, 1500)))(() => V3.cargar());
 
 $('btnHelp').setAttribute('aria-pressed', String(showHelp));
 $('btnSpeed').textContent = 'Velocidad: ' + speed;

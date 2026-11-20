@@ -29,6 +29,8 @@ jobs:
         run: python3 build.py
       - name: El index.html del repo está al día
         run: git diff --quiet -- index.html || { echo "::error::index.html no coincide con lo que arma build.py. Corré python3 build.py y subilo."; git diff --stat -- index.html; exit 1; }
+      - name: Tipos (TypeScript con JSDoc)
+        run: npx tsc -p tsconfig.json
       - name: Pruebas del juego
         run: node test.js
       - name: Pruebas del servidor

@@ -19,6 +19,7 @@
 import T from '../engine.js';
 import AI from '../ai.js';
 import TV from '../vista.js';
+import { validarDelJugador } from './protocolo.mjs';
 const PJ_RE = /^[a-z][a-z0-9-]{0,23}$/;   // código de personaje 3D (como en cuentas.mjs)
 
 const NETV = 1;
@@ -125,6 +126,8 @@ export class Mesa {
     // de a poco: más de 40 mensajes en 2 segundos es un error o un abuso
     const now = this.io.now(); c.msgs = c.msgs.filter(t => now - t < 2000); c.msgs.push(now);
     if (c.msgs.length > 40) return;
+    m = validarDelJugador(m);   // solo tipos conocidos y cada campo con su clase (server/protocolo.mjs)
+    if (!m) return;
     const s = this.seatOf(cid);
     switch (m.t) {
       case 'hello': return this.hello(cid, m);

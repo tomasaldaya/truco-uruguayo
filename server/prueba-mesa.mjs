@@ -402,8 +402,8 @@ t('mirada: hacia dónde mira cada uno llega a todos (y a los que miran), con val
   m.onOpen('x'); m.onMessage('x', { t: 'hello', name: 'Mirón', pid: 'px', mirar: true });
   m.onMessage('b', { t: 'mirada', y: .3, pi: .25, z: .9, mu: false });
   for (const c of ['a', 'x']) { const r = last(W.inbox, c, 'mirada'); assert.deepEqual([r.p, r.y, r.pi, r.z, r.mu], [m.seatOf('b'), .3, .25, .9, false]); }
-  m.onMessage('b', { t: 'mirada', y: 9, pi: 'x', z: -3, mu: 1 });               // fuera de rango: se recorta (la cabeza gira para cualquier lado: hasta ±π)
-  const r = last(W.inbox, 'a', 'mirada'); assert.deepEqual([r.y, r.pi, r.z, r.mu], [3.15, .3, .8, true]);
+  m.onMessage('b', { t: 'mirada', y: 9, pi: 'x', z: -3, mu: 1 });               // fuera de rango: se recorta; mu tiene que ser sí/no (1 no cuenta) (la cabeza gira para cualquier lado: hasta ±π)
+  const r = last(W.inbox, 'a', 'mirada'); assert.deepEqual([r.y, r.pi, r.z, r.mu], [3.15, .3, .8, false]);
   W.inbox.a = []; m.onMessage('x', { t: 'mirada', y: .1 });                    // el que mira no tiene cabeza en la mesa
   assert(!last(W.inbox, 'a', 'mirada'));
 });
@@ -618,6 +618,15 @@ t('recargar la página (bye con pausa) no es abandonar: el lugar lo espera, su r
   assert.equal(m.seatOf('b2'), 1); assert.notEqual(m.GM.phase, 'matchEnd');
   // irse a propósito sí termina el mano a mano
   m.onMessage('b2', { t: 'bye' }); assert.equal(m.GM.phase, 'matchEnd');
+});
+
+await ta('protocolo: solo tipos de mensaje conocidos y cada campo con su clase', async () => {
+  const { validarDelJugador } = await import('./protocolo.mjs');
+  assert.equal(validarDelJugador({ t: 'hackear' }), null); assert.equal(validarDelJugador(null), null); assert.equal(validarDelJugador([1]), null);
+  assert.deepEqual(validarDelJugador({ t: 'chat', text: 'hola', extra: 1 }), { t: 'chat', text: 'hola' });
+  assert.deepEqual(validarDelJugador({ t: 'sit', seat: '2', name: 'Ana' }), { t: 'sit', name: 'Ana' });
+  assert.deepEqual(validarDelJugador({ t: 'senas', list: ['2', 3] }), { t: 'senas' });
+  assert.deepEqual(validarDelJugador({ t: 'hello', name: 'x'.repeat(3000) }), { t: 'hello' });
 });
 
 t('gestos y sonidos: solo códigos válidos, solo de quien juega y de a uno cada tanto', () => {

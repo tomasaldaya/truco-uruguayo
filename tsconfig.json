@@ -1,0 +1,9 @@
+{
+  // TypeScript de a poco: revisa los tipos (JSDoc) de los archivos con "// @ts-check", sin compilar nada.
+  // Uso: npx tsc   (corre también en GitHub Actions). Para sumar un archivo: agregarlo a "include".
+  "compilerOptions": {
+    "allowJs": true, "checkJs": true, "noEmit": true, "strict": true,
+    "target": "ES2022", "module": "ESNext", "moduleResolution": "Bundler", "lib": ["ES2022"], "skipLibCheck": true
+  },
+  "include": ["server/protocolo.mjs"]
+}

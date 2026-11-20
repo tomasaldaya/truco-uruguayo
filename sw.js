@@ -2,8 +2,8 @@
 // computadora) sin internet. Solo se mete al abrir la página y con unos pocos archivos fijos; durante el
 // partido no interviene. La página se pide siempre primero a la red, así llega la última versión; si no hay
 // internet (o tarda más de 6 segundos, o contesta con un error), se abre la guardada. Lo del servidor (cuentas, mesas) nunca se guarda.
-const CACHE = 'truco-v2';   // (cambiarlo borra lo guardado: no hace falta para actualizar la página)
-const FIJOS = ['./manifest.webmanifest', './icono-192.png', './icono-512.png', './icono-mascara-512.png', './icono-apple-180.png'];
+const CACHE = 'truco-v3';   // (cambiarlo borra lo guardado: no hace falta para actualizar la página)
+const FIJOS = ['./three.min.js', './manifest.webmanifest', './icono-192.png', './icono-512.png', './icono-mascara-512.png', './icono-apple-180.png'];
 const RAIZ = new URL('./', self.registration.scope).pathname;
 const esLaPagina = u => u.pathname === RAIZ || u.pathname === RAIZ + 'index.html';
 const firma = r => r && (r.headers.get('etag') || r.headers.get('last-modified'));
@@ -44,6 +44,14 @@ self.addEventListener('fetch', e => {
         return red.catch(() => Response.error());
       }
     })());
+    return;
+  }
+  // Three.js (la mesa 3D): la guardada al toque, y se actualiza por detrás para la próxima vez
+  if (u.origin === location.origin && u.pathname === RAIZ + 'three.min.js') {
+    e.respondWith(caches.open(CACHE).then(c => c.match(r, { ignoreSearch: true }).then(hit => {
+      const red = fetch(r).then(res => { if (res.ok) c.put('./three.min.js', res.clone()); return res; }).catch(() => hit);
+      return hit || red;
+    })));
     return;
   }
   if (u.origin === location.origin && FIJOS.some(f => u.pathname === RAIZ + f.slice(2))) {

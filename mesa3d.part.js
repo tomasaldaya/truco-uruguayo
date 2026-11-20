@@ -25,7 +25,8 @@ const PERSONAJES = [
 ];
 const pjValido = k => typeof k === 'string' && PERSONAJES.some(x => x.id === k) ? k : null;
 
-const V3 = (function(){
+// la mesa 3D de verdad: se arma recién cuando Three.js está cargado (ver V3, al final)
+function crearV3(){
   const OFF = { available: () => false, update(){}, pause(){} };
   if (typeof THREE === 'undefined') return OFF;
   const PI = Math.PI, CW = 1, CH = 1.52;
@@ -1736,5 +1737,36 @@ const V3 = (function(){
       return GA[k] && GA[k].cartas ? GA[k].cartas : 0;   // si deja las cartas en la mesa, cuándo las vuelve a agarrar
     },
     debug: () => ({ CARDS, S, CAM, Lay, camera, setView, renderer, mirarA: (y, p) => { CAM.ojo.yaw = y; CAM.ojo.pitch = p; limitarOjo(CAM.ojo); CAM.g = ojosCam(CAM.ojo); }, queue: (p, l, k) => { queueSenas(p, l, k || 'partner'); S.jobs[S.jobs.length-1].notBefore = now; } }),
+  };
+}
+
+// V3: la mesa 3D, que se carga cuando hace falta. Three.js (three.min.js, 573 KB) y todo lo 3D (personajes, el bar)
+// se bajan recién al entrar a la mesa 3D (o en un momento libre después de abrir el juego, si la vista es 3D), así
+// la pantalla de inicio y la mesa 2D abren antes. Mientras carga, V3.update deja la mesa vacía y redibuja al terminar.
+const V3 = (() => {
+  let real = null, cargando = null;
+  const webgl = (() => { try { const c = document.createElement('canvas'); return !!(c.getContext('webgl2') || c.getContext('webgl')); } catch (e) { return false; } })();
+  function cargar(){
+    if (real) return Promise.resolve(real);
+    if (cargando) return cargando;
+    cargando = new Promise(listo => {
+      if (typeof THREE !== 'undefined') { real = crearV3(); listo(real); return; }
+      const sc = document.createElement('script'); sc.src = 'three.min.js'; sc.async = true;
+      sc.onload = () => { try { real = crearV3(); } catch (e) { real = null; } listo(real); };
+      sc.onerror = () => { cargando = null; listo(null); };   // sin internet y sin copia: se juega en 2D
+      document.head.appendChild(sc);
+    });
+    return cargando;
+  }
+  const despues = () => cargar().then(r => { if (r && typeof render === 'function' && typeof G !== 'undefined' && G) render(); });
+  return {
+    available: () => webgl && (!real || real.available()),
+    get listo(){ return !!real; },
+    cargar,
+    update(act, legal){ if (real) return real.update(act, legal); despues(); },
+    pause(){ if (real) real.pause(); },
+    retrato(id){ if (real) return real.retrato(id); cargar(); return null; },
+    gesto(p, text, k, ms){ return real ? real.gesto(p, text, k, ms) : 0; },
+    debug(){ return real ? real.debug() : null; },
   };
 })();

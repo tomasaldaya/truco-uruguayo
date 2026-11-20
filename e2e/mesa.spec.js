@@ -104,3 +104,21 @@ test('sin internet, el juego abre igual (lo guardado por el service worker)', as
   await pg.evaluate(() => window.__trucoNew(2));       // y se puede jugar contra la computadora
   await expect.poll(async () => ((await vista(pg)) || {}).phase).toBe('play');
 });
+
+test('la mesa 3D se baja recién al usarla, y después anda también sin internet', async ({ browser }) => {
+  const ctx = await browser.newContext(); const pg = await ctx.newPage(); const errores = [];
+  pg.on('pageerror', e => errores.push(e.message));
+  await pg.addInitScript(() => { try { localStorage.setItem('truco.view', '3d'); } catch (e) {} });
+  await pg.goto('/');
+  expect(await pg.evaluate(() => fetch('/').then(r => r.text()).then(t => t.includes('var THREE=')))).toBe(false);   // index.html ya no trae Three.js
+  await pg.evaluate(() => window.__trucoNew(4));
+  await expect.poll(() => pg.evaluate(() => window.__v3.listo)).toBe(true);    // al entrar a la mesa 3D se baja
+  await expect(pg.locator('#stage canvas')).toBeVisible();
+  await pg.evaluate(() => navigator.serviceWorker.ready); await pg.waitForTimeout(1500);
+  await ctx.setOffline(true);
+  await pg.reload();
+  await pg.click('#hCont').catch(() => pg.evaluate(() => window.__trucoNew(4)));
+  await expect.poll(() => pg.evaluate(() => window.__v3.listo)).toBe(true);
+  await expect(pg.locator('#stage canvas')).toBeVisible();
+  expect(errores).toEqual([]);
+});

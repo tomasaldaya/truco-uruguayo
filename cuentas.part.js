@@ -604,6 +604,8 @@ function renderEditar(box){
 function miPj(){ return pjValido(conCuenta() && CUENTA.yo.pj) || pjValido(store.get('truco.pj')); }
 const hex = n => '#' + n.toString(16).padStart(6, '0');
 function pjModal(){
+  // las fotos salen del modelo 3D: si todavía no se bajó, se muestran círculos y se rehace al terminar de cargar
+  if (!V3.listo && V3.available()) V3.cargar().then(r => { if (r && $('overlay2').innerHTML.includes('pjgrid')) pjModal(); });
   const yo = miPj();
   const op = (id, nombre, img) => `<button type="button" class="pjop" data-pj="${id}" aria-pressed="${(yo || '') === id}">${img}<b>${esc(nombre)}</b></button>`;
   const items = PERSONAJES.map(x => {
