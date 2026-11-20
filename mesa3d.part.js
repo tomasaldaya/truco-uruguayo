@@ -320,6 +320,13 @@ const V3 = (function(){
     scene.add(root);
     Lay = Object.assign({ n, root, names: claveMesa(), chars: [] }, P);
     (escena === 'bar' ? buildTableBar : buildTable)(root, P.TR);
+    // tu cuerpo (sin cabeza, que es donde está la cámara): mirando para abajo te ves; mirando para atrás, te das vuelta
+    Lay.yo = null;
+    if (!mirando()) {
+      const yo = makeChar(ME, G.names[ME]); yo.head.visible = false;
+      yo.body.children.forEach(m => { if (m.geometry === GEO.neck || (m.geometry === GEO.sph && m.position.y > 2.8)) m.visible = false; });   // ni cuello ni capucha
+      yo.g.position.copy(onCircle(ang(ME), P.TR + 1.8)); yo.g.lookAt(0, 0, 0); root.add(yo.g); Lay.yo = yo;
+    }
     for (let p = 0; p < n; p++) {
       if (yoSentado(p)) { Lay.chars.push(null); continue; }
       const c = makeChar(p, G.names[p]);
@@ -713,7 +720,7 @@ const V3 = (function(){
       skin: std(lk.skin, .72), skin2: std(new THREE.Color(lk.skin).multiplyScalar(.9), .7), shirt: std(shirt, .9),
       hair: std(lk.hc, .95), brow: std(lk.brow || lk.hc, .9), pants: std(0x2d2b36, .9), wood: std(0x4a2b17, .65),
       gorra: std(lk.gc || 0x222222, .8), gorra2: std(lk.gc2 || lk.gc || 0x222222, .8), mus: std(lk.mc || lk.hc, .95), lente: std(0x1c1612, .35),
-      lip: std(0xa4433e, .55), tongue: std(0xd8606a, .45), white: std(0xfbfaf4, .35), dark: std(0x17110e, .4), inner: std(0x3a1313, .9), tooth: std(0xfffdf5, .3),
+      lip: std(0xa4433e, .55), zapato: std(0x1b1410, .5), tongue: std(0xd8606a, .45), white: std(0xfbfaf4, .35), dark: std(0x17110e, .4), inner: std(0x3a1313, .9), tooth: std(0xfffdf5, .3),
     };
     const g = new THREE.Group(), body = new THREE.Group(); g.add(body);
     // silla
@@ -722,7 +729,13 @@ const V3 = (function(){
     for (const y of [-2.4, -1.1, .2]) g.add(mesh(GEO.box, M.wood, 0, y, -1.85, 2.5, .38, .16));
     for (const sx of [-1.2, 1.2]) for (const sz of [-1.5, .7]) g.add(mesh(GEO.box, M.wood, sx, -5.6, sz, .24, 3.8, .24));
     // cuerpo
-    body.add(mesh(GEO.box, M.pants, 0, -3.0, .7, 2.2, .95, 2.8));
+    // piernas: muslos sobre el asiento, rodillas debajo del borde de la mesa, canillas hasta el piso y zapatos
+    for (const sx of [-1, 1]) {
+      g.add(mesh(GEO.box, M.pants, sx*.56, -3.0, .7, 1.0, .95, 2.8));
+      g.add(mesh(GEO.sph, M.pants, sx*.56, -3.05, 2.05, .5, .5, .5));
+      const can = mesh(GEO.brazo, M.pants, sx*.6, -5.2, 2.2, 1.1, 1.75, 1.1); can.rotation.x = -.06; g.add(can);
+      g.add(mesh(GEO.box, M.zapato, sx*.62, -7.22, 2.45, .78, .55, 1.45));
+    }
     const torso = mesh(GEO.torso, M.shirt, 0, .25, -.2, 1.2, 1, .8); body.add(torso);
     body.add(mesh(GEO.neck, M.skin, 0, 3.05, -.12));
     if (lk.capucha) body.add(mesh(GEO.sph, M.shirt, 0, 2.95, -.78, 1.05, .5, .55));   // la capucha del buzo, atrás del cuello
@@ -936,7 +949,17 @@ const V3 = (function(){
     // la punta de la bombilla en la boca
     mate: { d: 3.4, f: t => ({ boca: v3(0, -1.13, .15), s: 'mate', face: t > .6 && t < 2.7 ? { pucker: .75, eyeA: .45, eyeB: .45 } : {} }) },
   };
-  function aplaudiendo(p){ const c = Lay && Lay.chars[p]; return !!(c && c.ag && GA[c.ag.k] && GA[c.ag.k].cartas && clock() - c.ag.t0 < GA[c.ag.k].cartas); }
+  const charDe = p => Lay && (Lay.chars[p] || (yoSentado(p) ? Lay.yo : null));   // tu cuerpo (sin cabeza) cuando estás sentado
+  function aplaudiendo(p){ const c = charDe(p); return !!(c && c.ag && GA[c.ag.k] && GA[c.ag.k].cartas && clock() - c.ag.t0 < GA[c.ag.k].cartas); }
+  const envolver = a => Math.atan2(Math.sin(a), Math.cos(a));
+  const ATRAS = 1.9;   // mirando más para atrás que esto (unos 110°), deja las cartas en la mesa y se da vuelta en la silla
+  function miraAtras(p){
+    if (yoSentado(p)) return enOjos() && !!CAM.ojo && Math.abs(envolver(CAM.ojo.yaw)) > ATRAS;
+    const mi = miradaDe(p); return !!(mi && !mi.mu && Math.abs(mi.y) > ATRAS);
+  }
+  const cartasEnMesa = p => aplaudiendo(p) || miraAtras(p);
+  // cuánto gira el cuerpo (el resto lo gira la cabeza, hasta 1,15): pasados los 0,9, tuerce el torso en la silla
+  const torsion = y => Math.sign(y) * clamp(Math.abs(y) - .9, 0, 1.5);
   function gestoMano(c, t){
     const g = c.ag; let out = null, e = 0;
     if (g) {
@@ -961,6 +984,11 @@ const V3 = (function(){
   function updateChars(t, dt){
     if (!Lay) return;
     const R = G.round;
+    if (Lay.yo) {
+      const yo = Lay.yo; gestoMano(yo, t);
+      const tw = enOjos() && CAM.ojo ? torsion(envolver(CAM.ojo.yaw)) : 0;
+      yo.tw = (yo.tw || 0) + (tw - (yo.tw || 0)) * Math.min(1, dt*4); yo.body.rotation.y = yo.tw;
+    }
     Lay.chars.forEach(c => {
       if (!c) return;
       // cara: seña en curso o reacción
@@ -975,7 +1003,8 @@ const V3 = (function(){
       // mirada: la de la persona que juega ese lugar (si avisó hacia dónde mira), si no, la de siempre
       const mi = !c.gest ? miradaDe(c.p) : null;
       let look, yaw, pitch, lean = 0;
-      if (mi && !mi.mu) { yaw = clamp(mi.y, -1.15, 1.15); pitch = clamp(mi.pi, -.35, .6); lean = clamp((1 - mi.z) * 4, -.45, .6); }
+      let tw = 0;
+      if (mi && !mi.mu) { tw = torsion(mi.y); yaw = clamp(mi.y - tw, -1.15, 1.15); pitch = clamp(mi.pi, -.35, .6); lean = clamp((1 - mi.z) * 4, -.45, .6); }
       else {
         if (c.gest) look = c.gest.look;
         else if (mi && mi.mu) { look = muePose(true).pos.clone(); lean = .6; }   // se acerca a ver la muestra
@@ -1006,6 +1035,7 @@ const V3 = (function(){
       c.body.position.z = bz + c.lean;
       c.body.scale.y = 1 + .008*Math.sin(t*1.7 + c.phase);
       c.body.rotation.z = .012*Math.sin(t*.7 + c.phase);
+      c.tw = (c.tw || 0) + (tw - (c.tw || 0)) * Math.min(1, dt*4); c.body.rotation.y = c.tw;
       const inact = R && (!R.active[c.p] || R.out[c.p]);
       c.body.position.y += ((inact ? -.25 : 0) - c.body.position.y) * Math.min(1, dt*3);
     });
@@ -1062,8 +1092,8 @@ const V3 = (function(){
   }
   // las cartas que deja boca abajo sobre la mesa, delante suyo, para aplaudir
   function dejadaPose(p, i, k, id){
-    const c = Lay.chars[p], d = i - (k-1)/2, w = c.g.localToWorld(v3(d*.62, 0, 2.55));
-    return flat(w.x, .02 + i*.007, w.z, false, hashJ(id, 'a')*.12 + d*.12);
+    const a = ang(p), d = i - (k-1)/2, w = onCircle(a, Lay.TR - .9), tx = -Math.sin(a), tz = -Math.cos(a);
+    return flat(w.x + tx*d*.62, .02 + i*.007, w.z + tz*d*.62, false, hashJ(id, 'a')*.12 + d*.12);
   }
   function fanPose(p, i, k){
     const c = Lay.chars[p], d = i - (k-1)/2;
@@ -1124,10 +1154,10 @@ const V3 = (function(){
       const h = R.hands[p], k = h.length;
       h.forEach((c, i) => {
         if (fueMazo(p)) { out[c.id] = { key: 'd', deck: true }; return; }
-        if (yoSentado(p)) { out[c.id] = { key: 'hand', hand: true, face: true }; return; }
+        if (yoSentado(p)) { out[c.id] = cartasEnMesa(p) ? { key: `a:${p}:${i}:${k}`, pose: dejadaPose(p, i, k, c.id), face: false, p } : { key: 'hand', hand: true, face: true }; return; }
         if (ended) { const up = !!R.mustShow[p] && !c.hidden; out[c.id] = { key: `r:${p}:${i}:${k}:${up}`, pose: downPose(p, i, k, up, c.id), face: up, p }; return; }
         if (!R.active[p] || R.out[p]) { out[c.id] = { key: `x:${p}:${i}:${k}`, pose: downPose(p, i, k, false, c.id), face: false, p }; return; }
-        if (aplaudiendo(p)) { out[c.id] = { key: `a:${p}:${i}:${k}`, pose: dejadaPose(p, i, k, c.id), face: false, p }; return; }
+        if (cartasEnMesa(p)) { out[c.id] = { key: `a:${p}:${i}:${k}`, pose: dejadaPose(p, i, k, c.id), face: false, p }; return; }
         out[c.id] = { key: `f:${p}:${i}:${k}`, pose: fanPose(p, i, k), face: false, fan: true, p };
       });
     }
@@ -1228,7 +1258,7 @@ const V3 = (function(){
     S.myTurn = act === ME && G.phase === 'play' && !mirando();
     S.myOut = mirando() || !R.active[ME] || R.out[ME];
     $('cam3dMine').textContent = mirando() ? 'Vista de la mesa' : 'Tu lugar';
-    if (hintEl) hintEl.textContent = mirando() ? 'Arrastrá para dar la vuelta a la mesa · rueda o pellizco para acercar' : 'Arrastrá para inclinarte un poco · rueda o pellizco para acercarte';
+    if (hintEl) hintEl.textContent = mirando() ? 'Arrastrá para dar la vuelta a la mesa · rueda o pellizco para acercar' : 'Arrastrá para mirar para cualquier lado · rueda o pellizco para acercarte';
 
     const slots = computeSlots(), rk = G.roundNo + ':' + (R.duel ? R.duel.idx : 0);
     for (const id in slots) if (!CARDS[id]) { CARDS[id] = makeCard(id); CARDS[id].hidden = true; }
@@ -1390,17 +1420,20 @@ const V3 = (function(){
   // antes para acercarse o alejarse). Así no da la vuelta a la mesa ni ve la espalda de nadie.
   // ojo: { yaw (hacia la izquierda), pitch (hacia abajo), z (1 = sentado derecho; menos, inclinado hacia la mesa) }
   const OJOS = { y: 4.5, afuera: 1.4, mira: 9, pitch: .38, fov: 1.18 };
-  const LIM = { giro: PI/6, arriba: .14, abajo: .2, cerca: .86, lejos: 1.1 };
+  const LIM = { giro: PI/6, arriba: .75, abajo: .95, cerca: .86, lejos: 1.1 };
   const ojo0 = () => ({ yaw: 0, pitch: OJOS.pitch, z: 1 });
   function ojosCam(o){
     const TR = Lay ? Lay.TR : PARAMS[2].TR, base = vistaGeneral().rho, cp = Math.cos(o.pitch);
     const f = v3(-Math.sin(o.yaw)*cp, -Math.sin(o.pitch), -Math.cos(o.yaw)*cp);    // hacia dónde mira
-    const E = v3(0, OJOS.y, TR + OJOS.afuera).addScaledVector(f, (1 - o.z) * base);   // los ojos
+    // los ojos: adelante del centro de la cabeza, hacia donde mira (así, dado vuelta, no te ves el cuello)
+    const fh = Math.hypot(f.x, f.z) || 1, ojo = TR + OJOS.afuera + .32;
+    const E = v3(f.x/fh*.32, OJOS.y, ojo + f.z/fh*.32).addScaledVector(f, (1 - o.z) * base);
     const T = E.clone().addScaledVector(f, OJOS.mira);
     return { phi: o.yaw, beta: o.pitch, rho: OJOS.mira, tx: T.x, ty: T.y, tz: T.z };
   }
   function limitarOjo(o){
-    o.yaw = clamp(o.yaw, -LIM.giro, LIM.giro);
+    // la cabeza gira para cualquier lado (o.yaw no tiene tope; a los demás se les avisa entre -π y π); mirando para
+    // abajo te ves el cuerpo. Lo que se limita es acercarse o alejarse (o.z)
     o.pitch = clamp(o.pitch, OJOS.pitch - LIM.arriba, OJOS.pitch + LIM.abajo);
     o.z = clamp(o.z, LIM.cerca, LIM.lejos);
   }
@@ -1409,7 +1442,7 @@ const V3 = (function(){
   function miradaPropia(){
     if (S.mz) return { y: 0, pi: .5, z: 1, mu: true };
     if (!enOjos() || !CAM.ojo) return { y: 0, pi: OJOS.pitch, z: 1, mu: false };
-    return { y: CAM.ojo.yaw, pi: CAM.ojo.pitch, z: CAM.ojo.z, mu: false };
+    return { y: envolver(CAM.ojo.yaw), pi: CAM.ojo.pitch, z: CAM.ojo.z, mu: false };
   }
   function defaultCam(){
     if (!mirando()) return ojosCam(ojo0());
@@ -1511,7 +1544,7 @@ const V3 = (function(){
       if (drag.moved) {
         startUserCam();
         // con los ojos: la mesa sigue al dedo (arrastrar a la derecha es girar la cabeza a la izquierda)
-        if (enOjos()) { CAM.ojo.yaw += dx * .0035; CAM.ojo.pitch -= dy * .003; limitarOjo(CAM.ojo); CAM.g = ojosCam(CAM.ojo); }
+        if (enOjos()) { CAM.ojo.yaw += dx * .0045; CAM.ojo.pitch -= dy * .003; limitarOjo(CAM.ojo); CAM.g = ojosCam(CAM.ojo); }
         else { CAM.g.phi -= dx * (mirando() ? .0065 : .0032); CAM.g.beta = clamp(CAM.g.beta + dy * (mirando() ? .005 : .0028), .2, 1.5); limitarCam(CAM.g); }
         if (hintEl) hintEl.classList.add('gone');
       }
@@ -1638,6 +1671,8 @@ const V3 = (function(){
       Lay.glow.material.opacity += ((.55 + .25*Math.sin(t*4)) - Lay.glow.material.opacity) * Math.min(1, dt*6);
     } else Lay.glow.material.opacity *= .9;
     if (lamparaMesa) lamparaMesa.visible = CAM.vista !== 'top';
+    const ck = Array.from({ length: G.n }, (_, p) => miraAtras(p) ? 1 : 0).join('');
+    if (ck !== S.atras) { const antes = S.atras; S.atras = ck; if (antes !== undefined) update(lastAct, myLegal); }
     renderer.shadowMap.needsUpdate = true;
     renderer.render(scene, camera);
     renderPip();
@@ -1682,11 +1717,11 @@ const V3 = (function(){
     // un gesto, un sonido o un dicho del frasero (extras.part.js): la burbuja y el movimiento del personaje
     gesto(p, text, k, ms){
       if (!Lay || !G) return;
-      const c = Lay.chars[p];
-      showBubble(p, c ? text.split(' ')[0] : text, ms);   // al personaje se lo ve haciendo el gesto: alcanza con el dibujito
+      showBubble(p, Lay.chars[p] ? text.split(' ')[0] : text, ms);   // al personaje se lo ve haciendo el gesto: alcanza con el dibujito
+      const c = charDe(p);
       if (c && GA[k]) { c.ag = { k, t0: clock(), d: GA[k].d }; c.react = null; c.talkTo = 0; }
       return GA[k] && GA[k].cartas ? GA[k].cartas : 0;   // si deja las cartas en la mesa, cuándo las vuelve a agarrar
     },
-    debug: () => ({ CARDS, S, CAM, Lay, camera, setView, renderer, queue: (p, l, k) => { queueSenas(p, l, k || 'partner'); S.jobs[S.jobs.length-1].notBefore = now; } }),
+    debug: () => ({ CARDS, S, CAM, Lay, camera, setView, renderer, mirarA: (y, p) => { CAM.ojo.yaw = y; CAM.ojo.pitch = p; limitarOjo(CAM.ojo); CAM.g = ojosCam(CAM.ojo); }, queue: (p, l, k) => { queueSenas(p, l, k || 'partner'); S.jobs[S.jobs.length-1].notBefore = now; } }),
   };
 })();

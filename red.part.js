@@ -360,7 +360,7 @@ function onHostMsg(m){
     }
     case 'mirada': if (s >= 0 && NET.started) {   // como el servidor: se recorta y se reparte
       const n = (v, a, b, d) => typeof v === 'number' && isFinite(v) ? Math.max(a, Math.min(b, v)) : d;
-      const r = { t: 'mirada', p: s, y: n(m.y, -.6, .6, 0), pi: n(m.pi, -.3, .8, .3), z: n(m.z, .8, 1.2, 1), mu: !!m.mu };
+      const r = { t: 'mirada', p: s, y: n(m.y, -3.15, 3.15, 0), pi: n(m.pi, -.4, 1.4, .3), z: n(m.z, .8, 1.2, 1), mu: !!m.mu };
       recibirMirada(r); netPost(r);
     } return;
     case 'talk': if (s >= 0 && mesaCfg().voz) { setTalking(s, !!m.on); netPost({ t: 'talk', p: s, on: !!m.on }); } return;

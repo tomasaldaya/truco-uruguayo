@@ -624,3 +624,20 @@ Herramientas: `tools/ia/lalo.js` (esa mano, con lo que decide la computadora) y 
   arriba, desde los costados, en el celular, y cambiando de lugar con el partido empezado.
 - Para sumar otro lugar (el campo con sillas playeras y mesa plegable, la rambla, un quincho…): agregarlo a
   `ESCENARIOS` (mesa 3D, servidor, cuentas y `ESCENARIOS_UI`), con su `armar…` y, si cambia, su mesa.
+
+## Mirar para cualquier lado, piernas y tu cuerpo (20/11)
+
+- **Cámara desde la silla libre**: arrastrando, la cabeza gira para cualquier lado (sin tope; antes eran 30° por lado)
+  y mira bastante más arriba o abajo (`LIM.arriba` .75, `LIM.abajo` .95). Lo único que sigue limitado es acercarse o
+  alejarse (`LIM.cerca`, `LIM.lejos`, igual que antes). Los ojos van adelante del centro de la cabeza hacia donde
+  mirás (`ojosCam`), así que mirando para adelante la vista es la de siempre. "Tu lugar" (o doble clic) vuelve a
+  sentarte derecho.
+- **Tu cuerpo**: estando sentado se dibuja tu personaje sin cabeza ni cuello (`Lay.yo`): mirando para abajo te ves
+  los brazos sobre la mesa, y tus gestos también los hace tu cuerpo.
+- **Piernas**: todos los personajes tienen muslos, rodillas debajo del borde de la mesa, canillas y zapatos (en el
+  grupo del personaje, así no giran cuando tuerce el torso).
+- **Darse vuelta**: pasados los 0,9 radianes el torso tuerce en la silla y la cabeza hace el resto (`torsion`); mirando
+  más para atrás que 1,9 (unos 110°, `ATRAS`), el personaje deja sus cartas boca abajo en la mesa delante suyo
+  (`cartasEnMesa`, `dejadaPose`) y las vuelve a agarrar al darse vuelta otra vez. Vale para vos y para los demás:
+  la mirada que se reparte (`mirada`) ahora va de -π a π (servidor y anfitrión), y la pantalla reacomoda las cartas
+  cuando alguien se da vuelta.

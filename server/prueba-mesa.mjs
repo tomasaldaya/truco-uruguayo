@@ -399,8 +399,8 @@ t('mirada: hacia dónde mira cada uno llega a todos (y a los que miran), con val
   m.onOpen('x'); m.onMessage('x', { t: 'hello', name: 'Mirón', pid: 'px', mirar: true });
   m.onMessage('b', { t: 'mirada', y: .3, pi: .25, z: .9, mu: false });
   for (const c of ['a', 'x']) { const r = last(W.inbox, c, 'mirada'); assert.deepEqual([r.p, r.y, r.pi, r.z, r.mu], [m.seatOf('b'), .3, .25, .9, false]); }
-  m.onMessage('b', { t: 'mirada', y: 9, pi: 'x', z: -3, mu: 1 });               // fuera de rango: se recorta
-  const r = last(W.inbox, 'a', 'mirada'); assert.deepEqual([r.y, r.pi, r.z, r.mu], [.6, .3, .8, true]);
+  m.onMessage('b', { t: 'mirada', y: 9, pi: 'x', z: -3, mu: 1 });               // fuera de rango: se recorta (la cabeza gira para cualquier lado: hasta ±π)
+  const r = last(W.inbox, 'a', 'mirada'); assert.deepEqual([r.y, r.pi, r.z, r.mu], [3.15, .3, .8, true]);
   W.inbox.a = []; m.onMessage('x', { t: 'mirada', y: .1 });                    // el que mira no tiene cabeza en la mesa
   assert(!last(W.inbox, 'a', 'mirada'));
 });

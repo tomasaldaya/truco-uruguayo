@@ -143,7 +143,7 @@ export class Mesa {
       case 'mirada': {
         if (s < 0 || !this.started) return;
         const num = (v, a, b, d) => typeof v === 'number' && Number.isFinite(v) ? Math.max(a, Math.min(b, Math.round(v * 100) / 100)) : d;
-        this.broadcast({ t: 'mirada', p: s, y: num(m.y, -.6, .6, 0), pi: num(m.pi, -.3, .8, .3), z: num(m.z, .8, 1.2, 1), mu: !!m.mu });
+        this.broadcast({ t: 'mirada', p: s, y: num(m.y, -3.15, 3.15, 0), pi: num(m.pi, -.4, 1.4, .3), z: num(m.z, .8, 1.2, 1), mu: !!m.mu });
         return;
       }
       case 'echar': return this.echar(s, m);
