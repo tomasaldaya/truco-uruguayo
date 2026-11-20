@@ -358,9 +358,15 @@
     const cards = acts.filter(a => a.type === 'play');
     let best = null, bestWp = -1;
     if (cards.length && rng() < L.noise) best = cards[Math.floor(rng() * cards.length)], bestWp = 0.5;
-    else for (const a of cards) {
-      const wp = winProb(G, p, a.card, worlds) + rng() * 0.02;
-      if (wp > bestWp) { bestWp = wp; best = a; }
+    else if (cards.length) {
+      // Con los mismos mundos para todas las cartas, se mira cuánto rinde cada una. Entre las que rinden casi
+      // lo mismo se juega la más baja: la buena se guarda para después (y para gritar o contestar el truco),
+      // no se le muestra al rival lo que hay, y en parejas o tercetos se deja que juegue el compañero que
+      // viene detrás (el pie), como haría cualquiera en la mesa.
+      const m = R.muestra, val = cards.map(a => ({ a, wp: winProb(G, p, a.card, worlds), r: T.rank(a.card, m) }));
+      bestWp = Math.max(...val.map(x => x.wp));
+      const margen = G.n >= 4 ? 0.04 : 0.025;
+      best = val.filter(x => x.wp >= bestWp - margen).sort((x, y) => x.r - y.r)[0].a;
     }
     const tr = find(acts, a => a.type === 'truco');
     if (tr) {

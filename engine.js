@@ -915,6 +915,14 @@
         }
       }
       if (G.phase !== 'play') return;
+    } else if (chd.length || chal.length) {
+      // la ley era solo por el truco (o el envite que pedía no quedó en juego), pero la flor vale igual: se
+      // cobra antes que el truco (si no, a quien dijo "con ley" no se le anotaba nunca su flor)
+      markSung(chd); markSung(chal);
+      const F = florCount(G);
+      if (F[0] && F[1]) { R.florEnv = { done: true }; L.afterCanto = { truco: a.truco }; startCanto(G, 'flor', { type: 'cmp' }, 0); return; }
+      settleFlores(G);
+      if (G.phase !== 'play') return;
     }
     leyTruco(G, a.truco);
   }

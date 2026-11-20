@@ -1732,6 +1732,14 @@ img.avt{object-fit:cover;background:#2a1d13}
         }
       }
       if (G.phase !== 'play') return;
+    } else if (chd.length || chal.length) {
+      // la ley era solo por el truco (o el envite que pedía no quedó en juego), pero la flor vale igual: se
+      // cobra antes que el truco (si no, a quien dijo "con ley" no se le anotaba nunca su flor)
+      markSung(chd); markSung(chal);
+      const F = florCount(G);
+      if (F[0] && F[1]) { R.florEnv = { done: true }; L.afterCanto = { truco: a.truco }; startCanto(G, 'flor', { type: 'cmp' }, 0); return; }
+      settleFlores(G);
+      if (G.phase !== 'play') return;
     }
     leyTruco(G, a.truco);
   }
@@ -2332,9 +2340,15 @@ img.avt{object-fit:cover;background:#2a1d13}
     const cards = acts.filter(a => a.type === 'play');
     let best = null, bestWp = -1;
     if (cards.length && rng() < L.noise) best = cards[Math.floor(rng() * cards.length)], bestWp = 0.5;
-    else for (const a of cards) {
-      const wp = winProb(G, p, a.card, worlds) + rng() * 0.02;
-      if (wp > bestWp) { bestWp = wp; best = a; }
+    else if (cards.length) {
+      // Con los mismos mundos para todas las cartas, se mira cuánto rinde cada una. Entre las que rinden casi
+      // lo mismo se juega la más baja: la buena se guarda para después (y para gritar o contestar el truco),
+      // no se le muestra al rival lo que hay, y en parejas o tercetos se deja que juegue el compañero que
+      // viene detrás (el pie), como haría cualquiera en la mesa.
+      const m = R.muestra, val = cards.map(a => ({ a, wp: winProb(G, p, a.card, worlds), r: T.rank(a.card, m) }));
+      bestWp = Math.max(...val.map(x => x.wp));
+      const margen = G.n >= 4 ? 0.04 : 0.025;
+      best = val.filter(x => x.wp >= bestWp - margen).sort((x, y) => x.r - y.r)[0].a;
     }
     const tr = find(acts, a => a.type === 'truco');
     if (tr) {
@@ -7746,7 +7760,7 @@ cuentaInit();
 // ---------- cuánto se usa y qué falla ----------
 // Se cuenta por día y sin datos de nadie: que se abrió (y de dónde vino el enlace), si está instalada,
 // si se juega contra la computadora u online. Los errores del navegador van igual: el texto y dónde, nada más.
-const VERSION = 'a3f4d07c';
+const VERSION = 'a42cba02';
 function avisarServidor(ruta, cuerpo){
   if (!serverOK()) return;
   try { fetch(serverURL() + '/api/' + ruta, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(cuerpo), keepalive: true }).catch(() => {}); } catch (e) {}

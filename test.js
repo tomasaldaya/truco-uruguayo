@@ -801,6 +801,20 @@ t('ley de juego: no querer nada da 1 por el envite y 1 por el truco', () => {
   assert.equal(G.phase, 'roundEnd');
 });
 
+t('ley de juego solo por el truco: quien dijo "con ley" cobra su flor aunque su equipo pase', () => {
+  // Tito (desafiado) tiene flor de copas y dice "con ley"; la ley no tiene resto, así que solo queda el truco
+  const H = [[C(6,'oro'),C(7,'oro'),C(3,'basto')],[C(1,'copa'),C(12,'copa'),C(5,'copa')],[C(2,'oro'),C(12,'oro'),C(11,'basto')],[C(11,'oro'),C(10,'basto'),C(4,'basto')]];
+  const G = setup4(H, C(4,'espada'), 3); G.scores = [5, 25]; G.round = { dummy: true }; G.dealer = 2; G.roundNo = 0;
+  const order = []; for (let r = 0; r < 3; r++) for (let i = 0; i < 4; i++) order.push(H[i][r]); order.push(C(4,'espada'));
+  T.startRound(G, T.makeDeck().filter(c => !order.some(o => o.id === c.id)).concat(order.reverse()));
+  assert(G.round.flor.has[1]);
+  act(G, 0, a => a.type === 'ley' && a.form === 'falta_truco');
+  act(G, 1, a => a.type === 'leyest'); act(G, 3, a => a.type === 'leyest');
+  assert.equal(G.round.ley.envPart, null);
+  act(G, T.actor(G), a => a.type === 'leyresp' && !a.truco);
+  assert.deepEqual(G.scores, [5 + 1, 25 + 3]);
+  assert(G.round.gained[1].some(g => g.cat === 'flor' && g.pts === 3));
+});
 t('ley de juego: si hay flor y no se quiere el envite, la flor se cobra y el punto del envite no es para nadie', () => {
   // Pocho (compañero del que impone la ley) tiene flor de copas; los otros dos dicen "a punto" y no quieren nada
   const H = [[C(6,'oro'),C(7,'oro'),C(3,'copa')],[C(6,'basto'),C(1,'basto'),C(3,'oro')],[C(1,'copa'),C(12,'copa'),C(5,'copa')],[C(11,'copa'),C(10,'copa'),C(4,'basto')]];
