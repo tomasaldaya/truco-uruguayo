@@ -22,6 +22,10 @@ const limpiarApodo = v => String(v || '').normalize('NFC').replace(/[^\p{L}\p{N}
 const limpiarGremio = v => String(v || '').normalize('NFC').replace(/[^\p{L}\p{N} ._-]/gu, '').replace(/\s+/g, ' ').trim().slice(0, 24);
 const limpiarSigla = v => String(v || '').normalize('NFC').replace(/[^\p{L}\p{N}]/gu, '').toUpperCase().slice(0, 4);
 const MAX_GREMIO = 30;
+const diaDe = t => new Date(t - 3 * 3600e3).toISOString().slice(0, 10);   // el día en Uruguay (UTC-3)
+const ABANDONOS_DIA = 3, ABANDONO_PAUSA = 30 * 60e3;
+const MOTIVOS = ['insultos', 'trampa', 'abandono', 'perfil', 'otro'];
+const TIPOS_VISITA = ['abre', 'instalada', 'solo', 'online'];
 const int = v => { const n = Number(v); return Number.isInteger(n) ? n : null; };
 const hex = buf => [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
 const b64u = bytes => btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
@@ -66,7 +70,7 @@ export class Cuentas {
     try { this.q(`ALTER TABLE publicas ADD COLUMN tanto TEXT`); } catch (e) {}
     try { this.q(`ALTER TABLE publicas ADD COLUMN mirando INTEGER DEFAULT 0`); } catch (e) {}
     // lo del perfil (columnas que se agregaron después: si ya están, no pasa nada)
-    for (const col of ['nombre TEXT', 'bio TEXT', 'lugar TEXT', 'cuadro TEXT', 'color INTEGER', 'foto_v INTEGER DEFAULT 0', 'pj TEXT', 'faltas INTEGER DEFAULT 0', 'falta37 INTEGER DEFAULT 0', 'gremio INTEGER', 'gremio_desde INTEGER']) {
+    for (const col of ['nombre TEXT', 'bio TEXT', 'lugar TEXT', 'cuadro TEXT', 'color INTEGER', 'foto_v INTEGER DEFAULT 0', 'pj TEXT', 'faltas INTEGER DEFAULT 0', 'falta37 INTEGER DEFAULT 0', 'gremio INTEGER', 'gremio_desde INTEGER', 'suspendido_hasta INTEGER', 'suspension_motivo TEXT']) {
       try { this.q(`ALTER TABLE usuarios ADD COLUMN ${col}`); } catch (e) {}
     }
     this.q(`CREATE TABLE IF NOT EXISTS fotos (usuario INTEGER PRIMARY KEY, tipo TEXT, datos TEXT)`);
@@ -75,6 +79,13 @@ export class Cuentas {
     this.q(`CREATE TABLE IF NOT EXISTS gremios (id INTEGER PRIMARY KEY, nombre TEXT NOT NULL, nombre_min TEXT UNIQUE, sigla TEXT, lema TEXT,
       creado INTEGER, dueno INTEGER, partidos INTEGER DEFAULT 0, ganados INTEGER DEFAULT 0, mes TEXT, partidos_mes INTEGER DEFAULT 0, ganados_mes INTEGER DEFAULT 0)`);
     this.q(`CREATE INDEX IF NOT EXISTS usuarios_gremio ON usuarios (gremio)`);
+    // moderación: los reportes de los jugadores (con lo último del chat de esa mesa) y las suspensiones de las públicas
+    this.q(`CREATE TABLE IF NOT EXISTS reportes (id INTEGER PRIMARY KEY, creado INTEGER, de INTEGER, a INTEGER, a_nombre TEXT, mesa TEXT,
+      motivo TEXT, detalle TEXT, chat TEXT, estado TEXT DEFAULT 'nuevo')`);
+    // cuánto se usa el juego, por día y sin datos de nadie (visitas: abre, solo, online, instalada; y de dónde vienen)
+    this.q(`CREATE TABLE IF NOT EXISTS visitas (dia TEXT, tipo TEXT, clave TEXT, n INTEGER, PRIMARY KEY (dia, tipo, clave))`);
+    // errores de la página en los navegadores: cuántos por día de cada uno (el mensaje y dónde, sin datos de nadie)
+    this.q(`CREATE TABLE IF NOT EXISTS errores (dia TEXT, firma TEXT, n INTEGER, ejemplo TEXT, PRIMARY KEY (dia, firma))`);
   }
   // un arreglo que se hace una sola vez en la base (queda anotado aunque no haya habido nada que cambiar)
   unaVez(nombre, f) {
@@ -174,6 +185,7 @@ export class Cuentas {
       manos: u.manos, manosGanadas: u.manos_ganadas, envidos: u.envidos, flores: u.flores, trucos: u.trucos, faltas: u.faltas || 0, falta37: u.falta37 || 0,
       mes: { mes: mesActual, puntos: Math.round(mes ? u.elo_mes : ELO0), partidos: mes ? u.partidos_mes : 0, ganados: mes ? u.ganados_mes : 0 },
       gremio: this.gremioCorto(u.gremio),
+      ...(propio ? this.suspension(u) : {}),
       enLinea: !propio && this.enLinea().has(u.id) || undefined,
       admin: propio && this.admins.has(u.id) || undefined,
     };
@@ -282,6 +294,7 @@ export class Cuentas {
           this.q(`DELETE FROM amigos WHERE de = ? OR para = ?`, yo.id, yo.id);
           this.q(`DELETE FROM jugadas WHERE usuario = ?`, yo.id);
           this.q(`DELETE FROM fotos WHERE usuario = ?`, yo.id);
+          this.q(`DELETE FROM reportes WHERE de = ?`, yo.id); this.q(`UPDATE reportes SET a = NULL WHERE a = ?`, yo.id);
           this.salirDeGremio(yo);
           this.q(`DELETE FROM usuarios WHERE id = ?`, yo.id);
           amigos.forEach(a => this.avisar(a, { t: 'amigos' }));
@@ -308,6 +321,59 @@ export class Cuentas {
           }
           const sinPartidos = mes ? null : this.q1(`SELECT COUNT(*) AS n FROM usuarios WHERE partidos = 0`).n;
           return ok({ tipo: mes ? 'mes' : 'general', mes: m, lista, mio, sinPartidos });
+        }
+        // ---------- moderación ----------
+        case 'POST reporte': {
+          if (!yo) return conSesion();
+          if (this.q1(`SELECT COUNT(*) AS n FROM reportes WHERE de = ? AND creado > ?`, yo.id, this.now() - 86400e3).n >= 10) return mal(429, 'Ya mandaste muchos reportes hoy.');
+          const a = int(cuerpo.a), motivo = MOTIVOS.includes(cuerpo.motivo) ? cuerpo.motivo : 'otro';
+          if (a === yo.id) return mal(400, 'No te podés reportar a vos.');
+          const chat = (Array.isArray(cuerpo.chat) ? cuerpo.chat : []).slice(-12).map(l => ({ n: texto(l && l.n, 24), t: texto(l && l.t, 200) }));
+          this.q(`INSERT INTO reportes (creado, de, a, a_nombre, mesa, motivo, detalle, chat) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            this.now(), yo.id, a && this.q1(`SELECT id FROM usuarios WHERE id = ?`, a) ? a : null, texto(cuerpo.nombre, 24), texto(cuerpo.mesa, 4), motivo, texto(cuerpo.detalle, 300), JSON.stringify(chat));
+          return ok({ ok: true });
+        }
+        case 'GET admin/reportes': {
+          if (!yo || !this.admins.has(yo.id)) return mal(403, 'Solo quien administra el juego.');
+          const lista = this.q(`SELECT r.*, d.apodo AS de_apodo, u.apodo AS a_apodo, u.suspendido_hasta FROM reportes r LEFT JOIN usuarios d ON d.id = r.de
+            LEFT JOIN usuarios u ON u.id = r.a ORDER BY r.estado = 'nuevo' DESC, r.creado DESC LIMIT 100`)
+            .map(r => ({ id: r.id, creado: r.creado, de: { id: r.de, apodo: r.de_apodo }, a: r.a ? { id: r.a, apodo: r.a_apodo, suspendido: r.suspendido_hasta > this.now() ? r.suspendido_hasta : null } : null,
+              nombre: r.a_nombre, mesa: r.mesa, motivo: r.motivo, detalle: r.detalle, chat: (() => { try { return JSON.parse(r.chat || '[]'); } catch (e) { return []; } })(), estado: r.estado }));
+          return ok({ lista, nuevos: this.q1(`SELECT COUNT(*) AS n FROM reportes WHERE estado = 'nuevo'`).n });
+        }
+        case 'POST admin/reporte': {
+          if (!yo || !this.admins.has(yo.id)) return mal(403, 'Solo quien administra el juego.');
+          this.q(`UPDATE reportes SET estado = ? WHERE id = ?`, cuerpo.estado === 'nuevo' ? 'nuevo' : 'visto', int(cuerpo.id));
+          return ok({ ok: true });
+        }
+        case 'POST admin/suspender': {
+          if (!yo || !this.admins.has(yo.id)) return mal(403, 'Solo quien administra el juego.');
+          const horas = Number(cuerpo.horas);
+          if (!(horas >= 0 && horas <= 24 * 3650)) return mal(400, 'horas: entre 0 (quitar) y 87600');
+          if (!this.suspender(int(cuerpo.id), horas * 3600e3, cuerpo.motivo || 'Decisión de quien administra el juego')) return mal(404, 'No existe esa cuenta.');
+          return ok({ ok: true });
+        }
+        // ---------- cuánto se usa y qué falla (sin datos de nadie) ----------
+        case 'POST visita': {
+          if (!this.topeIP(req.headers.get('cf-connecting-ip') || '', 20)) return ok({ ok: false });
+          const tipo = TIPOS_VISITA.includes(cuerpo.tipo) ? cuerpo.tipo : null;
+          if (tipo) this.contar('visitas', diaDe(this.now()), tipo, tipo === 'abre' ? String(cuerpo.origen || '').toLowerCase().replace(/[^a-z0-9.-]/g, '').slice(0, 40) : '');
+          return ok({ ok: true });
+        }
+        case 'POST error': {
+          if (!this.topeIP(req.headers.get('cf-connecting-ip') || '', 10)) return ok({ ok: false });
+          const msg = texto(cuerpo.msg, 160), donde = texto(cuerpo.donde, 80);
+          if (msg) this.contar('errores', diaDe(this.now()), (msg + ' @ ' + donde).slice(0, 240), null, texto(cuerpo.v, 40));
+          return ok({ ok: true });
+        }
+        case 'GET admin/uso': {
+          if (!yo || !this.admins.has(yo.id)) return mal(403, 'Solo quien administra el juego.');
+          const desde = diaDe(this.now() - 30 * 86400e3);
+          return ok({
+            visitas: this.q(`SELECT dia, tipo, SUM(n) AS n FROM visitas WHERE dia >= ? GROUP BY dia, tipo ORDER BY dia DESC`, desde),
+            origenes: this.q(`SELECT clave AS origen, SUM(n) AS n FROM visitas WHERE dia >= ? AND tipo = 'abre' GROUP BY clave ORDER BY n DESC LIMIT 20`, desde),
+            errores: this.q(`SELECT firma, SUM(n) AS n, MAX(dia) AS ultimo, MAX(ejemplo) AS version FROM errores WHERE dia >= ? GROUP BY firma ORDER BY n DESC LIMIT 40`, diaDe(this.now() - 7 * 86400e3)),
+          });
         }
         // ---------- gremios ----------
         case 'GET gremios': {
@@ -483,7 +549,30 @@ export class Cuentas {
   presencia(uid, en) { for (const a of this.amigosDe(uid)) this.avisar(a, { t: 'presencia', id: uid, enLinea: !!en }); }
 
   // ---------- desde las mesas ----------
-  async quien(token) { const u = await this.sesionDe(token); return u ? { id: u.id, apodo: u.apodo, racha: u.racha || 0 } : null; }
+  async quien(token) {
+    const u = await this.sesionDe(token);
+    return u ? { id: u.id, apodo: u.apodo, racha: u.racha || 0, ...this.suspension(u) } : null;
+  }
+  // si la cuenta está suspendida de las mesas públicas: { suspendido: hasta, motivo }
+  suspension(u) { return u.suspendido_hasta && u.suspendido_hasta > this.now() ? { suspendido: u.suspendido_hasta, motivo: u.suspension_motivo || '' } : {}; }
+  suspender(uid, ms, motivo) {
+    const u = this.q1(`SELECT suspendido_hasta FROM usuarios WHERE id = ?`, uid); if (!u) return false;
+    const hasta = ms > 0 ? this.now() + ms : null;
+    this.q(`UPDATE usuarios SET suspendido_hasta = ?, suspension_motivo = ? WHERE id = ?`, hasta, hasta ? texto(motivo, 120) : null, uid);
+    return true;
+  }
+  // de a cuántos por día y de qué tipo (sin datos de nadie)
+  contar(tabla, dia, a, b, ejemplo) {
+    if (tabla === 'visitas') this.q(`INSERT INTO visitas (dia, tipo, clave, n) VALUES (?, ?, ?, 1) ON CONFLICT (dia, tipo, clave) DO UPDATE SET n = n + 1`, dia, a, b);
+    else this.q(`INSERT INTO errores (dia, firma, n, ejemplo) VALUES (?, ?, 1, ?) ON CONFLICT (dia, firma) DO UPDATE SET n = n + 1`, dia, a, ejemplo);
+  }
+  // un tope por dirección (solo en memoria, no se guarda): para que nadie llene las tablas de visitas o errores
+  topeIP(ip, max) {
+    const ahora = this.now(), m = this.porIP || (this.porIP = new Map());
+    if (m.size > 5000) m.clear();
+    const x = m.get(ip) || { t: ahora, n: 0 }; if (ahora - x.t > 60e3) { x.t = ahora; x.n = 0; }
+    x.n++; m.set(ip, x); return x.n <= max;
+  }
 
   // Anota un partido terminado. r = { id, fecha, n, ganador, tanteador, equipos: [[{nombre, cuenta, compu}], [...]],
   //   cuentas: [{ uid, equipo, abandono, stats: { manos, manosGanadas, envidos, flores, trucos } }] }
@@ -522,6 +611,9 @@ export class Cuentas {
         n0(st.manos), n0(st.manosGanadas), n0(st.envidos), n0(st.flores), n0(st.trucos), n0(st.faltas), n0(st.falta37),
         mes, eloMes(u) + dm, (u.mes === mes ? u.partidos_mes : 0) + 1, (u.mes === mes ? u.ganados_mes : 0) + gano, u.id);
       this.q(`INSERT INTO jugadas (partido, usuario, equipo, gano, abandono, delta, elo, fecha) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, r.id, u.id, t, gano, j.abandono ? 1 : 0, d, u.elo + d, fecha);
+      // abandonar seguido: tres en un día, media hora sin mesas públicas
+      if (j.abandono && this.q1(`SELECT COUNT(*) AS n FROM jugadas WHERE usuario = ? AND abandono = 1 AND fecha > ?`, u.id, fecha - 86400e3).n >= ABANDONOS_DIA
+          && !(u.suspendido_hasta > fecha + ABANDONO_PAUSA)) this.suspender(u.id, ABANDONO_PAUSA, `Abandonaste ${ABANDONOS_DIA} partidos en un día`);
       if (u.gremio) this.q(`UPDATE gremios SET partidos = partidos + 1, ganados = ganados + ?,
           partidos_mes = CASE WHEN mes = ? THEN partidos_mes + 1 ELSE 1 END, ganados_mes = CASE WHEN mes = ? THEN ganados_mes + ? ELSE ? END, mes = ? WHERE id = ?`,
         gano, mes, mes, gano, gano, mes, u.gremio);

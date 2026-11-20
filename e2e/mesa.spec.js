@@ -60,6 +60,11 @@ test('dos jugadores en una mesa: cada uno ve solo sus cartas y se juega', async 
     window.__trucoAct(j);
   });
   await expect.poll(async () => huella(await vista(a.pg))).not.toBe(antes);   // al otro también le llegó
+  // en la mesa se puede silenciar al otro (solo para uno): sus mensajes dejan de verse
+  await b.pg.evaluate(() => window.__trucoChat && window.__trucoChat('hola'));
+  await expect.poll(() => a.pg.locator('[data-silenciar]').count()).toBeGreaterThan(0);
+  await a.pg.locator('[data-silenciar]').first().evaluate(x => x.click());
+  await expect.poll(() => a.pg.locator('[data-silenciar]').first().textContent()).toContain('Escuchar');
   expect([...a.errores, ...b.errores]).toEqual([]);
 });
 

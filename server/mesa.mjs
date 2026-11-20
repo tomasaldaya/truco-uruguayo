@@ -200,6 +200,8 @@ export class Mesa {
         c.esperando = false;
         if (!this.conns.has(cid)) return;
         if (!u || typeof u.id !== 'number') { this.send(cid, { t: 'nocuenta' }); return; }
+        // suspendida de las mesas públicas (por quien administra o por abandonar seguido)
+        if (u.suspendido) { this.send(cid, { t: 'suspendido', hasta: u.suspendido, motivo: u.motivo || '' }); this.conns.delete(cid); this.io.close(cid); return; }
         c.uid = u.id; c.apodo = cleanName(u.apodo); c.racha = u.racha | 0;
         this.hello(cid, { ...m, name: c.apodo });
       }).catch(() => { c.esperando = false; this.send(cid, { t: 'nocuenta' }); });
@@ -365,7 +367,7 @@ export class Mesa {
   seatOf(cid) { return this.seats ? this.seats.findIndex(s => s.kind !== 'ai' && s.cid === cid) : -1; }
   isOwner(cid) { return !this.publica && this.seats && this.seats[0] && this.seats[0].kind === 'host' && this.seats[0].cid === cid; }
   lobbyMsg() {
-    const L = { t: 'lobby', n: this.n, started: this.started, owner: 0, cfg: this.cfg, ...this.miranInfo(), seats: this.seats.map((s, p) => ({ kind: s.kind, name: s.name, cid: s.cid || null, host: p === 0 && !this.publica || undefined, cuenta: s.kind !== 'ai' && !!s.uid || undefined })) };
+    const L = { t: 'lobby', n: this.n, started: this.started, owner: 0, cfg: this.cfg, ...this.miranInfo(), seats: this.seats.map((s, p) => ({ kind: s.kind, name: s.name, cid: s.cid || null, host: p === 0 && !this.publica || undefined, cuenta: s.kind !== 'ai' && !!s.uid || undefined, uid: s.kind !== 'ai' && s.uid || undefined, voz: s.kind !== 'ai' && s.cid && this.conns.get(s.cid) && this.conns.get(s.cid).vozId || undefined })) };
     if (this.publica) Object.assign(L, { publica: true, votos: [...this.votos], empiezaEn: this.empiezaEn ? Math.max(0, this.empiezaEn - this.io.now()) : null, fin: !!(this.GM && this.GM.phase === 'matchEnd') });
     return L;
   }
@@ -461,13 +463,15 @@ export class Mesa {
   revisarInicio() {
     if (!this.publica) return;
     const libre = !this.started || (this.GM && this.GM.phase === 'matchEnd');
-    const g = this.gente(), lleno = g.length === this.n, todos = g.length >= 2 && g.every(p => this.votos.has(p));
+    // empieza llena, o cuando todos los que están votan empezar (aunque sea uno solo: la computadora completa, y los
+    // que lleguen después se sientan en sus lugares)
+    const g = this.gente(), lleno = g.length === this.n, todos = g.length >= 1 && g.every(p => this.votos.has(p));
     if (libre && (lleno || todos)) {
       if (this.cuentaT) return;
       this.empiezaEn = this.io.now() + CUENTA_ATRAS;
       this.cuentaT = this.io.setTimeout(() => {
         this.cuentaT = null; this.empiezaEn = null;
-        const g2 = this.gente(), sigue = (!this.started || (this.GM && this.GM.phase === 'matchEnd')) && (g2.length === this.n || (g2.length >= 2 && g2.every(p => this.votos.has(p))));
+        const g2 = this.gente(), sigue = (!this.started || (this.GM && this.GM.phase === 'matchEnd')) && (g2.length === this.n || (g2.length >= 1 && g2.every(p => this.votos.has(p))));
         if (sigue) { this.votos = new Set(); this.startMatch({ speed: 'normal', level: 'normal' }); }
         else this.lobbyChanged();
       }, CUENTA_ATRAS);

@@ -9,7 +9,22 @@
 <meta name="apple-mobile-web-app-title" content="Truco">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Truco Uruguayo</title>
+<title>Truco Uruguayo · jugá online con amigos</title>
+<!-- para buscadores y para cuando se comparte el link (WhatsApp, Instagram, Facebook): build.py pone la dirección -->
+<meta name="description" content="Truco uruguayo gratis en el navegador: contra la computadora u online con amigos, mano a mano, en parejas o en tercetos, con flor y según el reglamento. Chat de voz, ranking y mesa 3D.">
+<link rel="canonical" href="/*SITIO*//">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Truco Uruguayo">
+<meta property="og:locale" content="es_UY">
+<meta property="og:title" content="Truco Uruguayo · jugá online con amigos">
+<meta property="og:description" content="Mano a mano, en parejas o en tercetos, con flor y según el reglamento. Gratis, en el navegador.">
+<meta property="og:url" content="/*SITIO*//">
+<meta property="og:image" content="/*SITIO*//compartir.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Cuatro cartas de oro en abanico y el nombre Truco Uruguayo">
+<meta name="twitter:card" content="summary_large_image">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"VideoGame","name":"Truco Uruguayo","url":"/*SITIO*//","image":"/*SITIO*//compartir.jpg","description":"Truco uruguayo gratis en el navegador: contra la computadora u online, mano a mano, en parejas o en tercetos, con flor.","inLanguage":"es","genre":"Juego de cartas","gamePlatform":"Navegador web","playMode":["SinglePlayer","MultiPlayer"],"applicationCategory":"Game","operatingSystem":"Cualquiera con navegador","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"author":{"@type":"Person","name":"Tomás Aldaya"}}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Alegreya:wght@500;700;800&family=Alegreya+Sans:wght@400;500;700&display=swap" rel="stylesheet">
@@ -802,6 +817,8 @@ const $ = id => document.getElementById(id);
 // G: lo que ve esta pantalla, la vista recortada desde ME (TV.viewFor). Todo lo que se dibuja sale de G.
 // NET: la mesa compartida (red.part.js); null jugando solo.
 let ME = 0, GM = null, NET = null;
+// Ayudas: solo contra la computadora; en las partidas online van apagadas para todos (así el ranking es parejo)
+const ayudas = () => showHelp && !NET;
 let G = null, busy = false, timer = null, showHelp = true, showRanks = false, realista = false, errMsg = '';
 let customDeck = null;
 // Las reglas de la mesa son fijas (ya no se cambian en Configuración): a 30 puntos, al mejor de tres, 30 segundos por
@@ -866,6 +883,7 @@ function ph(){ return el('div','ph'); }
 function render(){
   refreshView();
   mesaPanelSync();
+  $('btnHelp').hidden = !!NET;   // en las partidas online no hay Ayudas
   if (!G) return;
   clockSync();
   if (NET && NET.role === 'host') publish();
@@ -1041,7 +1059,7 @@ function statusBox(act){
     h.innerHTML = t; box.appendChild(h);
     return box;
   }
-  if (showHelp && !R.leyPhase && R.active[ME] && !myCardsHidden()) {
+  if (ayudas() && !R.leyPhase && R.active[ME] && !myCardsHidden()) {
     t = R.flor.has[ME] ? `Tenés <b>flor</b> de <b>${R.flor.pts[ME]}</b>` : `Tu envido: <b>${R.envPts[ME]}</b>`;
     if (R.flor.has[ME] && G.manual[ME] && !R.flor.sung[ME] && !R.flor.negada[ME]) t += ' — cantala antes de jugar o decir otra cosa, si no la negás';
   }
@@ -1050,7 +1068,7 @@ function statusBox(act){
   if (R.leyPhase && act===ME) t = 'Todavía nadie ve sus cartas ni la muestra: se decide a ciegas (Art. 72).';
   else if (myCardsHidden() && R.ley) t = 'Ves tus cartas cuando el otro equipo conteste (Art. 79).';
   if (R.trucoLevel>1) t += (t?' · ':'') + `se juega por <b>${R.trucoLevel}</b>`;
-  if (G.phase==='play' && showHelp && R.mustShow[ME] && G.manual[ME] && R.active[ME] && !R.out[ME])
+  if (G.phase==='play' && ayudas() && R.mustShow[ME] && G.manual[ME] && R.active[ME] && !R.out[ME])
     t += (t?'<br>':'') + 'Al final mostrás tus cartas: si no querés seguir, decí <b>paso</b> (si te vas al mazo sin mostrar, esos puntos van para el rival).';
   if (G.n>=4 && !R.duel) {
     const vist = (R.seen[ME]||[]);
@@ -1074,7 +1092,7 @@ function mySeat(act){
   if (muestro && R.duel) { const pr = R.duel.pairs.find(x => x.includes(ME)) || []; const riv = pr.find(q => q !== ME); if (riv !== undefined) mh.title = 'Pico a pico: se las mostrás solo a ' + G.names[riv]; }
   if (!muestro) R.hands[ME].forEach(c => {
     const can = playable.has(c.id);
-    const e = cardEl(c, {button: can, cls: can?'play':(act===ME?'dim':''), badge: showHelp && !R.leyPhase});
+    const e = cardEl(c, {button: can, cls: can?'play':(act===ME?'dim':''), badge: ayudas() && !R.leyPhase});
     if (can) e.onclick = () => human({type:'play', card:c});
     mh.appendChild(e);
   });
@@ -1186,8 +1204,8 @@ function mySenas(){
   const cur = R.senasShown[ME] || [];
   Object.keys(T.SENAS).forEach(k => {
     const n = cur.filter(x => x === k).length, max = T.SENA_MAX[k] || 1;
-    const b = el('button','', `${EMOJI[k]} ${showHelp ? T.SENAS[k].cartas : ACCION[k]}${n > 1 ? ` <b>×${n}</b>` : ''}`);
-    b.title = (showHelp ? ACCION[k] : 'Seña') + (max > 1 ? ' — tocá de nuevo si tenés otra igual' : '');
+    const b = el('button','', `${EMOJI[k]} ${ayudas() ? T.SENAS[k].cartas : ACCION[k]}${n > 1 ? ` <b>×${n}</b>` : ''}`);
+    b.title = (ayudas() ? ACCION[k] : 'Seña') + (max > 1 ? ' — tocá de nuevo si tenés otra igual' : '');
     b.setAttribute('aria-pressed', String(n > 0));
     b.onclick = () => {
       let list = (R.senasShown[ME] || []).slice();
@@ -1203,7 +1221,7 @@ function mySenas(){
 function senaTxt(k, n){
   if (!T.SENAS[k]) return '';
   const veces = n > 1 ? ` <b class="x">${n === 2 ? 'dos veces' : 'tres veces'}</b>` : '';
-  return `${EMOJI[k]}<span class="g"> ${T.SENAS[k].gesto}</span>${veces}` + (showHelp ? `<span class="g"> →</span> <b>${n > 1 ? senaPlural(k, n) : T.SENAS[k].cartas}</b>` : '');
+  return `${EMOJI[k]}<span class="g"> ${T.SENAS[k].gesto}</span>${veces}` + (ayudas() ? `<span class="g"> →</span> <b>${n > 1 ? senaPlural(k, n) : T.SENAS[k].cartas}</b>` : '');
 }
 function senaPlural(k, n){ const d = n === 2 ? 'dos' : 'tres'; return { perico: 'perico y perica', mata: d + ' matas', '3': d + ' tres', dos: d + ' doses', as: 'los dos ases (copa y oro)' }[k] || T.SENAS[k].cartas; }
 // Lo que dice cada uno: una etiqueta chica pegada al nombre que aparece y se va sola, igual que en la mesa 3D.
@@ -1753,7 +1771,7 @@ function newGame(n){
   players = n; store.set('truco.players', String(n));
   GM = T.newMatch({players:n, manual:[realista], rules: reglasSolo(n)});
   GM.pjs = Array(n).fill(null); GM.pjs[0] = miPj();
-  GM.id = newMatchId();
+  GM.id = newMatchId(); visita('solo');
   T.startRound(GM); startRoundHook(); lastRoundNo = null;
   step();
 }
@@ -1795,7 +1813,7 @@ function howToModal(){
   <p><b>Achique:</b> si los dos equipos cantaron flor y uno envida (con flor envido o contra flor) y el otro no quiere, el que envidó cobra su flor (3). Si la mesa juega <i>con achique</i>, cobra además un punto: 4. En un reenvite no querido no se suma, como pasa con el envido.</p>
   <p><b>Envido:</b> se canta antes de jugar tu primera carta. Envido 2, real envido 3, falta envido lo que le falta al que va ganando. No querido vale 1.</p>
   <p><b>Truco:</b> truco 2, retruco 3, vale cuatro 4. Gana la mano quien gane dos bazas. Si dos rivales tiran cartas iguales la baza es parda; si las iguales son de compañeros, la baza es de ese equipo (Arts. 57 a 59).</p>
-  <p><b>Parejas:</b> se juega hacia la derecha. Si un rival te canta truco o envido y podés contestar, contestás vos. Las señas del Art. 102 te las hace tu compañero al empezar la mano, y vos se las hacés a él con los botones de abajo. Con <b>Ayudas</b> se ve qué significa cada seña. Si tenés dos cartas iguales (dos matas, dos tres), la seña se hace dos veces: tocá el botón otra vez. Si tu compañero toca o grita antes de que cantes tu flor, te la anula: por eso la computadora deja tocar y gritar al que ya tiene a sus compañeros jugados.</p>
+  <p><b>Parejas:</b> se juega hacia la derecha. Si un rival te canta truco o envido y podés contestar, contestás vos. Las señas del Art. 102 te las hace tu compañero al empezar la mano, y vos se las hacés a él con los botones de abajo. Con <b>Ayudas</b> (solo contra la computadora: en las partidas online van apagadas para todos) se ve qué significa cada seña. Si tenés dos cartas iguales (dos matas, dos tres), la seña se hace dos veces: tocá el botón otra vez. Si tu compañero toca o grita antes de que cantes tu flor, te la anula: por eso la computadora deja tocar y gritar al que ya tiene a sus compañeros jugados.</p>
   <p><b>La muestra de cerca:</b> pasá el cursor por encima de la muestra (o tocala) y la cámara se acerca a mirarla; con el teclado, la tecla M.</p>
   <p><b>Tiempo:</b> tenés 30 segundos para cada decisión. Si se te acaba, decide la computadora por vos. Con el menú abierto la cuenta se frena.</p>
   <p><b>Señas pescadas:</b> de cada 50 señas que se hacen, una la ve algún rival. Te puede pasar a vos con las señas de Tito y Nacho, y a ellos con las tuyas o las de Pocho. Lo que se ve es siempre verdad, y la computadora también lo usa.</p>

@@ -355,5 +355,68 @@ await t('registrar es todo o nada: si falla en el medio no queda a medias, y rei
   assert.equal(W.c.q1(`SELECT partidos FROM usuarios WHERE id = ?`, a).partidos, 1);
 });
 
+await t('moderación: reportar con el chat, ver los reportes, suspender y quitar la suspensión', async () => {
+  const W = mundo({ admins: ['1'] });
+  const A = await W.alta('Admin'), B = await W.alta('Beto'), C = await W.alta('Ceci');
+  assert.equal((await W.pedir('POST', 'reporte', null, { a: C.yo.id })).s, 401);
+  assert.equal((await W.pedir('POST', 'reporte', B.token, { a: B.yo.id })).s, 400);   // a uno mismo no
+  const chat = Array.from({ length: 20 }, (_, i) => ({ n: 'Ceci', t: 'línea ' + i }));
+  assert.equal((await W.pedir('POST', 'reporte', B.token, { a: C.yo.id, nombre: 'Ceci', mesa: 'ABCD', motivo: 'insultos', detalle: 'me insultó', chat })).s, 200);
+  assert.equal((await W.pedir('GET', 'admin/reportes', B.token)).s, 403);
+  let r = await W.pedir('GET', 'admin/reportes', A.token);
+  assert.equal(r.nuevos, 1); assert.equal(r.lista[0].chat.length, 12); assert.equal(r.lista[0].chat[11].t, 'línea 19');
+  assert.equal(r.lista[0].motivo, 'insultos'); assert.equal(r.lista[0].a.apodo, 'Ceci'); assert.equal(r.lista[0].de.apodo, 'Beto');
+  assert.equal((await W.pedir('POST', 'admin/suspender', B.token, { id: C.yo.id, horas: 24 })).s, 403);
+  assert.equal((await W.pedir('POST', 'admin/suspender', A.token, { id: C.yo.id, horas: 24, motivo: 'insultos' })).s, 200);
+  assert.equal((await W.pedir('POST', 'admin/reporte', A.token, { id: r.lista[0].id, estado: 'visto' })).s, 200);
+  r = await W.pedir('GET', 'admin/reportes', A.token);
+  assert.equal(r.nuevos, 0); assert(r.lista[0].a.suspendido > W.now);
+  const q = await W.c.quien(C.token); assert(q.suspendido > W.now); assert.equal(q.motivo, 'insultos');
+  W.avanzar(25 * 3600e3); assert.equal((await W.c.quien(C.token)).suspendido, undefined);   // se vence sola
+  await W.pedir('POST', 'admin/suspender', A.token, { id: C.yo.id, horas: 24 });
+  await W.pedir('POST', 'admin/suspender', A.token, { id: C.yo.id, horas: 0 });                 // y se puede quitar
+  assert.equal((await W.c.quien(C.token)).suspendido, undefined);
+  // tope de reportes por día
+  for (let i = 0; i < 10; i++) await W.pedir('POST', 'reporte', B.token, { a: C.yo.id });
+  assert.equal((await W.pedir('POST', 'reporte', B.token, { a: C.yo.id })).s, 429);
+  // al borrar su cuenta se van sus reportes; los que le hicieron quedan sin la cuenta
+  await W.pedir('POST', 'reporte', C.token, { a: B.yo.id });
+  await W.pedir('POST', 'cuenta/borrar', C.token, {});
+  r = await W.pedir('GET', 'admin/reportes', A.token);
+  assert(r.lista.every(x => x.de.id !== C.yo.id)); assert(r.lista.every(x => x.a === null && x.nombre !== undefined));
+});
+
+await t('abandonar tres partidos en un día suspende media hora las públicas', async () => {
+  const W = mundo();
+  const A = await W.alta('Ana'), b = (await W.alta('Beto')).yo.id, a = A.yo.id;
+  for (let i = 0; i < 2; i++) { W.c.registrar(partido('ab' + i, 1, [{ uid: a, equipo: 0, abandono: true, stats }, { uid: b, equipo: 1, stats }])); W.avanzar(60e3); }
+  assert.equal((await W.c.quien(A.token)).suspendido, undefined);
+  W.c.registrar(partido('ab2', 1, [{ uid: a, equipo: 0, abandono: true, stats }, { uid: b, equipo: 1, stats }]));
+  const q = await W.c.quien(A.token); assert(q.suspendido > W.now && q.suspendido <= W.now + 30 * 60e3); assert.match(q.motivo, /Abandonaste/);
+  assert((await W.pedir('GET', 'cuenta/yo', A.token)).yo.suspendido > 0);   // lo ve en su perfil
+  W.avanzar(31 * 60e3); assert.equal((await W.c.quien(A.token)).suspendido, undefined);
+});
+
+await t('visitas y errores: se cuentan por día, sin datos de nadie y con tope', async () => {
+  const W = mundo({ admins: ['1'] });
+  const A = await W.alta('Admin');
+  const ip = n => ({ 'cf-connecting-ip': '10.0.0.' + n });
+  const pedirIP = async (ruta, n, cuerpo) => { const r = await W.c.http(new Request('https://x.dev/api/' + ruta, { method: 'POST', headers: { 'content-type': 'application/json', ...ip(n) }, body: JSON.stringify(cuerpo) })); return r.j; };
+  await pedirIP('visita', 1, { tipo: 'abre', origen: 'Instagram.com/<script>' });
+  await pedirIP('visita', 2, { tipo: 'abre', origen: 'instagram.com' });
+  await pedirIP('visita', 2, { tipo: 'solo' });
+  await pedirIP('visita', 2, { tipo: 'cualquiera' });
+  await pedirIP('error', 3, { msg: 'x is not defined', donde: 'index.html:10', v: 'abc' });
+  await pedirIP('error', 4, { msg: 'x is not defined', donde: 'index.html:10', v: 'abc' });
+  for (let i = 0; i < 25; i++) await pedirIP('visita', 9, { tipo: 'online' });
+  assert.equal((await W.pedir('GET', 'admin/uso', null)).s, 403);
+  const u = await W.pedir('GET', 'admin/uso', A.token);
+  const n = t => u.visitas.filter(v => v.tipo === t).reduce((a, v) => a + v.n, 0);
+  assert.equal(n('abre'), 2); assert.equal(n('solo'), 1); assert.equal(n('online'), 20);   // la misma dirección, con tope
+  assert.deepEqual(u.origenes.map(o => o.origen).sort(), ['instagram.com', 'instagram.comscript']);   // solo letras, números, puntos y guiones
+  assert.equal(u.errores.length, 1); assert.equal(u.errores[0].n, 2); assert.equal(u.errores[0].version, 'abc');
+  assert.equal(JSON.stringify(u).includes('10.0.0'), false);
+});
+
 console.log(fails ? `\n${fails} pruebas fallaron` : '\nTodo OK');
 process.exit(fails ? 1 : 0);

@@ -9,7 +9,22 @@
 <meta name="apple-mobile-web-app-title" content="Truco">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Truco Uruguayo</title>
+<title>Truco Uruguayo · jugá online con amigos</title>
+<!-- para buscadores y para cuando se comparte el link (WhatsApp, Instagram, Facebook): build.py pone la dirección -->
+<meta name="description" content="Truco uruguayo gratis en el navegador: contra la computadora u online con amigos, mano a mano, en parejas o en tercetos, con flor y según el reglamento. Chat de voz, ranking y mesa 3D.">
+<link rel="canonical" href="https://truco-uruguayo.tomasaldaya.workers.dev/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Truco Uruguayo">
+<meta property="og:locale" content="es_UY">
+<meta property="og:title" content="Truco Uruguayo · jugá online con amigos">
+<meta property="og:description" content="Mano a mano, en parejas o en tercetos, con flor y según el reglamento. Gratis, en el navegador.">
+<meta property="og:url" content="https://truco-uruguayo.tomasaldaya.workers.dev/">
+<meta property="og:image" content="https://truco-uruguayo.tomasaldaya.workers.dev/compartir.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Cuatro cartas de oro en abanico y el nombre Truco Uruguayo">
+<meta name="twitter:card" content="summary_large_image">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"VideoGame","name":"Truco Uruguayo","url":"https://truco-uruguayo.tomasaldaya.workers.dev/","image":"https://truco-uruguayo.tomasaldaya.workers.dev/compartir.jpg","description":"Truco uruguayo gratis en el navegador: contra la computadora u online, mano a mano, en parejas o en tercetos, con flor.","inLanguage":"es","genre":"Juego de cartas","gamePlatform":"Navegador web","playMode":["SinglePlayer","MultiPlayer"],"applicationCategory":"Game","operatingSystem":"Cualquiera con navegador","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"author":{"@type":"Person","name":"Tomás Aldaya"}}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Alegreya:wght@500;700;800&family=Alegreya+Sans:wght@400;500;700&display=swap" rel="stylesheet">
@@ -2403,6 +2418,8 @@ const $ = id => document.getElementById(id);
 // G: lo que ve esta pantalla, la vista recortada desde ME (TV.viewFor). Todo lo que se dibuja sale de G.
 // NET: la mesa compartida (red.part.js); null jugando solo.
 let ME = 0, GM = null, NET = null;
+// Ayudas: solo contra la computadora; en las partidas online van apagadas para todos (así el ranking es parejo)
+const ayudas = () => showHelp && !NET;
 let G = null, busy = false, timer = null, showHelp = true, showRanks = false, realista = false, errMsg = '';
 let customDeck = null;
 // Las reglas de la mesa son fijas (ya no se cambian en Configuración): a 30 puntos, al mejor de tres, 30 segundos por
@@ -2816,6 +2833,7 @@ function ph(){ return el('div','ph'); }
 function render(){
   refreshView();
   mesaPanelSync();
+  $('btnHelp').hidden = !!NET;   // en las partidas online no hay Ayudas
   if (!G) return;
   clockSync();
   if (NET && NET.role === 'host') publish();
@@ -2991,7 +3009,7 @@ function statusBox(act){
     h.innerHTML = t; box.appendChild(h);
     return box;
   }
-  if (showHelp && !R.leyPhase && R.active[ME] && !myCardsHidden()) {
+  if (ayudas() && !R.leyPhase && R.active[ME] && !myCardsHidden()) {
     t = R.flor.has[ME] ? `Tenés <b>flor</b> de <b>${R.flor.pts[ME]}</b>` : `Tu envido: <b>${R.envPts[ME]}</b>`;
     if (R.flor.has[ME] && G.manual[ME] && !R.flor.sung[ME] && !R.flor.negada[ME]) t += ' — cantala antes de jugar o decir otra cosa, si no la negás';
   }
@@ -3000,7 +3018,7 @@ function statusBox(act){
   if (R.leyPhase && act===ME) t = 'Todavía nadie ve sus cartas ni la muestra: se decide a ciegas (Art. 72).';
   else if (myCardsHidden() && R.ley) t = 'Ves tus cartas cuando el otro equipo conteste (Art. 79).';
   if (R.trucoLevel>1) t += (t?' · ':'') + `se juega por <b>${R.trucoLevel}</b>`;
-  if (G.phase==='play' && showHelp && R.mustShow[ME] && G.manual[ME] && R.active[ME] && !R.out[ME])
+  if (G.phase==='play' && ayudas() && R.mustShow[ME] && G.manual[ME] && R.active[ME] && !R.out[ME])
     t += (t?'<br>':'') + 'Al final mostrás tus cartas: si no querés seguir, decí <b>paso</b> (si te vas al mazo sin mostrar, esos puntos van para el rival).';
   if (G.n>=4 && !R.duel) {
     const vist = (R.seen[ME]||[]);
@@ -3024,7 +3042,7 @@ function mySeat(act){
   if (muestro && R.duel) { const pr = R.duel.pairs.find(x => x.includes(ME)) || []; const riv = pr.find(q => q !== ME); if (riv !== undefined) mh.title = 'Pico a pico: se las mostrás solo a ' + G.names[riv]; }
   if (!muestro) R.hands[ME].forEach(c => {
     const can = playable.has(c.id);
-    const e = cardEl(c, {button: can, cls: can?'play':(act===ME?'dim':''), badge: showHelp && !R.leyPhase});
+    const e = cardEl(c, {button: can, cls: can?'play':(act===ME?'dim':''), badge: ayudas() && !R.leyPhase});
     if (can) e.onclick = () => human({type:'play', card:c});
     mh.appendChild(e);
   });
@@ -3136,8 +3154,8 @@ function mySenas(){
   const cur = R.senasShown[ME] || [];
   Object.keys(T.SENAS).forEach(k => {
     const n = cur.filter(x => x === k).length, max = T.SENA_MAX[k] || 1;
-    const b = el('button','', `${EMOJI[k]} ${showHelp ? T.SENAS[k].cartas : ACCION[k]}${n > 1 ? ` <b>×${n}</b>` : ''}`);
-    b.title = (showHelp ? ACCION[k] : 'Seña') + (max > 1 ? ' — tocá de nuevo si tenés otra igual' : '');
+    const b = el('button','', `${EMOJI[k]} ${ayudas() ? T.SENAS[k].cartas : ACCION[k]}${n > 1 ? ` <b>×${n}</b>` : ''}`);
+    b.title = (ayudas() ? ACCION[k] : 'Seña') + (max > 1 ? ' — tocá de nuevo si tenés otra igual' : '');
     b.setAttribute('aria-pressed', String(n > 0));
     b.onclick = () => {
       let list = (R.senasShown[ME] || []).slice();
@@ -3153,7 +3171,7 @@ function mySenas(){
 function senaTxt(k, n){
   if (!T.SENAS[k]) return '';
   const veces = n > 1 ? ` <b class="x">${n === 2 ? 'dos veces' : 'tres veces'}</b>` : '';
-  return `${EMOJI[k]}<span class="g"> ${T.SENAS[k].gesto}</span>${veces}` + (showHelp ? `<span class="g"> →</span> <b>${n > 1 ? senaPlural(k, n) : T.SENAS[k].cartas}</b>` : '');
+  return `${EMOJI[k]}<span class="g"> ${T.SENAS[k].gesto}</span>${veces}` + (ayudas() ? `<span class="g"> →</span> <b>${n > 1 ? senaPlural(k, n) : T.SENAS[k].cartas}</b>` : '');
 }
 function senaPlural(k, n){ const d = n === 2 ? 'dos' : 'tres'; return { perico: 'perico y perica', mata: d + ' matas', '3': d + ' tres', dos: d + ' doses', as: 'los dos ases (copa y oro)' }[k] || T.SENAS[k].cartas; }
 // Lo que dice cada uno: una etiqueta chica pegada al nombre que aparece y se va sola, igual que en la mesa 3D.
@@ -3703,7 +3721,7 @@ function newGame(n){
   players = n; store.set('truco.players', String(n));
   GM = T.newMatch({players:n, manual:[realista], rules: reglasSolo(n)});
   GM.pjs = Array(n).fill(null); GM.pjs[0] = miPj();
-  GM.id = newMatchId();
+  GM.id = newMatchId(); visita('solo');
   T.startRound(GM); startRoundHook(); lastRoundNo = null;
   step();
 }
@@ -5517,7 +5535,7 @@ function howToModal(){
   <p><b>Achique:</b> si los dos equipos cantaron flor y uno envida (con flor envido o contra flor) y el otro no quiere, el que envidó cobra su flor (3). Si la mesa juega <i>con achique</i>, cobra además un punto: 4. En un reenvite no querido no se suma, como pasa con el envido.</p>
   <p><b>Envido:</b> se canta antes de jugar tu primera carta. Envido 2, real envido 3, falta envido lo que le falta al que va ganando. No querido vale 1.</p>
   <p><b>Truco:</b> truco 2, retruco 3, vale cuatro 4. Gana la mano quien gane dos bazas. Si dos rivales tiran cartas iguales la baza es parda; si las iguales son de compañeros, la baza es de ese equipo (Arts. 57 a 59).</p>
-  <p><b>Parejas:</b> se juega hacia la derecha. Si un rival te canta truco o envido y podés contestar, contestás vos. Las señas del Art. 102 te las hace tu compañero al empezar la mano, y vos se las hacés a él con los botones de abajo. Con <b>Ayudas</b> se ve qué significa cada seña. Si tenés dos cartas iguales (dos matas, dos tres), la seña se hace dos veces: tocá el botón otra vez. Si tu compañero toca o grita antes de que cantes tu flor, te la anula: por eso la computadora deja tocar y gritar al que ya tiene a sus compañeros jugados.</p>
+  <p><b>Parejas:</b> se juega hacia la derecha. Si un rival te canta truco o envido y podés contestar, contestás vos. Las señas del Art. 102 te las hace tu compañero al empezar la mano, y vos se las hacés a él con los botones de abajo. Con <b>Ayudas</b> (solo contra la computadora: en las partidas online van apagadas para todos) se ve qué significa cada seña. Si tenés dos cartas iguales (dos matas, dos tres), la seña se hace dos veces: tocá el botón otra vez. Si tu compañero toca o grita antes de que cantes tu flor, te la anula: por eso la computadora deja tocar y gritar al que ya tiene a sus compañeros jugados.</p>
   <p><b>La muestra de cerca:</b> pasá el cursor por encima de la muestra (o tocala) y la cámara se acerca a mirarla; con el teclado, la tecla M.</p>
   <p><b>Tiempo:</b> tenés 30 segundos para cada decisión. Si se te acaba, decide la computadora por vos. Con el menú abierto la cuenta se frena.</p>
   <p><b>Señas pescadas:</b> de cada 50 señas que se hacen, una la ve algún rival. Te puede pasar a vos con las señas de Tito y Nacho, y a ellos con las tuyas o las de Pocho. Lo que se ve es siempre verdad, y la computadora también lo usa.</p>
@@ -5699,7 +5717,8 @@ function pintarInicio(){
     <button class="tool" id="hCfg">Configuración</button><button class="tool" id="hPj">Tu personaje</button><button class="tool" id="hDeck">Tu mazo</button>
     <button class="tool" id="hHow">Cómo se juega</button><button class="tool" id="hRegl">Reglamento</button><button class="tool" id="hStats">Estadísticas</button>
     <button class="tool" id="hInstalar"${comoInstalar() ? '' : ' hidden'}>Instalar el juego</button></nav>
-    <p class="hcred">Cartas: baraja española libre de <a href="https://commons.wikimedia.org/wiki/Category:Spanish_playing_cards" target="_blank" rel="noopener">Basquetteur</a> (Wikimedia Commons), con licencia <a href="https://creativecommons.org/licenses/by-sa/3.0/deed.es" target="_blank" rel="noopener">CC BY-SA 3.0</a>.</p>`;
+    <p class="hcred">Cartas: baraja española libre de <a href="https://commons.wikimedia.org/wiki/Category:Spanish_playing_cards" target="_blank" rel="noopener">Basquetteur</a> (Wikimedia Commons), con licencia <a href="https://creativecommons.org/licenses/by-sa/3.0/deed.es" target="_blank" rel="noopener">CC BY-SA 3.0</a>.</p>
+    <p class="hcred">© 2026 Tomás Aldaya. Todos los derechos reservados. · <a href="terminos.html" target="_blank" rel="noopener">Términos de uso</a> · <a href="privacidad.html" target="_blank" rel="noopener">Privacidad</a></p>`;
   box.innerHTML = h;
   if ($('hCont')) $('hCont').onclick = () => {
     if (NET && !(NET.role === 'host' ? NET.started : G)) { homeView = 'lobby'; renderHome(); } else continueGame();
@@ -5740,7 +5759,7 @@ function renderConfig(box){
   box.innerHTML = `<div class="hbar"><button class="tool" id="hBack">Volver</button><h2>Configuración</h2></div>
     <section class="cfgsec"><h3>Pantalla</h3><div class="cfg">
       ${row('view', 'Mesa', [['3d', '3D'], ['2d', '2D']], can3d && view3d ? '3d' : '2d', can3d ? 'La 3D tiene cámara que gira y caras que hacen las señas; la 2D es más simple.' : 'Este navegador no puede mostrar la mesa 3D.', !can3d)}
-      ${row('help', 'Ayudas', [['1', 'Sí'], ['0', 'No']], showHelp ? '1' : '0', 'Marca qué cartas son pieza, mata o fío, qué significa cada seña y cuánto tenés de envido.')}
+      ${row('help', 'Ayudas', [['1', 'Sí'], ['0', 'No']], showHelp ? '1' : '0', 'Marca qué cartas son pieza, mata o fío, qué significa cada seña y cuánto tenés de envido. Solo contra la computadora: en las partidas online van apagadas para todos.')}
       ${row('lugar', 'Lugar', ESCENARIOS_UI, escenarioSolo(), 'Dónde está la mesa 3D cuando jugás contra la computadora. En una mesa online lo elige quien la crea.', !can3d)}
       ${row('speed', 'Velocidad', Object.keys(SPEEDS).map(k => [k, k.charAt(0).toUpperCase() + k.slice(1)]), speed, 'Cuánto tarda la computadora en jugar.')}
     </div></section>
@@ -6308,7 +6327,14 @@ function onGuestMsg(m){
   if (NET.hostLost && m.t !== 'away') { NET.hostLost = false; netStatus(); }
   switch (m.t) {
     case 'ping': netPost({ t: 'pong', s: m.s, seated: NET.seat >= 0 }); return;
-    case 'hola': NET.cid = m.cid; serverHello(); return;
+    case 'hola': NET.cid = m.cid; serverHello(); visita('online'); return;
+    case 'suspendido': {   // la cuenta está suspendida para las mesas públicas (por reportes o por abandonar seguido)
+      clearTimeout(NET.helloT); leaveNet();
+      const h = new Date(m.hasta), hora = h.toLocaleTimeString('es-UY', { hour: '2-digit', minute: '2-digit' });
+      const dia = h.toDateString() === new Date().toDateString() ? `hoy a las ${hora}` : `el ${h.toLocaleDateString('es-UY')} a las ${hora}`;
+      netNote = `Tu cuenta no puede entrar a mesas públicas hasta ${dia}${m.motivo ? ` (${m.motivo})` : ''}. Las mesas con amigos y contra la computadora siguen andando.`;
+      homeView = 'publicas'; renderHome(); return;
+    }
     case 'nocuenta': clearTimeout(NET.helloT); leaveNet(); netNote = 'Para las mesas públicas tenés que entrar con tu cuenta.'; homeView = 'publicas'; renderHome(); return;
     case 'nomesa': {         // el servidor no tiene esa mesa: puede ser una mesa de navegador a navegador
       const c = NET.code, nm = NET.name, back = NET.back, owner = NET.owner;
@@ -6321,7 +6347,7 @@ function onGuestMsg(m){
     case 'ocupada': { const cr = NET.crear; leaveNet(); joinTable(newCode(), myName() || 'Anfitrión', false, { key: cr.key, crear: cr, publica: !!cr.publica }); return; }
     case 'lobby': {
       clearTimeout(NET.helloT);
-      NET.lobby = m; NET.lobbyAt = Date.now();
+      NET.lobby = m; NET.lobbyAt = Date.now(); aplicarSilencio();
       NET.seat = m.seats.findIndex(s => s.cid === NET.cid);
       // si quedé sin lugar con el partido empezado (se cortó un rato), vuelvo a saludar y lo recupero
       if (NET.seat >= 0) NET.hadSeat = true;
@@ -6470,12 +6496,13 @@ function renderPublicLobby(box, L){
     h += `<p class="lob"><b>${esc(modeName(L.n))}</b>. ${estado}</p>${reglasHTML(mesaCfg())}
       ${seatsHTML(L.seats, { canSit: !enJuego })}${rankNote(L)}`;
     const btns = [];
-    if (!enJuego && g >= 2 && NET.seat >= 0) btns.push(`<button class="act ${yoVote ? 'sec' : 'flor'}" id="hVote">${yoVote ? 'Ya no' : L.fin ? 'Jugar otro partido' : 'Empezar ya'}</button>`);
+    if (!enJuego && g >= 1 && NET.seat >= 0) btns.push(`<button class="act ${yoVote ? 'sec' : 'flor'}" id="hVote">${yoVote ? 'Ya no' : L.fin ? 'Jugar otro partido' : g === 1 ? 'Empezar con la computadora' : 'Empezar ya'}</button>`);
     if (enJuego && G) btns.push(`<button class="act flor" id="hGo">${NET.mira ? 'Volver a mirar' : 'Volver a la mesa'}</button>`);
     else if (enJuego && NET.seat < 0 && !NET.mira) btns.push('<button class="act flor" id="hMirar">Mirar el partido</button>');
     btns.push(`<button class="act mazo" id="hClose">${NET.mira ? 'Dejar de mirar' : 'Salir de la mesa'}</button>`);
     h += `<div class="row">${btns.join('')}</div>`;
-    if (!enJuego && g >= 2) h += `<p class="hkey">${L.fin ? 'Otro partido' : 'Empezar ya, con la computadora en los lugares libres'}: ${votos.length} de ${g} ${g === 1 ? 'quiere' : 'quieren'}. Empieza cuando quieran todos los que están.</p>`;
+    if (!enJuego && g === 1 && !L.fin) h += `<p class="hkey">¿Nadie todavía? Podés empezar con la computadora en los otros lugares: los que lleguen después se sientan en los lugares de la computadora. Contra la computadora sola no cuenta para el ranking.</p>`;
+    else if (!enJuego && g >= 2) h += `<p class="hkey">${L.fin ? 'Otro partido' : 'Empezar ya, con la computadora en los lugares libres'}: ${votos.length} de ${g} ${g === 1 ? 'quiere' : 'quieren'}. Empieza cuando quieran todos los que están.</p>`;
     else if (!enJuego) h += '<p class="hkey">Cuando llegue alguien más, si todos quieren pueden empezar antes de que se llene: la computadora completa los lugares libres.</p>';
     h += `<div class="hlinks">${inv}</div><p class="hkey">Código de la mesa: <b>${esc(NET.code)}</b>, por si querés pasárselo a alguien.</p>`;
     clearInterval(renderPublicLobby.t);
@@ -6597,7 +6624,7 @@ function chatAdd(m, broadcast){
   NET.chat.push(msg); if (NET.chat.length > 80) NET.chat.shift();
   if (broadcast) netPost({ t: 'chat', p: msg.p, name: msg.name, text: msg.text });
   const mine = msg.m ? msg.m === NET.miraId : msg.p >= 0 && msg.p === chatSeat();
-  if (!mine && msg.p !== -2) { SND.play('chat'); chatToast(msg); }
+  if (!mine && msg.p !== -2 && !(msg.p >= 0 && !msg.m && silenciadoP(msg.p))) { SND.play('chat'); chatToast(msg); }
   renderChat();
 }
 const chatSeat = () => !NET ? 0 : NET.role === 'host' ? 0 : NET.seat;
@@ -6652,10 +6679,50 @@ const miradaDe = p => NET && NET.miradas && G && G.humans && G.humans.includes(p
 // La lista de quienes miran el partido. Quien juega puede votar echar a alguno (por ejemplo, si molesta en
 // la voz); con la mayoría de las personas sentadas se va y no puede volver a esta mesa.
 const mirones = () => (NET && NET.lobby && NET.lobby.mirando) || [];
+// ---------- Silenciar y reportar (mesas del servidor) ----------
+// Silenciar es solo para vos y dura lo que dura la visita: no se oye su voz ni se ven sus mensajes.
+// Reportar manda a quien administra el juego el motivo y lo último del chat; hace falta tener cuenta.
+const SILENCIO = new Set();
+const personaKey = s => s && (s.uid ? 'u' + s.uid : 'n:' + s.name);
+const silenciadoP = p => { const L = NET && NET.lobby, s = L && L.seats && L.seats[p]; return !!s && SILENCIO.has(personaKey(s)); };
+function vozSilenciada(peer){
+  const L = NET && NET.lobby; if (!L || !L.seats) return false;
+  return L.seats.some(s => s.voz === peer && SILENCIO.has(personaKey(s)));
+}
+function aplicarSilencio(){ for (const k in VOZ.audios) VOZ.audios[k].muted = VOZ.mute || vozSilenciada(k); }
+function genteHTML(){
+  const L = NET && NET.lobby;
+  if (!L || !L.seats || !NET.tr || NET.tr.kind !== 'server') return '';
+  const otros = L.seats.map((s, p) => ({ s, p })).filter(({ s, p }) => s.kind !== 'ai' && p !== NET.seat);
+  if (!otros.length) return '';
+  return `<h4>En la mesa</h4><ul>${otros.map(({ s, p }) => {
+    const sil = SILENCIO.has(personaKey(s));
+    const rep = s.uid && conCuenta() ? `<button type="button" class="tool" data-reportar="${p}" title="Avisar a quien administra el juego">⚑ Reportar</button>` : '';
+    return `<li><span>${esc(s.name)}${sil ? ' <small>(silenciado)</small>' : ''}</span><span><button type="button" class="tool" data-silenciar="${p}">${sil ? '🔈 Escuchar' : '🔇 Silenciar'}</button> ${rep}</span></li>`;
+  }).join('')}</ul>`;
+}
+function reportarModal(p){
+  const L = NET && NET.lobby, s = L && L.seats && L.seats[p]; if (!s || !s.uid) return;
+  const MOT = [['insultos', 'Insultos o falta de respeto'], ['trampa', 'Trampa'], ['abandono', 'Se va o no juega'], ['perfil', 'Nombre o foto ofensivos'], ['otro', 'Otra cosa']];
+  toolModal(`<h2>Reportar a ${esc(s.name)}</h2>
+    <p class="hkey">Le llega a quien administra el juego, con lo último del chat de esta mesa. Si es grave, puede suspender la cuenta.</p>
+    <label class="lbl" for="repMot">Motivo</label><select id="repMot">${MOT.map(([v, t]) => `<option value="${v}">${t}</option>`).join('')}</select>
+    <label class="lbl" for="repDet">Contá qué pasó (opcional)</label><textarea id="repDet" maxlength="300" rows="3"></textarea>
+    <p class="hkey" id="repMsg"></p>
+    <div class="row"><button class="act" id="repNo">Cancelar</button><button class="act flor" id="repSi">Mandar el reporte</button></div>`);
+  $('repNo').onclick = closeTool;
+  $('repSi').onclick = async () => {
+    $('repSi').disabled = true;
+    const chat = (NET.chat || []).filter(l => l.p !== -2).slice(-12).map(l => ({ n: l.name, t: l.text }));
+    try { await api('reporte', { a: s.uid, nombre: s.name, mesa: NET.code, motivo: $('repMot').value, detalle: $('repDet').value, chat }); closeTool(); avisoCuenta('Gracias: mandamos el reporte. Si querés, también podés silenciarlo.'); }
+    catch (e) { $('repMsg').textContent = e.message; $('repSi').disabled = false; }
+  };
+}
 function renderMirones(){
   const L = NET && NET.lobby, list = mirones(), juego = NET && NET.seat >= 0 && !NET.mira;
+  const gente = genteHTML();
   document.querySelectorAll('[data-miran]').forEach(box => {
-    if (!list.length) { box.innerHTML = ''; return; }
+    if (!list.length) { box.innerHTML = gente; bindGente(box); return; }
     const hacen = (L && L.echarCon) || 1;
     box.innerHTML = `<h4>Mirando (${list.length})</h4><ul>${list.map(x => {
       const yo = NET.miraId === x.id, voto = (x.echar || []).includes(NET.seat), habla = NET.talkingM && NET.talkingM[x.id];
@@ -6664,9 +6731,18 @@ function renderMirones(){
       return `<li><span>${habla ? '🎙 ' : ''}${esc(x.name)}${yo ? ' <b>· vos</b>' : ''} ${votos}</span>${btn}</li>`;
     }).join('')}</ul>${juego ? `<p class="hkey">Si molesta, votá echarlo: con ${hacen === 1 ? 'tu voto' : `${hacen} votos de los que juegan`} se va y no puede volver a esta mesa.</p>` : ''}`;
     box.querySelectorAll('[data-echar]').forEach(b => b.onclick = () => { b.disabled = true; netPost({ t: 'echar', id: b.dataset.echar, no: !!b.dataset.no }); });
+    if (gente) { box.insertAdjacentHTML('afterbegin', gente); bindGente(box); }
   });
   const p = $('chatPanel'), c = mesaCfg();
   if (p && NET) p.hidden = !c.chat && !c.voz && !list.length;
+}
+function bindGente(box){
+  box.querySelectorAll('[data-silenciar]').forEach(b => b.onclick = () => {
+    const s = NET.lobby.seats[+b.dataset.silenciar], k = personaKey(s);
+    if (SILENCIO.has(k)) SILENCIO.delete(k); else SILENCIO.add(k);
+    aplicarSilencio(); renderChat();
+  });
+  box.querySelectorAll('[data-reportar]').forEach(b => b.onclick = () => reportarModal(+b.dataset.reportar));
 }
 function bindChat(k){
   const f = $(k + 'Form'); if (!f) return;
@@ -6677,7 +6753,8 @@ function renderChat(){
   document.querySelectorAll('[data-chattxt]').forEach(x => { x.hidden = !c.chat; });
   document.querySelectorAll('.chatlog').forEach(box => {
     const list = NET ? NET.chat : [];
-    box.innerHTML = list.length ? list.map(chatLine).join('') : '<div class="cm vacio">Todavía no hay mensajes.</div>';
+    const vis = list.filter(m => !(m.p >= 0 && !m.m && silenciadoP(m.p)));
+    box.innerHTML = vis.length ? vis.map(chatLine).join('') : '<div class="cm vacio">Todavía no hay mensajes.</div>';
     box.scrollTop = box.scrollHeight;
   });
   const p = $('chatPanel');
@@ -6764,12 +6841,12 @@ function vozStop(){
 }
 function vozAttach(peer, stream){
   vozDetach(peer);
-  const a = document.createElement('audio'); a.autoplay = true; a.srcObject = stream; a.muted = VOZ.mute; a.dataset.peer = peer;
+  const a = document.createElement('audio'); a.autoplay = true; a.srcObject = stream; a.muted = VOZ.mute || vozSilenciada(peer); a.dataset.peer = peer;
   document.body.appendChild(a); a.play().catch(() => {});
   VOZ.audios[peer] = a;
 }
 function vozDetach(peer){ const a = VOZ.audios[peer]; if (a) { a.srcObject = null; a.remove(); delete VOZ.audios[peer]; } }
-function setVocesMute(m){ VOZ.mute = m; store.set('truco.voces', m ? '0' : '1'); for (const k in VOZ.audios) VOZ.audios[k].muted = m; renderVoz(); }
+function setVocesMute(m){ VOZ.mute = m; store.set('truco.voces', m ? '0' : '1'); aplicarSilencio(); renderVoz(); }
 function setTalking(p, on){
   if (!NET || typeof p !== 'number') return;
   NET.talking[p] = on;
@@ -7036,7 +7113,7 @@ function fichaHTML(){
   const en = A ? A.amigos.filter(a => a.enLinea).length : 0, sol = A ? A.recibidas.length : 0;
   return `<section class="cficha barra">${avatar(y)}<div><b>${esc(y.apodo)}</b><span>${y.partidos ? `${y.puntos} puntos${y.posicion ? ` · puesto ${y.posicion}` : ''}` : 'Todavía sin partidos en el ranking'}</span></div>
     <nav class="hlinks" aria-label="Tu cuenta"><button class="tool" id="cPerfil">Mi perfil</button><button class="tool" id="cRank">Ranking</button><button class="tool" id="cGremios">${y.gremio ? 'Gremio ' + esc(y.gremio.sigla) : 'Gremios'}</button>
-    <button class="tool" id="cAmigos">Amigos${en ? ` · ${en} en línea` : ''}${sol ? ` · <b class="cbadge">${sol} ${sol === 1 ? 'solicitud' : 'solicitudes'}</b>` : ''}</button>${y.admin ? '<button class="tool" id="cAdmin">Cuentas creadas</button>' : ''}</nav></section>`;
+    <button class="tool" id="cAmigos">Amigos${en ? ` · ${en} en línea` : ''}${sol ? ` · <b class="cbadge">${sol} ${sol === 1 ? 'solicitud' : 'solicitudes'}</b>` : ''}</button>${y.admin ? '<button class="tool" id="cAdmin">Administrar</button>' : ''}</nav></section>`;
 }
 function cuentaFichaHTML(){ return avisoHTML() + (conCuenta() ? fichaHTML() : ''); }
 // la tarjeta principal: jugar con gente en las mesas públicas. Los modos dicen cuánta gente espera en cada
@@ -7321,16 +7398,24 @@ function renderGremio(box){
 }
 
 // solo para quien administra el juego (ADMINS en wrangler.jsonc): quiénes se van creando una cuenta
+// el panel de quien administra: las cuentas, los reportes de los jugadores y cuánto se usa el juego
+const ADM_TABS = [['cuentas', 'Cuentas', 'admin/cuentas'], ['reportes', 'Reportes', 'admin/reportes'], ['uso', 'Uso', 'admin/uso']];
 function renderAdmin(box){
   if (!conCuenta() || !CUENTA.yo.admin) { homeView = 'main'; return renderHome(); }
-  const D = cuentaVista.datos;
-  let h = barra('Cuentas creadas');
+  const tab = cuentaVista.adm || 'cuentas', D = cuentaVista.datos;
+  let h = barra('Administrar') + `<div class="seg" role="group" aria-label="Sección">${ADM_TABS.map(([k, t]) => `<button type="button" data-adm="${k}" aria-pressed="${tab === k}">${t}</button>`).join('')}</div>` + avisoHTML();
+  const enlazar = () => {
+    $('hBack').onclick = () => { cuentaVista.adm = 'cuentas'; volverDeCuenta(); };
+    box.querySelectorAll('[data-adm]').forEach(b => b.onclick = () => { if (b.dataset.adm === tab) return; cuentaVista.adm = b.dataset.adm; cuentaVista.datos = null; cuentaVista.error = ''; renderHome(); });
+  };
   if (!D) {
     h += cuentaVista.error ? `<p class="hnote">${esc(cuentaVista.error)}</p>` : '<p class="lob">Cargando…</p>';
-    box.innerHTML = h; $('hBack').onclick = volverDeCuenta;
-    if (!cuentaVista.error) cuentaCargar('admin', 'admin/cuentas');
+    box.innerHTML = h; enlazar();
+    if (!cuentaVista.error) cuentaCargar('admin', ADM_TABS.find(t => t[0] === tab)[2]);
     return;
   }
+  if (tab === 'reportes') return adminReportes(box, h, D, enlazar);
+  if (tab === 'uso') return adminUso(box, h, D, enlazar);
   const tile = (n, l) => `<div class="stile"><b>${n}</b><span>${l}</span></div>`;
   const cuando = t => t ? fechaCorta(t) : '—';
   h += `<div class="stiles">${tile(D.total, 'cuentas en total')}${tile(D.hoy, 'creadas hoy')}${tile(D.semana, 'en los últimos 7 días')}${tile(D.conPartidos, 'ya jugaron para el ranking')}${tile(D.enLinea, 'conectadas ahora')}</div>`;
@@ -7338,8 +7423,7 @@ function renderAdmin(box){
       `<tr data-id="${r.id}" tabindex="0"><td>${r.id}</td><td>${r.enLinea ? '<i class="dot on" title="En línea"></i> ' : ''}${avatar(r, 'c')} ${esc(r.apodo)}${r.foto || r.textos ? ` <button class="tool mini" data-limpiar="${r.id}" title="Quitar la foto, el nombre, la biografía y el cuadro">Quitar foto y textos</button>` : ''}</td><td>${cuando(r.creado)}</td><td>${r.enLinea ? 'ahora' : cuando(r.visto)}</td><td>${r.partidos}${r.partidos ? ` <small>(${r.puntos} pts)</small>` : ''}</td></tr>`).join('')}</tbody></table>`
     : '<p class="lob">Todavía no se creó ninguna cuenta.</p>';
   h += '<p class="hkey">De la más nueva a la más vieja. Solo vos ves esta lista; tocá una fila para ver el perfil. No se guarda el correo de nadie.</p><div class="hlinks"><button class="tool" id="aAct">Actualizar</button></div>';
-  box.innerHTML = h;
-  $('hBack').onclick = volverDeCuenta;
+  box.innerHTML = h; enlazar();
   $('aAct').onclick = () => { cuentaVista.datos = null; renderHome(); };
   box.querySelectorAll('tr[data-id]').forEach(tr => { const ir = () => cuentaIr('perfil', { id: +tr.dataset.id, volver: 'main' }); tr.onclick = ir; tr.onkeydown = e => { if (e.key === 'Enter') ir(); }; });
   box.querySelectorAll('[data-limpiar]').forEach(b => b.onclick = async e => {
@@ -7348,6 +7432,46 @@ function renderAdmin(box){
     try { await api('admin/limpiar', { id: +b.dataset.limpiar }); cuentaVista.datos = null; } catch (x) { cuentaVista.aviso = x.message; }
     renderHome();
   });
+}
+
+const MOTIVO_TXT = { insultos: 'Insultos', trampa: 'Trampa', abandono: 'Abandono', perfil: 'Perfil ofensivo', otro: 'Otro' };
+function adminReportes(box, h, D, enlazar){
+  h += `<p class="hkey">${D.nuevos ? `${D.nuevos} sin ver.` : 'No hay reportes sin ver.'} Suspender no deja entrar a mesas públicas; las de amigos siguen andando.</p>`;
+  h += D.lista.length ? D.lista.map(r => `<div class="panel rep${r.estado === 'nuevo' ? ' nuevo' : ''}">
+      <p><b>${esc(MOTIVO_TXT[r.motivo] || r.motivo)}</b> · ${fechaCorta(r.creado)} · mesa ${esc(r.mesa || '—')}<br>
+      <small>${esc(r.de.apodo || '#' + r.de.id)} reportó a</small> <b>${esc(r.a ? r.a.apodo : r.nombre)}</b>${r.a && r.a.suspendido ? ` <small>(suspendido hasta ${fechaCorta(r.a.suspendido)})</small>` : ''}</p>
+      ${r.detalle ? `<p>“${esc(r.detalle)}”</p>` : ''}
+      ${r.chat.length ? `<details><summary>Chat (${r.chat.length})</summary>${r.chat.map(l => `<div class="cm"><b>${esc(l.n)}</b> ${esc(l.t)}</div>`).join('')}</details>` : ''}
+      <div class="hlinks">${r.estado === 'nuevo' ? `<button class="tool" data-visto="${r.id}">Marcar visto</button>` : `<small>Visto</small>`}
+        ${r.a ? (r.a.suspendido ? `<button class="tool" data-susp="${r.a.id}" data-h="0">Quitar la suspensión</button>`
+          : [[24, '1 día'], [168, '7 días'], [720, '30 días']].map(([n, t]) => `<button class="tool" data-susp="${r.a.id}" data-h="${n}" data-rep="${r.id}">Suspender ${t}</button>`).join(' ')) : '<small>(sin cuenta)</small>'}
+        ${r.a ? `<button class="tool" data-ver="${r.a.id}">Ver perfil</button>` : ''}</div></div>`).join('')
+    : '<p class="lob">Nadie reportó a nadie todavía.</p>';
+  h += '<div class="hlinks"><button class="tool" id="aAct">Actualizar</button></div>';
+  box.innerHTML = h; enlazar();
+  const otra = async (ruta, cuerpo) => { try { await api(ruta, cuerpo); cuentaVista.datos = null; } catch (x) { cuentaVista.aviso = x.message; } renderHome(); };
+  $('aAct').onclick = () => { cuentaVista.datos = null; renderHome(); };
+  box.querySelectorAll('[data-visto]').forEach(b => b.onclick = () => otra('admin/reporte', { id: +b.dataset.visto, estado: 'visto' }));
+  box.querySelectorAll('[data-susp]').forEach(b => b.onclick = async () => {
+    if (b.dataset.seguro !== '1') { b.dataset.seguro = '1'; b.textContent = '¿Seguro?'; return; }
+    const r = D.lista.find(x => x.id === +b.dataset.rep);
+    if (r) { try { await api('admin/reporte', { id: r.id, estado: 'visto' }); } catch (x) {} }
+    otra('admin/suspender', { id: +b.dataset.susp, horas: +b.dataset.h, motivo: r ? 'Por un reporte: ' + (MOTIVO_TXT[r.motivo] || r.motivo).toLowerCase() : '' });
+  });
+  box.querySelectorAll('[data-ver]').forEach(b => b.onclick = () => cuentaIr('perfil', { id: +b.dataset.ver, volver: 'main' }));
+}
+function adminUso(box, h, D, enlazar){
+  const TIP = [['abre', 'Abrieron'], ['instalada', 'Instalada'], ['solo', 'Contra la compu'], ['online', 'Online']];
+  const dias = [...new Set(D.visitas.map(v => v.dia))];
+  const n = (d, t) => (D.visitas.find(v => v.dia === d && v.tipo === t) || {}).n || 0;
+  const total = t => D.visitas.filter(v => v.tipo === t).reduce((a, v) => a + v.n, 0);
+  h += `<div class="stiles">${TIP.map(([t, l]) => `<div class="stile"><b>${total(t)}</b><span>${l} · 30 días</span></div>`).join('')}</div>`;
+  h += dias.length ? `<table class="rk adm"><thead><tr><th>Día</th>${TIP.map(t => `<th>${t[1]}</th>`).join('')}</tr></thead><tbody>${dias.map(d => `<tr><td>${esc(d)}</td>${TIP.map(([t]) => `<td>${n(d, t)}</td>`).join('')}</tr>`).join('')}</tbody></table>` : '<p class="lob">Todavía no hay visitas contadas.</p>';
+  h += `<h3>De dónde vienen</h3>` + (D.origenes.length ? `<table class="rk adm"><tbody>${D.origenes.map(o => `<tr><td>${esc(o.origen || '(directo)')}</td><td>${o.n}</td></tr>`).join('')}</tbody></table>` : '<p class="lob">Sin datos.</p>');
+  h += `<h3>Errores en los navegadores · 7 días</h3>` + (D.errores.length ? `<table class="rk adm"><thead><tr><th>Error</th><th>Veces</th><th>Último</th></tr></thead><tbody>${D.errores.map(e => `<tr><td><small>${esc(e.firma)}</small></td><td>${e.n}</td><td>${esc(e.ultimo)}</td></tr>`).join('')}</tbody></table>` : '<p class="lob">Ningún error. 🎉</p>');
+  h += '<p class="hkey">Se cuenta por día, sin guardar quién es nadie ni su dirección. “Abrieron” es una vez por visita.</p><div class="hlinks"><button class="tool" id="aAct">Actualizar</button></div>';
+  box.innerHTML = h; enlazar();
+  $('aAct').onclick = () => { cuentaVista.datos = null; renderHome(); };
 }
 
 // ---------- editar el perfil ----------
@@ -7510,6 +7634,37 @@ window.__trucoCuentaIr = (v, o) => { if ($('home').hidden) showHome(); cuentaIr(
 window.__trucoCuentaSalir = () => cuentaSalir(); window.__trucoNombre = () => myName(); window.__trucoSalirMesa = () => leaveNet(); window.__trucoHomeView = () => homeView;
 window.__trucoCuenta = () => ({ token: !!CUENTA.token, yo: CUENTA.yo, cfg: CUENTA.cfg, ws: !!CUENTA.ws && CUENTA.ws.readyState, amigos: CUENTA.amigos });
 cuentaInit();
+
+// ---------- cuánto se usa y qué falla ----------
+// Se cuenta por día y sin datos de nadie: que se abrió (y de dónde vino el enlace), si está instalada,
+// si se juega contra la computadora u online. Los errores del navegador van igual: el texto y dónde, nada más.
+const VERSION = 'adf33b92';
+function avisarServidor(ruta, cuerpo){
+  if (!serverOK()) return;
+  try { fetch(serverURL() + '/api/' + ruta, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(cuerpo), keepalive: true }).catch(() => {}); } catch (e) {}
+}
+const VISTAS = new Set();
+function visita(tipo){
+  if (VISTAS.has(tipo)) return; VISTAS.add(tipo);   // una vez por visita y por tipo
+  const c = { tipo };
+  if (tipo === 'abre') {
+    let o = '';
+    try { o = new URLSearchParams(location.search).get('utm_source') || (document.referrer && new URL(document.referrer).hostname !== location.hostname ? new URL(document.referrer).hostname : ''); } catch (e) {}
+    c.origen = o.replace(/^www\./, '');
+  }
+  avisarServidor('visita', c);
+}
+(function errores(){
+  let n = 0;
+  const mandar = (msg, donde) => { if (++n > 3 || !msg) return; avisarServidor('error', { msg: String(msg).slice(0, 160), donde: String(donde || '').slice(0, 80), v: VERSION }); };
+  const lugar = (f, l) => f ? String(f).split('/').pop().split('?')[0] + ':' + (l || 0) : '';
+  addEventListener('error', e => { if (e && e.message) mandar(e.message, lugar(e.filename, e.lineno)); });
+  addEventListener('unhandledrejection', e => { const r = e && e.reason; mandar(r && r.message || String(r), r && r.stack ? String(r.stack).split('\n')[1] || '' : ''); });
+  setTimeout(() => {
+    visita('abre');
+    try { if (matchMedia('(display-mode: standalone)').matches || navigator.standalone) visita('instalada'); } catch (e) {}
+  }, 1500);
+})();
 
 $('chatBox').innerHTML = chatUI('ch'); bindChat('ch'); bindPtt($('pttFab'));
 window.__trucoSnd = SND; window.__trucoVoz = VOZ; window.__trucoChat = t => chatSend(t); window.__trucoPost = m => netPost(m);   // para las pruebas: un mensaje crudo a la mesa

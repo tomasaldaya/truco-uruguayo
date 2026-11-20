@@ -10,6 +10,14 @@ s = s.replace('<script>/*AI*/</script>', '<script>\n' + part('ai.js') + '\n</scr
 s = s.replace('<script>/*TRYSTERO*/</script>', '<script>\n' + part('trystero.min.js').replace('</script', '<\\/script') + '\n</script>')
 s = s.replace('<script>/*VISTA*/</script>', '<script>\n' + part('vista.js') + '\n</script>')
 import json
+# la dirección del juego (para los links al compartir, el canonical y el sitemap): cambiar acá cuando haya dominio
+SITIO = 'https://truco-uruguayo.tomasaldaya.workers.dev'
+s = s.replace('/*SITIO*/', SITIO)
+import hashlib
+s = s.replace('/*VERSION*/', hashlib.md5(s.encode()).hexdigest()[:8])   # para saber de qué versión es cada error
+open('robots.txt', 'w').write('User-agent: *\nAllow: /\nDisallow: /api/\n\nSitemap: ' + SITIO + '/sitemap.xml\n')
+open('sitemap.xml', 'w').write('<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+  + ''.join('  <url><loc>%s/%s</loc></url>\n' % (SITIO, p) for p in ['', 'terminos.html', 'privacidad.html']) + '</urlset>\n')
 s = s.replace("/*REGLAMENTO*/''", json.dumps(part('reglamento.txt'), ensure_ascii=False).replace('</', '<\\/'))
 # controles: que no falte ninguna parte ni el reglamento (si falla, no se escribe index.html)
 assert 'const REGLAMENTO = "EL TRUCO' in s, 'falta el reglamento (const REGLAMENTO en extras.part.js)'

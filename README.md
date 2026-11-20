@@ -727,3 +727,15 @@ sus propias mesas y cuentas; el acceso con Google no anda ahí).
 
 **Pendiente** (para cuando se decida): pasar `mejoras` a `main`; mover el cliente a módulos con Vite (hoy sigue
 armado con `build.py`, que anda bien); más archivos en la revisión de tipos; TURN si la medición lo pide.
+
+## Listo para publicitar, primera parte (20/11, rama mejoras)
+Lo que se podía hacer sin el dominio propio:
+- **Vista previa al compartir**: título, descripción y `compartir.jpg` (1200×630, se arma con `tools/compartir/compartir.py`) en las etiquetas `og:` y `twitter:`, más datos para buscadores (JSON-LD). `build.py` cambia `/*SITIO*/` por la dirección de `SITIO` y genera `robots.txt` y `sitemap.xml`. **Cuando esté el dominio, se cambia solo `SITIO` en `build.py`.**
+- **Términos de uso** (`terminos.html`) y aviso de derechos al pie del inicio. La privacidad se actualizó con reportes, suspensiones y el conteo de visitas.
+- **Ayudas** solo contra la computadora: en las mesas online no aparecen (ni el botón).
+- **Mesas públicas que no quedan vacías**: una persona sola puede empezar con la computadora; quien llega después se sienta en un lugar de la computadora (sin cuentas en los dos equipos no cuenta para el ranking).
+- **Moderación**: en la mesa, cada persona tiene 🔇 Silenciar (solo para vos: su voz y su chat) y ⚑ Reportar (con cuenta; manda el motivo, lo que escribas y las últimas 12 líneas del chat, hasta 10 por día). En **Administrar → Reportes** se marcan vistos y se suspende 1, 7 o 30 días (o se quita). Una cuenta suspendida no entra a mesas públicas (le aparece hasta cuándo y por qué). Abandonar 3 partidos en 24 h suspende media hora sola.
+- **Uso y errores** (Administrar → Uso): por día y sin datos de nadie, cuántas veces se abre, si está instalada, partidos contra la compu y online, de qué sitio vienen (`utm_source` o el sitio del enlace) y los errores de los navegadores (hasta 3 por visita, con la versión: `/*VERSION*/` es un resumen del contenido). Con tope por dirección, que no se guarda.
+- Tablas nuevas en cuentas: `reportes`, `visitas`, `errores`; columnas `suspendido_hasta` y `suspension_motivo`. Rutas: `reporte`, `visita`, `error`, `admin/reportes`, `admin/reporte`, `admin/suspender`, `admin/uso`.
+
+Lo que queda por tu lado: confirmar que se puede usar el texto del reglamento, probar en celulares reales, y poner la pantalla de permisos de Google en "Producción".

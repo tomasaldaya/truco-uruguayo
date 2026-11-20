@@ -20,7 +20,7 @@ export default {
       if ((req.headers.get('Upgrade') || '').toLowerCase() !== 'websocket') return new Response('Acá se entra por WebSocket.', { status: 426 });
       return env.MESAS.get(env.MESAS.idFromName(m[1])).fetch(req);
     }
-    if (/^\/api\/(cuenta|ranking|amigos|admin|publicas|foto|gremios?)(\/|$)/.test(url.pathname)) {
+    if (/^\/api\/(cuenta|ranking|amigos|admin|publicas|foto|gremios?|reporte|visita|error)(\/|$)/.test(url.pathname)) {
       if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
       const r = await cuentas(env).fetch(req);
       if (r.status === 101) return r;

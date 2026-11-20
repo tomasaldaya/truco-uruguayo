@@ -157,7 +157,8 @@ function pintarInicio(){
     <button class="tool" id="hCfg">Configuración</button><button class="tool" id="hPj">Tu personaje</button><button class="tool" id="hDeck">Tu mazo</button>
     <button class="tool" id="hHow">Cómo se juega</button><button class="tool" id="hRegl">Reglamento</button><button class="tool" id="hStats">Estadísticas</button>
     <button class="tool" id="hInstalar"${comoInstalar() ? '' : ' hidden'}>Instalar el juego</button></nav>
-    <p class="hcred">Cartas: baraja española libre de <a href="https://commons.wikimedia.org/wiki/Category:Spanish_playing_cards" target="_blank" rel="noopener">Basquetteur</a> (Wikimedia Commons), con licencia <a href="https://creativecommons.org/licenses/by-sa/3.0/deed.es" target="_blank" rel="noopener">CC BY-SA 3.0</a>.</p>`;
+    <p class="hcred">Cartas: baraja española libre de <a href="https://commons.wikimedia.org/wiki/Category:Spanish_playing_cards" target="_blank" rel="noopener">Basquetteur</a> (Wikimedia Commons), con licencia <a href="https://creativecommons.org/licenses/by-sa/3.0/deed.es" target="_blank" rel="noopener">CC BY-SA 3.0</a>.</p>
+    <p class="hcred">© 2026 Tomás Aldaya. Todos los derechos reservados. · <a href="terminos.html" target="_blank" rel="noopener">Términos de uso</a> · <a href="privacidad.html" target="_blank" rel="noopener">Privacidad</a></p>`;
   box.innerHTML = h;
   if ($('hCont')) $('hCont').onclick = () => {
     if (NET && !(NET.role === 'host' ? NET.started : G)) { homeView = 'lobby'; renderHome(); } else continueGame();
@@ -198,7 +199,7 @@ function renderConfig(box){
   box.innerHTML = `<div class="hbar"><button class="tool" id="hBack">Volver</button><h2>Configuración</h2></div>
     <section class="cfgsec"><h3>Pantalla</h3><div class="cfg">
       ${row('view', 'Mesa', [['3d', '3D'], ['2d', '2D']], can3d && view3d ? '3d' : '2d', can3d ? 'La 3D tiene cámara que gira y caras que hacen las señas; la 2D es más simple.' : 'Este navegador no puede mostrar la mesa 3D.', !can3d)}
-      ${row('help', 'Ayudas', [['1', 'Sí'], ['0', 'No']], showHelp ? '1' : '0', 'Marca qué cartas son pieza, mata o fío, qué significa cada seña y cuánto tenés de envido.')}
+      ${row('help', 'Ayudas', [['1', 'Sí'], ['0', 'No']], showHelp ? '1' : '0', 'Marca qué cartas son pieza, mata o fío, qué significa cada seña y cuánto tenés de envido. Solo contra la computadora: en las partidas online van apagadas para todos.')}
       ${row('lugar', 'Lugar', ESCENARIOS_UI, escenarioSolo(), 'Dónde está la mesa 3D cuando jugás contra la computadora. En una mesa online lo elige quien la crea.', !can3d)}
       ${row('speed', 'Velocidad', Object.keys(SPEEDS).map(k => [k, k.charAt(0).toUpperCase() + k.slice(1)]), speed, 'Cuánto tarda la computadora en jugar.')}
     </div></section>

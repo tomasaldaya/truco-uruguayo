@@ -213,7 +213,7 @@ function fichaHTML(){
   const en = A ? A.amigos.filter(a => a.enLinea).length : 0, sol = A ? A.recibidas.length : 0;
   return `<section class="cficha barra">${avatar(y)}<div><b>${esc(y.apodo)}</b><span>${y.partidos ? `${y.puntos} puntos${y.posicion ? ` · puesto ${y.posicion}` : ''}` : 'Todavía sin partidos en el ranking'}</span></div>
     <nav class="hlinks" aria-label="Tu cuenta"><button class="tool" id="cPerfil">Mi perfil</button><button class="tool" id="cRank">Ranking</button><button class="tool" id="cGremios">${y.gremio ? 'Gremio ' + esc(y.gremio.sigla) : 'Gremios'}</button>
-    <button class="tool" id="cAmigos">Amigos${en ? ` · ${en} en línea` : ''}${sol ? ` · <b class="cbadge">${sol} ${sol === 1 ? 'solicitud' : 'solicitudes'}</b>` : ''}</button>${y.admin ? '<button class="tool" id="cAdmin">Cuentas creadas</button>' : ''}</nav></section>`;
+    <button class="tool" id="cAmigos">Amigos${en ? ` · ${en} en línea` : ''}${sol ? ` · <b class="cbadge">${sol} ${sol === 1 ? 'solicitud' : 'solicitudes'}</b>` : ''}</button>${y.admin ? '<button class="tool" id="cAdmin">Administrar</button>' : ''}</nav></section>`;
 }
 function cuentaFichaHTML(){ return avisoHTML() + (conCuenta() ? fichaHTML() : ''); }
 // la tarjeta principal: jugar con gente en las mesas públicas. Los modos dicen cuánta gente espera en cada
@@ -498,16 +498,24 @@ function renderGremio(box){
 }
 
 // solo para quien administra el juego (ADMINS en wrangler.jsonc): quiénes se van creando una cuenta
+// el panel de quien administra: las cuentas, los reportes de los jugadores y cuánto se usa el juego
+const ADM_TABS = [['cuentas', 'Cuentas', 'admin/cuentas'], ['reportes', 'Reportes', 'admin/reportes'], ['uso', 'Uso', 'admin/uso']];
 function renderAdmin(box){
   if (!conCuenta() || !CUENTA.yo.admin) { homeView = 'main'; return renderHome(); }
-  const D = cuentaVista.datos;
-  let h = barra('Cuentas creadas');
+  const tab = cuentaVista.adm || 'cuentas', D = cuentaVista.datos;
+  let h = barra('Administrar') + `<div class="seg" role="group" aria-label="Sección">${ADM_TABS.map(([k, t]) => `<button type="button" data-adm="${k}" aria-pressed="${tab === k}">${t}</button>`).join('')}</div>` + avisoHTML();
+  const enlazar = () => {
+    $('hBack').onclick = () => { cuentaVista.adm = 'cuentas'; volverDeCuenta(); };
+    box.querySelectorAll('[data-adm]').forEach(b => b.onclick = () => { if (b.dataset.adm === tab) return; cuentaVista.adm = b.dataset.adm; cuentaVista.datos = null; cuentaVista.error = ''; renderHome(); });
+  };
   if (!D) {
     h += cuentaVista.error ? `<p class="hnote">${esc(cuentaVista.error)}</p>` : '<p class="lob">Cargando…</p>';
-    box.innerHTML = h; $('hBack').onclick = volverDeCuenta;
-    if (!cuentaVista.error) cuentaCargar('admin', 'admin/cuentas');
+    box.innerHTML = h; enlazar();
+    if (!cuentaVista.error) cuentaCargar('admin', ADM_TABS.find(t => t[0] === tab)[2]);
     return;
   }
+  if (tab === 'reportes') return adminReportes(box, h, D, enlazar);
+  if (tab === 'uso') return adminUso(box, h, D, enlazar);
   const tile = (n, l) => `<div class="stile"><b>${n}</b><span>${l}</span></div>`;
   const cuando = t => t ? fechaCorta(t) : '—';
   h += `<div class="stiles">${tile(D.total, 'cuentas en total')}${tile(D.hoy, 'creadas hoy')}${tile(D.semana, 'en los últimos 7 días')}${tile(D.conPartidos, 'ya jugaron para el ranking')}${tile(D.enLinea, 'conectadas ahora')}</div>`;
@@ -515,8 +523,7 @@ function renderAdmin(box){
       `<tr data-id="${r.id}" tabindex="0"><td>${r.id}</td><td>${r.enLinea ? '<i class="dot on" title="En línea"></i> ' : ''}${avatar(r, 'c')} ${esc(r.apodo)}${r.foto || r.textos ? ` <button class="tool mini" data-limpiar="${r.id}" title="Quitar la foto, el nombre, la biografía y el cuadro">Quitar foto y textos</button>` : ''}</td><td>${cuando(r.creado)}</td><td>${r.enLinea ? 'ahora' : cuando(r.visto)}</td><td>${r.partidos}${r.partidos ? ` <small>(${r.puntos} pts)</small>` : ''}</td></tr>`).join('')}</tbody></table>`
     : '<p class="lob">Todavía no se creó ninguna cuenta.</p>';
   h += '<p class="hkey">De la más nueva a la más vieja. Solo vos ves esta lista; tocá una fila para ver el perfil. No se guarda el correo de nadie.</p><div class="hlinks"><button class="tool" id="aAct">Actualizar</button></div>';
-  box.innerHTML = h;
-  $('hBack').onclick = volverDeCuenta;
+  box.innerHTML = h; enlazar();
   $('aAct').onclick = () => { cuentaVista.datos = null; renderHome(); };
   box.querySelectorAll('tr[data-id]').forEach(tr => { const ir = () => cuentaIr('perfil', { id: +tr.dataset.id, volver: 'main' }); tr.onclick = ir; tr.onkeydown = e => { if (e.key === 'Enter') ir(); }; });
   box.querySelectorAll('[data-limpiar]').forEach(b => b.onclick = async e => {
@@ -525,6 +532,46 @@ function renderAdmin(box){
     try { await api('admin/limpiar', { id: +b.dataset.limpiar }); cuentaVista.datos = null; } catch (x) { cuentaVista.aviso = x.message; }
     renderHome();
   });
+}
+
+const MOTIVO_TXT = { insultos: 'Insultos', trampa: 'Trampa', abandono: 'Abandono', perfil: 'Perfil ofensivo', otro: 'Otro' };
+function adminReportes(box, h, D, enlazar){
+  h += `<p class="hkey">${D.nuevos ? `${D.nuevos} sin ver.` : 'No hay reportes sin ver.'} Suspender no deja entrar a mesas públicas; las de amigos siguen andando.</p>`;
+  h += D.lista.length ? D.lista.map(r => `<div class="panel rep${r.estado === 'nuevo' ? ' nuevo' : ''}">
+      <p><b>${esc(MOTIVO_TXT[r.motivo] || r.motivo)}</b> · ${fechaCorta(r.creado)} · mesa ${esc(r.mesa || '—')}<br>
+      <small>${esc(r.de.apodo || '#' + r.de.id)} reportó a</small> <b>${esc(r.a ? r.a.apodo : r.nombre)}</b>${r.a && r.a.suspendido ? ` <small>(suspendido hasta ${fechaCorta(r.a.suspendido)})</small>` : ''}</p>
+      ${r.detalle ? `<p>“${esc(r.detalle)}”</p>` : ''}
+      ${r.chat.length ? `<details><summary>Chat (${r.chat.length})</summary>${r.chat.map(l => `<div class="cm"><b>${esc(l.n)}</b> ${esc(l.t)}</div>`).join('')}</details>` : ''}
+      <div class="hlinks">${r.estado === 'nuevo' ? `<button class="tool" data-visto="${r.id}">Marcar visto</button>` : `<small>Visto</small>`}
+        ${r.a ? (r.a.suspendido ? `<button class="tool" data-susp="${r.a.id}" data-h="0">Quitar la suspensión</button>`
+          : [[24, '1 día'], [168, '7 días'], [720, '30 días']].map(([n, t]) => `<button class="tool" data-susp="${r.a.id}" data-h="${n}" data-rep="${r.id}">Suspender ${t}</button>`).join(' ')) : '<small>(sin cuenta)</small>'}
+        ${r.a ? `<button class="tool" data-ver="${r.a.id}">Ver perfil</button>` : ''}</div></div>`).join('')
+    : '<p class="lob">Nadie reportó a nadie todavía.</p>';
+  h += '<div class="hlinks"><button class="tool" id="aAct">Actualizar</button></div>';
+  box.innerHTML = h; enlazar();
+  const otra = async (ruta, cuerpo) => { try { await api(ruta, cuerpo); cuentaVista.datos = null; } catch (x) { cuentaVista.aviso = x.message; } renderHome(); };
+  $('aAct').onclick = () => { cuentaVista.datos = null; renderHome(); };
+  box.querySelectorAll('[data-visto]').forEach(b => b.onclick = () => otra('admin/reporte', { id: +b.dataset.visto, estado: 'visto' }));
+  box.querySelectorAll('[data-susp]').forEach(b => b.onclick = async () => {
+    if (b.dataset.seguro !== '1') { b.dataset.seguro = '1'; b.textContent = '¿Seguro?'; return; }
+    const r = D.lista.find(x => x.id === +b.dataset.rep);
+    if (r) { try { await api('admin/reporte', { id: r.id, estado: 'visto' }); } catch (x) {} }
+    otra('admin/suspender', { id: +b.dataset.susp, horas: +b.dataset.h, motivo: r ? 'Por un reporte: ' + (MOTIVO_TXT[r.motivo] || r.motivo).toLowerCase() : '' });
+  });
+  box.querySelectorAll('[data-ver]').forEach(b => b.onclick = () => cuentaIr('perfil', { id: +b.dataset.ver, volver: 'main' }));
+}
+function adminUso(box, h, D, enlazar){
+  const TIP = [['abre', 'Abrieron'], ['instalada', 'Instalada'], ['solo', 'Contra la compu'], ['online', 'Online']];
+  const dias = [...new Set(D.visitas.map(v => v.dia))];
+  const n = (d, t) => (D.visitas.find(v => v.dia === d && v.tipo === t) || {}).n || 0;
+  const total = t => D.visitas.filter(v => v.tipo === t).reduce((a, v) => a + v.n, 0);
+  h += `<div class="stiles">${TIP.map(([t, l]) => `<div class="stile"><b>${total(t)}</b><span>${l} · 30 días</span></div>`).join('')}</div>`;
+  h += dias.length ? `<table class="rk adm"><thead><tr><th>Día</th>${TIP.map(t => `<th>${t[1]}</th>`).join('')}</tr></thead><tbody>${dias.map(d => `<tr><td>${esc(d)}</td>${TIP.map(([t]) => `<td>${n(d, t)}</td>`).join('')}</tr>`).join('')}</tbody></table>` : '<p class="lob">Todavía no hay visitas contadas.</p>';
+  h += `<h3>De dónde vienen</h3>` + (D.origenes.length ? `<table class="rk adm"><tbody>${D.origenes.map(o => `<tr><td>${esc(o.origen || '(directo)')}</td><td>${o.n}</td></tr>`).join('')}</tbody></table>` : '<p class="lob">Sin datos.</p>');
+  h += `<h3>Errores en los navegadores · 7 días</h3>` + (D.errores.length ? `<table class="rk adm"><thead><tr><th>Error</th><th>Veces</th><th>Último</th></tr></thead><tbody>${D.errores.map(e => `<tr><td><small>${esc(e.firma)}</small></td><td>${e.n}</td><td>${esc(e.ultimo)}</td></tr>`).join('')}</tbody></table>` : '<p class="lob">Ningún error. 🎉</p>');
+  h += '<p class="hkey">Se cuenta por día, sin guardar quién es nadie ni su dirección. “Abrieron” es una vez por visita.</p><div class="hlinks"><button class="tool" id="aAct">Actualizar</button></div>';
+  box.innerHTML = h; enlazar();
+  $('aAct').onclick = () => { cuentaVista.datos = null; renderHome(); };
 }
 
 // ---------- editar el perfil ----------
@@ -687,3 +734,34 @@ window.__trucoCuentaIr = (v, o) => { if ($('home').hidden) showHome(); cuentaIr(
 window.__trucoCuentaSalir = () => cuentaSalir(); window.__trucoNombre = () => myName(); window.__trucoSalirMesa = () => leaveNet(); window.__trucoHomeView = () => homeView;
 window.__trucoCuenta = () => ({ token: !!CUENTA.token, yo: CUENTA.yo, cfg: CUENTA.cfg, ws: !!CUENTA.ws && CUENTA.ws.readyState, amigos: CUENTA.amigos });
 cuentaInit();
+
+// ---------- cuánto se usa y qué falla ----------
+// Se cuenta por día y sin datos de nadie: que se abrió (y de dónde vino el enlace), si está instalada,
+// si se juega contra la computadora u online. Los errores del navegador van igual: el texto y dónde, nada más.
+const VERSION = '/*VERSION*/';
+function avisarServidor(ruta, cuerpo){
+  if (!serverOK()) return;
+  try { fetch(serverURL() + '/api/' + ruta, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(cuerpo), keepalive: true }).catch(() => {}); } catch (e) {}
+}
+const VISTAS = new Set();
+function visita(tipo){
+  if (VISTAS.has(tipo)) return; VISTAS.add(tipo);   // una vez por visita y por tipo
+  const c = { tipo };
+  if (tipo === 'abre') {
+    let o = '';
+    try { o = new URLSearchParams(location.search).get('utm_source') || (document.referrer && new URL(document.referrer).hostname !== location.hostname ? new URL(document.referrer).hostname : ''); } catch (e) {}
+    c.origen = o.replace(/^www\./, '');
+  }
+  avisarServidor('visita', c);
+}
+(function errores(){
+  let n = 0;
+  const mandar = (msg, donde) => { if (++n > 3 || !msg) return; avisarServidor('error', { msg: String(msg).slice(0, 160), donde: String(donde || '').slice(0, 80), v: VERSION }); };
+  const lugar = (f, l) => f ? String(f).split('/').pop().split('?')[0] + ':' + (l || 0) : '';
+  addEventListener('error', e => { if (e && e.message) mandar(e.message, lugar(e.filename, e.lineno)); });
+  addEventListener('unhandledrejection', e => { const r = e && e.reason; mandar(r && r.message || String(r), r && r.stack ? String(r.stack).split('\n')[1] || '' : ''); });
+  setTimeout(() => {
+    visita('abre');
+    try { if (matchMedia('(display-mode: standalone)').matches || navigator.standalone) visita('instalada'); } catch (e) {}
+  }, 1500);
+})();

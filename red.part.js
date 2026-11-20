@@ -527,7 +527,14 @@ function onGuestMsg(m){
   if (NET.hostLost && m.t !== 'away') { NET.hostLost = false; netStatus(); }
   switch (m.t) {
     case 'ping': netPost({ t: 'pong', s: m.s, seated: NET.seat >= 0 }); return;
-    case 'hola': NET.cid = m.cid; serverHello(); return;
+    case 'hola': NET.cid = m.cid; serverHello(); visita('online'); return;
+    case 'suspendido': {   // la cuenta está suspendida para las mesas públicas (por reportes o por abandonar seguido)
+      clearTimeout(NET.helloT); leaveNet();
+      const h = new Date(m.hasta), hora = h.toLocaleTimeString('es-UY', { hour: '2-digit', minute: '2-digit' });
+      const dia = h.toDateString() === new Date().toDateString() ? `hoy a las ${hora}` : `el ${h.toLocaleDateString('es-UY')} a las ${hora}`;
+      netNote = `Tu cuenta no puede entrar a mesas públicas hasta ${dia}${m.motivo ? ` (${m.motivo})` : ''}. Las mesas con amigos y contra la computadora siguen andando.`;
+      homeView = 'publicas'; renderHome(); return;
+    }
     case 'nocuenta': clearTimeout(NET.helloT); leaveNet(); netNote = 'Para las mesas públicas tenés que entrar con tu cuenta.'; homeView = 'publicas'; renderHome(); return;
     case 'nomesa': {         // el servidor no tiene esa mesa: puede ser una mesa de navegador a navegador
       const c = NET.code, nm = NET.name, back = NET.back, owner = NET.owner;
@@ -540,7 +547,7 @@ function onGuestMsg(m){
     case 'ocupada': { const cr = NET.crear; leaveNet(); joinTable(newCode(), myName() || 'Anfitrión', false, { key: cr.key, crear: cr, publica: !!cr.publica }); return; }
     case 'lobby': {
       clearTimeout(NET.helloT);
-      NET.lobby = m; NET.lobbyAt = Date.now();
+      NET.lobby = m; NET.lobbyAt = Date.now(); aplicarSilencio();
       NET.seat = m.seats.findIndex(s => s.cid === NET.cid);
       // si quedé sin lugar con el partido empezado (se cortó un rato), vuelvo a saludar y lo recupero
       if (NET.seat >= 0) NET.hadSeat = true;
@@ -689,12 +696,13 @@ function renderPublicLobby(box, L){
     h += `<p class="lob"><b>${esc(modeName(L.n))}</b>. ${estado}</p>${reglasHTML(mesaCfg())}
       ${seatsHTML(L.seats, { canSit: !enJuego })}${rankNote(L)}`;
     const btns = [];
-    if (!enJuego && g >= 2 && NET.seat >= 0) btns.push(`<button class="act ${yoVote ? 'sec' : 'flor'}" id="hVote">${yoVote ? 'Ya no' : L.fin ? 'Jugar otro partido' : 'Empezar ya'}</button>`);
+    if (!enJuego && g >= 1 && NET.seat >= 0) btns.push(`<button class="act ${yoVote ? 'sec' : 'flor'}" id="hVote">${yoVote ? 'Ya no' : L.fin ? 'Jugar otro partido' : g === 1 ? 'Empezar con la computadora' : 'Empezar ya'}</button>`);
     if (enJuego && G) btns.push(`<button class="act flor" id="hGo">${NET.mira ? 'Volver a mirar' : 'Volver a la mesa'}</button>`);
     else if (enJuego && NET.seat < 0 && !NET.mira) btns.push('<button class="act flor" id="hMirar">Mirar el partido</button>');
     btns.push(`<button class="act mazo" id="hClose">${NET.mira ? 'Dejar de mirar' : 'Salir de la mesa'}</button>`);
     h += `<div class="row">${btns.join('')}</div>`;
-    if (!enJuego && g >= 2) h += `<p class="hkey">${L.fin ? 'Otro partido' : 'Empezar ya, con la computadora en los lugares libres'}: ${votos.length} de ${g} ${g === 1 ? 'quiere' : 'quieren'}. Empieza cuando quieran todos los que están.</p>`;
+    if (!enJuego && g === 1 && !L.fin) h += `<p class="hkey">¿Nadie todavía? Podés empezar con la computadora en los otros lugares: los que lleguen después se sientan en los lugares de la computadora. Contra la computadora sola no cuenta para el ranking.</p>`;
+    else if (!enJuego && g >= 2) h += `<p class="hkey">${L.fin ? 'Otro partido' : 'Empezar ya, con la computadora en los lugares libres'}: ${votos.length} de ${g} ${g === 1 ? 'quiere' : 'quieren'}. Empieza cuando quieran todos los que están.</p>`;
     else if (!enJuego) h += '<p class="hkey">Cuando llegue alguien más, si todos quieren pueden empezar antes de que se llene: la computadora completa los lugares libres.</p>';
     h += `<div class="hlinks">${inv}</div><p class="hkey">Código de la mesa: <b>${esc(NET.code)}</b>, por si querés pasárselo a alguien.</p>`;
     clearInterval(renderPublicLobby.t);
@@ -816,7 +824,7 @@ function chatAdd(m, broadcast){
   NET.chat.push(msg); if (NET.chat.length > 80) NET.chat.shift();
   if (broadcast) netPost({ t: 'chat', p: msg.p, name: msg.name, text: msg.text });
   const mine = msg.m ? msg.m === NET.miraId : msg.p >= 0 && msg.p === chatSeat();
-  if (!mine && msg.p !== -2) { SND.play('chat'); chatToast(msg); }
+  if (!mine && msg.p !== -2 && !(msg.p >= 0 && !msg.m && silenciadoP(msg.p))) { SND.play('chat'); chatToast(msg); }
   renderChat();
 }
 const chatSeat = () => !NET ? 0 : NET.role === 'host' ? 0 : NET.seat;
@@ -871,10 +879,50 @@ const miradaDe = p => NET && NET.miradas && G && G.humans && G.humans.includes(p
 // La lista de quienes miran el partido. Quien juega puede votar echar a alguno (por ejemplo, si molesta en
 // la voz); con la mayoría de las personas sentadas se va y no puede volver a esta mesa.
 const mirones = () => (NET && NET.lobby && NET.lobby.mirando) || [];
+// ---------- Silenciar y reportar (mesas del servidor) ----------
+// Silenciar es solo para vos y dura lo que dura la visita: no se oye su voz ni se ven sus mensajes.
+// Reportar manda a quien administra el juego el motivo y lo último del chat; hace falta tener cuenta.
+const SILENCIO = new Set();
+const personaKey = s => s && (s.uid ? 'u' + s.uid : 'n:' + s.name);
+const silenciadoP = p => { const L = NET && NET.lobby, s = L && L.seats && L.seats[p]; return !!s && SILENCIO.has(personaKey(s)); };
+function vozSilenciada(peer){
+  const L = NET && NET.lobby; if (!L || !L.seats) return false;
+  return L.seats.some(s => s.voz === peer && SILENCIO.has(personaKey(s)));
+}
+function aplicarSilencio(){ for (const k in VOZ.audios) VOZ.audios[k].muted = VOZ.mute || vozSilenciada(k); }
+function genteHTML(){
+  const L = NET && NET.lobby;
+  if (!L || !L.seats || !NET.tr || NET.tr.kind !== 'server') return '';
+  const otros = L.seats.map((s, p) => ({ s, p })).filter(({ s, p }) => s.kind !== 'ai' && p !== NET.seat);
+  if (!otros.length) return '';
+  return `<h4>En la mesa</h4><ul>${otros.map(({ s, p }) => {
+    const sil = SILENCIO.has(personaKey(s));
+    const rep = s.uid && conCuenta() ? `<button type="button" class="tool" data-reportar="${p}" title="Avisar a quien administra el juego">⚑ Reportar</button>` : '';
+    return `<li><span>${esc(s.name)}${sil ? ' <small>(silenciado)</small>' : ''}</span><span><button type="button" class="tool" data-silenciar="${p}">${sil ? '🔈 Escuchar' : '🔇 Silenciar'}</button> ${rep}</span></li>`;
+  }).join('')}</ul>`;
+}
+function reportarModal(p){
+  const L = NET && NET.lobby, s = L && L.seats && L.seats[p]; if (!s || !s.uid) return;
+  const MOT = [['insultos', 'Insultos o falta de respeto'], ['trampa', 'Trampa'], ['abandono', 'Se va o no juega'], ['perfil', 'Nombre o foto ofensivos'], ['otro', 'Otra cosa']];
+  toolModal(`<h2>Reportar a ${esc(s.name)}</h2>
+    <p class="hkey">Le llega a quien administra el juego, con lo último del chat de esta mesa. Si es grave, puede suspender la cuenta.</p>
+    <label class="lbl" for="repMot">Motivo</label><select id="repMot">${MOT.map(([v, t]) => `<option value="${v}">${t}</option>`).join('')}</select>
+    <label class="lbl" for="repDet">Contá qué pasó (opcional)</label><textarea id="repDet" maxlength="300" rows="3"></textarea>
+    <p class="hkey" id="repMsg"></p>
+    <div class="row"><button class="act" id="repNo">Cancelar</button><button class="act flor" id="repSi">Mandar el reporte</button></div>`);
+  $('repNo').onclick = closeTool;
+  $('repSi').onclick = async () => {
+    $('repSi').disabled = true;
+    const chat = (NET.chat || []).filter(l => l.p !== -2).slice(-12).map(l => ({ n: l.name, t: l.text }));
+    try { await api('reporte', { a: s.uid, nombre: s.name, mesa: NET.code, motivo: $('repMot').value, detalle: $('repDet').value, chat }); closeTool(); avisoCuenta('Gracias: mandamos el reporte. Si querés, también podés silenciarlo.'); }
+    catch (e) { $('repMsg').textContent = e.message; $('repSi').disabled = false; }
+  };
+}
 function renderMirones(){
   const L = NET && NET.lobby, list = mirones(), juego = NET && NET.seat >= 0 && !NET.mira;
+  const gente = genteHTML();
   document.querySelectorAll('[data-miran]').forEach(box => {
-    if (!list.length) { box.innerHTML = ''; return; }
+    if (!list.length) { box.innerHTML = gente; bindGente(box); return; }
     const hacen = (L && L.echarCon) || 1;
     box.innerHTML = `<h4>Mirando (${list.length})</h4><ul>${list.map(x => {
       const yo = NET.miraId === x.id, voto = (x.echar || []).includes(NET.seat), habla = NET.talkingM && NET.talkingM[x.id];
@@ -883,9 +931,18 @@ function renderMirones(){
       return `<li><span>${habla ? '🎙 ' : ''}${esc(x.name)}${yo ? ' <b>· vos</b>' : ''} ${votos}</span>${btn}</li>`;
     }).join('')}</ul>${juego ? `<p class="hkey">Si molesta, votá echarlo: con ${hacen === 1 ? 'tu voto' : `${hacen} votos de los que juegan`} se va y no puede volver a esta mesa.</p>` : ''}`;
     box.querySelectorAll('[data-echar]').forEach(b => b.onclick = () => { b.disabled = true; netPost({ t: 'echar', id: b.dataset.echar, no: !!b.dataset.no }); });
+    if (gente) { box.insertAdjacentHTML('afterbegin', gente); bindGente(box); }
   });
   const p = $('chatPanel'), c = mesaCfg();
   if (p && NET) p.hidden = !c.chat && !c.voz && !list.length;
+}
+function bindGente(box){
+  box.querySelectorAll('[data-silenciar]').forEach(b => b.onclick = () => {
+    const s = NET.lobby.seats[+b.dataset.silenciar], k = personaKey(s);
+    if (SILENCIO.has(k)) SILENCIO.delete(k); else SILENCIO.add(k);
+    aplicarSilencio(); renderChat();
+  });
+  box.querySelectorAll('[data-reportar]').forEach(b => b.onclick = () => reportarModal(+b.dataset.reportar));
 }
 function bindChat(k){
   const f = $(k + 'Form'); if (!f) return;
@@ -896,7 +953,8 @@ function renderChat(){
   document.querySelectorAll('[data-chattxt]').forEach(x => { x.hidden = !c.chat; });
   document.querySelectorAll('.chatlog').forEach(box => {
     const list = NET ? NET.chat : [];
-    box.innerHTML = list.length ? list.map(chatLine).join('') : '<div class="cm vacio">Todavía no hay mensajes.</div>';
+    const vis = list.filter(m => !(m.p >= 0 && !m.m && silenciadoP(m.p)));
+    box.innerHTML = vis.length ? vis.map(chatLine).join('') : '<div class="cm vacio">Todavía no hay mensajes.</div>';
     box.scrollTop = box.scrollHeight;
   });
   const p = $('chatPanel');
@@ -983,12 +1041,12 @@ function vozStop(){
 }
 function vozAttach(peer, stream){
   vozDetach(peer);
-  const a = document.createElement('audio'); a.autoplay = true; a.srcObject = stream; a.muted = VOZ.mute; a.dataset.peer = peer;
+  const a = document.createElement('audio'); a.autoplay = true; a.srcObject = stream; a.muted = VOZ.mute || vozSilenciada(peer); a.dataset.peer = peer;
   document.body.appendChild(a); a.play().catch(() => {});
   VOZ.audios[peer] = a;
 }
 function vozDetach(peer){ const a = VOZ.audios[peer]; if (a) { a.srcObject = null; a.remove(); delete VOZ.audios[peer]; } }
-function setVocesMute(m){ VOZ.mute = m; store.set('truco.voces', m ? '0' : '1'); for (const k in VOZ.audios) VOZ.audios[k].muted = m; renderVoz(); }
+function setVocesMute(m){ VOZ.mute = m; store.set('truco.voces', m ? '0' : '1'); aplicarSilencio(); renderVoz(); }
 function setTalking(p, on){
   if (!NET || typeof p !== 'number') return;
   NET.talking[p] = on;

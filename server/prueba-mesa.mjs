@@ -516,6 +516,20 @@ await ta('abandono en parejas: mientras al equipo le quede alguien, sigue; si se
 function conSalon(W) { const avisos = []; W.io.salon = info => { avisos.push(info); return Promise.resolve(true); }; return avisos; }
 const quienes = { tA: { id: 1, apodo: 'Ana' }, tB: { id: 2, apodo: 'Beto' }, tC: { id: 3, apodo: 'Ceci' } };
 
+await ta('pública: una cuenta suspendida no entra; en la mesa se ve la cuenta y la voz de cada uno', async () => {
+  const W = mundo(); conCuentas(W); conSalon(W); const m = new Mesa(W.io, null);
+  const cuenta0 = W.io.cuenta;
+  W.io.cuenta = tok => tok === 'tS' ? Promise.resolve({ id: 9, apodo: 'Susi', suspendido: W.io.now() + 3600e3, motivo: 'insultos' }) : cuenta0(tok);
+  m.onOpen('a'); m.onMessage('a', { t: 'hello', name: 'A', pid: 'pa', code: 'PUBL', crear: { n: 2, key: 'k', publica: true }, token: 'tA', vozId: 'vozA123456' });
+  await pausa();
+  m.onOpen('s'); m.onMessage('s', { t: 'hello', name: 'S', pid: 'ps', token: 'tS' }); await pausa();
+  const S = last(W.inbox, 's', 'suspendido'); assert(S); assert.equal(S.motivo, 'insultos'); assert.equal(m.seatOf('s'), -1);
+  m.onOpen('b'); m.onMessage('b', { t: 'hello', name: 'B', pid: 'pb', token: 'tB' }); await pausa();
+  const L = last(W.inbox, 'b', 'lobby');
+  assert.equal(L.seats[0].uid, 1); assert.equal(L.seats[1].uid, 2);
+  if (L.seats[0].voz !== undefined) assert.equal(L.seats[0].voz, 'vozA123456');
+});
+
 await ta('pública: hace falta cuenta; sin dueño; el que llega juega en contra; el salón se entera', async () => {
   const W = mundo(); conCuentas(W); const sal = conSalon(W), m = new Mesa(W.io, null);
   m.onOpen('x'); m.onMessage('x', { t: 'hello', name: 'Sin', pid: 'px', code: 'PUBL', crear: { n: 4, key: 'k', publica: true } });
@@ -576,12 +590,21 @@ await ta('pública: quien la arma elige las reglas; se juegan con ellas y el sal
   assert(!last(W.inbox, 'a', 'chat'));
 });
 
+await ta('pública: una persona sola puede empezar con la computadora, y quien llega después se sienta en un lugar de la computadora', async () => {
+  const W = mundo(); conCuentas(W); conSalon(W); const m = new Mesa(W.io, null);
+  m.onOpen('a'); m.onMessage('a', { t: 'hello', name: 'A', pid: 'pa', code: 'SOLA', crear: { n: 2, key: 'k', publica: true }, token: 'tA' }); await pausa();
+  m.onMessage('a', { t: 'empezar', si: true }); W.run(6000);
+  assert(m.started, 'sola empieza con la computadora');
+  m.onOpen('b'); m.onMessage('b', { t: 'hello', name: 'B', pid: 'pb', token: 'tB' }); await pausa();
+  const libre = m.seats.findIndex(x => x.kind === 'ai');
+  m.onMessage('b', { t: 'sit', seat: libre }); assert.equal(m.seatOf('b'), libre);
+});
+
 await ta('pública: con dos o más, si todos quieren empezar ya, la computadora completa; y al final, otro partido', async () => {
   const W = mundo(), reg = conCuentas(W); conSalon(W); const m = new Mesa(W.io, null);
   m.onOpen('a'); m.onMessage('a', { t: 'hello', name: 'A', pid: 'pa', code: 'PARE', crear: { n: 4, key: 'k', publica: true }, token: 'tA' }); await pausa();
-  m.onMessage('a', { t: 'empezar' }); W.run(4000);
-  assert(!m.started, 'solo no empieza');
   m.onOpen('b'); m.onMessage('b', { t: 'hello', name: 'B', pid: 'pb', token: 'tB' }); await pausa();
+  m.onMessage('a', { t: 'empezar' });
   W.run(4000); assert(!m.started, 'Beto todavía no quiso');
   m.onMessage('b', { t: 'empezar' });
   assert.deepEqual(last(W.inbox, 'a', 'lobby').votos.sort(), [0, 1]);
