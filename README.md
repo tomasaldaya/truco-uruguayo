@@ -15,7 +15,7 @@ Juego de truco uruguayo para el navegador, según el *Reglamento del Truco Urugu
 - `extras.part.js` — el panel "En la mesa" (dichos, gestos y sonidos), la racha 🔥, el reglamento completo y los logros.
 - `trystero.min.js` — Trystero 0.27 (licencia MIT) en un solo archivo: hace que los navegadores se encuentren y se conecten directo (WebRTC).
 - `mesa3d.part.js` — la mesa 3D: escena, jugadores con cara y señas, cartas animadas, cámara.
-- `three.min.js` — recorte de Three.js r187 (licencia MIT) con solo lo que usa la mesa 3D.
+- `three.min.js` — recorte de Three.js r187 (licencia MIT) con solo lo que usa la mesa 3D (y el bar: luces puntuales, botellas torneadas y piezas juntadas).
 - `three-entry.js` — lista de lo que entra en `three.min.js` y el comando para regenerarlo.
 - `naipes.part.js` — las 40 cartas y el dorso: baraja española libre de Basquetteur (ver "Cartas").
 - `naipes.py` — arma `naipes.part.js` a partir de los SVG originales.
@@ -595,3 +595,32 @@ Herramientas: `tools/ia/lalo.js` (esa mano, con lo que decide la computadora) y 
 - Contra la computadora en tercetos se juega a 40 (`reglasSolo`).
 - En las mesas online, quien la crea sigue eligiendo a cuántos puntos, cuántos chicos, el achique, el chat y la voz;
   lo demás son estas reglas fijas.
+
+## El bar: dónde está la mesa (20/11)
+
+- **Lugar de la mesa 3D**: "Bar" (nuevo, el de siempre por defecto) o "Clásico" (la mesa de paño en la sala oscura).
+  En una mesa online lo elige quien la crea ("Lugar", en la pantalla de las reglas; viaja en `cfg.escenario`, lo valida
+  `limpiarCfg` y lo guarda el salón de mesas públicas) y lo ven todos. Contra la computadora, en Configuración →
+  Pantalla → Lugar (`truco.lugar`). `escenarioActual()` (en `extras.part.js`) dice cuál va, y la mesa 3D lo pone con
+  `ponerEscenario` y se rearma si cambia (también con el partido empezado).
+- **El bar** (`armarBar` en `mesa3d.part.js`), un bar de los de antes, de ir a tomar algo y jugar a las cartas, con
+  luz cálida: paredes de ladrillo con restos de cal, piso de baldosas, techo con vigas, la pared del fondo de madera con
+  la puerta de dos hojas de vidrio, ventanas con cortinas, el cartel "Bar La Muestra · fund. 1931" (nombre inventado),
+  "SALIDA", la pizarra con los precios, la barra con banquetas y apoyapié de bronce, la estantería con botellas, la
+  tele del rincón con un partido, cuadros en las paredes (retratos viejos, el equipo campeón, el afiche del torneo de
+  truco, un paisaje con ombú, naipes y el diario), un estante alto con frascos, otras cuatro mesas de madera con sus
+  sillas y servilleteros, y lámparas colgando. Todo con piezas simples y dibujos en canvas: sin archivos ni marcas.
+- **Nuestra mesa en el bar**: redonda y de madera de tablas (`buildTableBar`), del mismo tamaño que la de paño, así
+  las cartas, el mazo y la muestra van a los mismos lugares. Las sillas de los jugadores ahora tienen respaldo de
+  listones (en los dos lugares).
+- **Liviano**: las piezas quietas se juntan en un solo dibujo por material (`Lote`), nada del bar tira ni recibe
+  sombras, las luces son tres puntuales sin sombra y los dibujos salen siempre iguales (`azar` con semilla). Medido:
+  unas 23 llamadas de dibujo y 19 mil triángulos más que la sala oscura. Las lámparas se esconden en la vista desde
+  arriba (taparían la mesa).
+- `three.min.js` se regeneró con `PointLight`, `LatheGeometry`, `BufferGeometry`, `Float32BufferAttribute` y
+  `Object3D` (ver `three-entry.js`): 2 KB más.
+- Pruebas: `server/prueba-mesa.mjs` (lugar por defecto, solo valores conocidos, solo el dueño lo cambia) y las reglas
+  de las mesas con el campo nuevo. Se miró en el navegador: desde la silla (mano a mano, parejas y tercetos), desde
+  arriba, desde los costados, en el celular, y cambiando de lugar con el partido empezado.
+- Para sumar otro lugar (el campo con sillas playeras y mesa plegable, la rambla, un quincho…): agregarlo a
+  `ESCENARIOS` (mesa 3D, servidor, cuentas y `ESCENARIOS_UI`), con su `armar…` y, si cambia, su mesa.

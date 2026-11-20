@@ -218,7 +218,7 @@ const V3 = (function(){
     const rim = new THREE.DirectionalLight(0x9fb9ff, .35); rim.position.set(-6, 8, -18); scene.add(rim);
 
     const floor = mesh(new THREE.PlaneGeometry(160, 160), std(0x6b4a33, .92, { map: floorTex() }));
-    floor.rotation.x = -PI/2; floor.position.y = -7.5; floor.castShadow = false; scene.add(floor);
+    floor.rotation.x = -PI/2; floor.position.y = -7.5; floor.castShadow = false; scene.add(floor); pisoClasico = floor;
 
     TEX.back = backTex();
     ['pieza','mata','fio'].forEach(k => TEX.badge[k] = badgeTex(k));
@@ -235,6 +235,10 @@ const V3 = (function(){
     GEO.arm = new THREE.CapsuleGeometry(.36, 1.7, 6, 14);
     GEO.brazo = new THREE.CapsuleGeometry(.33, 1.0, 6, 14);    // brazo y antebrazo, unidos en el codo (ver ikArm)
     GEO.bombilla = new THREE.CylinderGeometry(.03, .03, .7, 8);
+    // para el bar (escenarios)
+    GEO.plane = new THREE.PlaneGeometry(1, 1); GEO.cyl = new THREE.CylinderGeometry(1, 1, 1, 16); GEO.torus = new THREE.TorusGeometry(1, .08, 8, 24);
+    GEO.pantalla = new THREE.CylinderGeometry(.35, 2, 1.4, 20, 1, true);
+    GEO.botella = new THREE.LatheGeometry([[0, 0], [.42, 0], [.45, .1], [.45, 2.1], [.36, 2.5], [.16, 2.85], [.14, 3.3], [.17, 3.35], [.15, 3.45], [0, 3.45]].map(([a, b]) => new THREE.Vector2(a, b)), 12);
     GEO.torso = new THREE.CapsuleGeometry(1.15, 2.7, 8, 22);
     GEO.neck = new THREE.CylinderGeometry(.38, .44, .8, 18);
     GEO.glow = new THREE.CircleGeometry(1.25, 40);
@@ -309,13 +313,13 @@ const V3 = (function(){
 
   // quien mira el partido no tiene lugar: se dibujan todos los jugadores, también el de abajo
   const yoSentado = p => p === ME && !mirando();
-  const claveMesa = () => G.names.join('|') + '#' + ME + (mirando() ? 'm' : '') + '#' + (G.pjs || []).join(',');
+  const claveMesa = () => G.names.join('|') + '#' + ME + (mirando() ? 'm' : '') + '#' + (G.pjs || []).join(',') + '#' + escena;
   function build(){
     if (Lay) { scene.remove(Lay.root); lbls.innerHTML = ''; }
     const n = G.n, P = PARAMS[n], root = new THREE.Group();
     scene.add(root);
     Lay = Object.assign({ n, root, names: claveMesa(), chars: [] }, P);
-    buildTable(root, P.TR);
+    (escena === 'bar' ? buildTableBar : buildTable)(root, P.TR);
     for (let p = 0; p < n; p++) {
       if (yoSentado(p)) { Lay.chars.push(null); continue; }
       const c = makeChar(p, G.names[p]);
@@ -356,6 +360,326 @@ const V3 = (function(){
     root.add(mesh(new THREE.CylinderGeometry(2.6, 2.9, .35, 36), dark, 0, -7.32, 0));
   }
 
+  // ---------- Escenarios: dónde está la mesa ----------
+  // 'clasico': la mesa de paño en la sala oscura de siempre. 'bar': un bar de los de antes, de ir a tomar algo y
+  // jugar a las cartas: paredes de ladrillo con cuadros, la barra con botellas y banquetas, lámparas colgando con luz
+  // cálida, otras mesas de madera, la puerta con vidrios a la calle, la pizarra con los precios y el cartel con el
+  // nombre (inventado: "La Muestra"). Todo con piezas simples y dibujos en canvas, sin archivos. Para que pese poco en
+  // el celular, las piezas quietas se juntan en un solo dibujo por material (Lote) y nada del bar tira ni recibe
+  // sombras. Se elige al crear la mesa online (cfg.escenario) o en Configuración para jugar solo (escenarioActual).
+  // Unidades: 1 = 10 cm; la tapa de la mesa está en y = 0 y el piso en y = -7.5.
+  const ESCENARIOS = ['bar', 'clasico'];
+  let escena = null, escG = null, pisoClasico = null, lamparaMesa = null;
+  const PISO = -7.5, TECHO = 22, BX = 30, BZ0 = -26, BZ1 = 28;
+
+  // números al azar que siempre salen iguales (el bar se ve igual cada vez y para todos)
+  function azar(semilla){ let s = semilla; return () => (s = (s * 16807) % 2147483647) / 2147483647; }
+  function lienzo(w, h){ const c = document.createElement('canvas'); c.width = w; c.height = h; return [c, c.getContext('2d')]; }
+  function ruido(x, w, h, R, f){ const d = x.getImageData(0, 0, w, h), a = d.data; for (let i = 0; i < a.length; i += 4) { const n = (R() - .5) * f; a[i] += n; a[i+1] += n; a[i+2] += n; } x.putImageData(d, 0, 0); }
+  const repetir = (t, rx, ry) => { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(rx, ry); return t; };
+
+  // junta muchas piezas quietas en un solo Mesh por material: muchas menos llamadas de dibujo
+  function Lote(){
+    const grupos = new Map(), tmp = new THREE.Object3D();
+    return {
+      add(geo, mat, x, y, z, sx, sy, sz, ry, rx, rz){
+        tmp.position.set(x, y, z); tmp.rotation.set(rx || 0, ry || 0, rz || 0);
+        const a = sx == null ? 1 : sx; tmp.scale.set(a, sy == null ? a : sy, sz == null ? a : sz); tmp.updateMatrix();
+        const g = geo.index ? geo.toNonIndexed() : geo.clone(); g.applyMatrix4(tmp.matrix);
+        if (!grupos.has(mat)) grupos.set(mat, []);
+        grupos.get(mat).push(g);
+      },
+      armar(parent){
+        for (const [mat, list] of grupos) {
+          let n = 0; list.forEach(g => { n += g.attributes.position.count; });
+          const pos = new Float32Array(n*3), nor = new Float32Array(n*3), uv = new Float32Array(n*2); let o = 0;
+          list.forEach(g => {
+            pos.set(g.attributes.position.array, o*3); nor.set(g.attributes.normal.array, o*3);
+            if (g.attributes.uv) uv.set(g.attributes.uv.array, o*2);
+            o += g.attributes.position.count; g.dispose();
+          });
+          const bg = new THREE.BufferGeometry();
+          bg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+          bg.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+          bg.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+          bg.computeBoundingSphere();
+          const m = new THREE.Mesh(bg, mat); m.castShadow = m.receiveShadow = false; m.matrixAutoUpdate = false; m.updateMatrix(); parent.add(m);
+        }
+      },
+    };
+  }
+
+  // ---- dibujos del bar ----
+  function ladrilloTex(rx, ry){
+    const W = 512, H = 384, [c, x] = lienzo(W, H), R = azar(11), bw = 64, bh = 24;
+    x.fillStyle = '#6a5747'; x.fillRect(0, 0, W, H);   // la junta
+    for (let r = 0; r < H / bh; r++) for (let k = -1; k <= W / bw; k++) {
+      const X = k*bw + (r % 2)*bw/2, Y = r*bh;
+      x.fillStyle = `hsl(${14 + R()*14} ${36 + R()*22}% ${28 + R()*15}%)`; x.fillRect(X + 2, Y + 2, bw - 4, bh - 4);
+      x.fillStyle = `rgba(0,0,0,${R()*.2})`; x.fillRect(X + 2, Y + bh - 7, bw - 4, 5);
+      if (R() < .14) { x.fillStyle = `rgba(232,218,192,${.12 + R()*.22})`; x.fillRect(X + 2 + R()*20, Y + 2, 16 + R()*30, bh - 4); }   // restos de cal
+    }
+    ruido(x, W, H, R, 20);
+    return repetir(canvasTex(c), rx, ry);
+  }
+  function baldosaTex(rx, ry){
+    const S = 256, [c, x] = lienzo(S, S), R = azar(5), t = S / 4;
+    x.fillStyle = '#3d3630'; x.fillRect(0, 0, S, S);
+    for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) {
+      const claro = (i + j) % 2 === 0, l = claro ? 62 + R()*6 : 34 + R()*5;
+      x.fillStyle = `hsl(32 ${claro ? 18 : 10}% ${l}%)`; x.fillRect(i*t + 1.5, j*t + 1.5, t - 3, t - 3);
+    }
+    ruido(x, S, S, R, 16);
+    return repetir(canvasTex(c), rx, ry);
+  }
+  function tablasTex(){   // la tapa de la mesa: tablas de madera con veta
+    const S = 512, [c, x] = lienzo(S, S), R = azar(3), n = 6, w = S / n;
+    for (let i = 0; i < n; i++) {
+      x.fillStyle = `hsl(${24 + R()*6} ${40 + R()*10}% ${24 + R()*7}%)`; x.fillRect(i*w, 0, w, S);
+      for (let k = 0; k < 26; k++) {
+        const X = i*w + R()*w, a = R()*.2; x.strokeStyle = R() < .5 ? `rgba(25,12,5,${a})` : `rgba(170,120,80,${a*.7})`;
+        x.lineWidth = .8 + R()*2; x.beginPath(); for (let Y = 0; Y <= S; Y += 16) x.lineTo(X + Math.sin(Y/70 + k)*3, Y); x.stroke();
+      }
+      x.fillStyle = 'rgba(0,0,0,.45)'; x.fillRect(i*w, 0, 2, S);
+    }
+    const g = x.createRadialGradient(S/2, S/2, S*.2, S/2, S/2, S*.52); g.addColorStop(0, 'rgba(255,220,170,.08)'); g.addColorStop(1, 'rgba(0,0,0,.35)');
+    x.fillStyle = g; x.fillRect(0, 0, S, S);
+    return canvasTex(c);
+  }
+  function carteltex(){
+    const [c, x] = lienzo(1024, 330);
+    x.fillStyle = '#17110d'; x.fillRect(0, 0, 1024, 330);
+    x.strokeStyle = '#d9c9a3'; x.lineWidth = 6; x.strokeRect(18, 18, 988, 294); x.lineWidth = 2; x.strokeRect(32, 32, 960, 266);
+    x.fillStyle = '#eadcb8'; x.textAlign = 'center'; x.textBaseline = 'middle';
+    x.font = 'bold 66px Georgia, "Times New Roman", serif'; x.fillText('BAR', 512, 88);
+    x.font = 'bold 128px Georgia, "Times New Roman", serif'; x.fillText('LA MUESTRA', 512, 192);
+    x.font = 'italic 40px Georgia, serif'; x.fillText('fund. 1931', 790, 276);
+    x.font = '30px Georgia, serif'; x.fillText('TRUCO · CAÑA · VERMÚ', 300, 276);
+    return canvasTex(c);
+  }
+  function pizarraTex(){
+    const [c, x] = lienzo(384, 512), R = azar(9);
+    x.fillStyle = '#1f2a24'; x.fillRect(0, 0, 384, 512); ruido(x, 384, 512, R, 14);
+    x.fillStyle = 'rgba(240,240,230,.88)'; x.textBaseline = 'middle';
+    x.font = 'bold 44px "Comic Sans MS", "Chalkboard", cursive'; x.textAlign = 'center'; x.fillText('HOY', 192, 50);
+    x.font = '30px "Comic Sans MS", "Chalkboard", cursive'; x.textAlign = 'left';
+    [['Caña', 80], ['Vermú', 120], ['Grappamiel', 90], ['Medio y medio', 150], ['Café', 70], ['Chivito', 390], ['Picada', 450]].forEach(([n, p], i) => {
+      x.fillText(n, 26, 118 + i*52); x.textAlign = 'right'; x.fillText('$' + p, 358, 118 + i*52); x.textAlign = 'left';
+    });
+    return canvasTex(c);
+  }
+  // los cuadros de las paredes: retratos viejos, el cuadro del equipo, un afiche del torneo, un paisaje, naipes y el diario
+  function cuadroTex(tipo, sem){
+    const W = 256, H = 320, [c, x] = lienzo(W, H), R = azar(sem);
+    const sepia = () => { const g = x.createRadialGradient(W/2, H/2, 30, W/2, H/2, 210); g.addColorStop(0, '#d9c29a'); g.addColorStop(1, '#6b5338'); x.fillStyle = g; x.fillRect(0, 0, W, H); };
+    if (tipo === 'retrato') {
+      sepia(); x.fillStyle = '#3a2a1c';
+      x.beginPath(); x.ellipse(W/2, 140, 46, 58, 0, 0, PI*2); x.fill();
+      x.beginPath(); x.ellipse(W/2, 300, 100, 92, 0, PI, 0); x.fill();
+      x.fillStyle = '#2a1d12'; x.fillRect(W/2 - 26, 158, 52, 8);   // bigote
+    } else if (tipo === 'equipo') {
+      sepia(); x.fillStyle = '#33251a';
+      for (let f = 0; f < 2; f++) for (let i = 0; i < 6; i++) {
+        const X = 34 + i*38 + f*6, Y = f ? 210 : 150, s = f ? 1.05 : .95;
+        x.beginPath(); x.arc(X, Y, 11*s, 0, PI*2); x.fill(); x.fillRect(X - 13*s, Y + 12*s, 26*s, 44*s);
+      }
+      x.fillStyle = '#efe6d2'; x.beginPath(); x.arc(W/2, 286, 13, 0, PI*2); x.fill();
+      x.fillStyle = '#3a2a1c'; x.font = 'bold 18px Georgia, serif'; x.textAlign = 'center'; x.fillText('CAMPEONES 1950', W/2, 40);
+    } else if (tipo === 'afiche') {
+      x.fillStyle = '#e9dcbc'; x.fillRect(0, 0, W, H); ruido(x, W, H, R, 22);
+      x.textAlign = 'center'; x.fillStyle = '#8c1d18'; x.font = 'bold 34px Georgia, serif'; x.fillText('GRAN', W/2, 62); x.fillText('TORNEO', W/2, 100);
+      x.fillStyle = '#1c1612'; x.font = 'bold 46px Georgia, serif'; x.fillText('DE TRUCO', W/2, 156);
+      x.font = '22px Georgia, serif'; x.fillText('Parejas y tercetos', W/2, 204); x.fillText('Sábado 21 hs.', W/2, 238);
+      x.fillStyle = '#8c1d18'; x.font = 'italic 20px Georgia, serif'; x.fillText('Premio: un lechón', W/2, 282);
+    } else if (tipo === 'paisaje') {
+      const g = x.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#e8a65c'); g.addColorStop(.55, '#f2d29a'); g.addColorStop(.56, '#6d8a3e'); g.addColorStop(1, '#3f5a26');
+      x.fillStyle = g; x.fillRect(0, 0, W, H);
+      x.fillStyle = '#fff2c4'; x.beginPath(); x.arc(70, 120, 22, 0, PI*2); x.fill();
+      x.fillStyle = '#3b2a1a'; x.fillRect(158, 150, 16, 60);                 // un ombú
+      x.fillStyle = '#2f4a22'; x.beginPath(); x.ellipse(166, 140, 62, 40, 0, 0, PI*2); x.fill();
+    } else if (tipo === 'naipes') {
+      x.fillStyle = '#1f5a3c'; x.fillRect(0, 0, W, H);
+      [[-22, 70, '#c9a227'], [0, 128, '#a8322b'], [22, 186, '#2c4f86']].forEach(([a, X, col]) => {
+        x.save(); x.translate(X, 168); x.rotate(a * PI/180);
+        x.fillStyle = '#f7f1e3'; x.fillRect(-40, -62, 80, 124); x.fillStyle = col; x.beginPath(); x.arc(0, 0, 20, 0, PI*2); x.fill(); x.restore();
+      });
+    } else {   // el diario
+      x.fillStyle = '#ddd5c2'; x.fillRect(0, 0, W, H);
+      x.fillStyle = '#1b1b1b'; x.font = 'bold 30px Georgia, serif'; x.textAlign = 'center'; x.fillText('¡CAMPEONES!', W/2, 52);
+      x.fillStyle = '#6f6a60'; x.fillRect(20, 76, W - 40, 90);
+      for (let i = 0; i < 12; i++) { x.fillStyle = 'rgba(30,30,30,.55)'; x.fillRect(20 + (i % 2)*112, 184 + Math.floor(i/2)*20, 100, 6); }
+    }
+    return canvasTex(c);
+  }
+  function teleTex(){
+    const [c, x] = lienzo(320, 200);
+    x.fillStyle = '#2f7d3a'; x.fillRect(0, 0, 320, 200);
+    for (let i = 0; i < 8; i++) { x.fillStyle = i % 2 ? 'rgba(255,255,255,.05)' : 'rgba(0,0,0,.05)'; x.fillRect(i*40, 0, 40, 200); }
+    x.strokeStyle = 'rgba(255,255,255,.8)'; x.lineWidth = 2; x.strokeRect(10, 10, 300, 180); x.beginPath(); x.moveTo(160, 10); x.lineTo(160, 190); x.stroke();
+    x.beginPath(); x.arc(160, 100, 26, 0, PI*2); x.stroke();
+    const R = azar(4);
+    for (let i = 0; i < 14; i++) { x.fillStyle = i < 7 ? '#86b9e6' : '#f2f2f2'; x.beginPath(); x.arc(30 + R()*260, 20 + R()*160, 4, 0, PI*2); x.fill(); }
+    x.fillStyle = 'rgba(0,0,0,.6)'; x.fillRect(10, 168, 110, 22); x.fillStyle = '#fff'; x.font = 'bold 14px sans-serif'; x.fillText('URU 1 - 0 ARG', 16, 184);
+    return canvasTex(c);
+  }
+
+  // una silla de madera con respaldo de listones (la de los jugadores y la de las otras mesas)
+  function sillaEn(L, mat, cx, cz, ry){
+    const rot = (x, z) => [cx + x*Math.cos(ry) + z*Math.sin(ry), cz - x*Math.sin(ry) + z*Math.cos(ry)];
+    const p = (x, y, z, w, h, d) => { const [X, Z] = rot(x, z); L.add(GEO.box, mat, X, y, Z, w, h, d, ry); };
+    p(0, -3.6, -.4, 2.8, .3, 2.6);                                            // asiento
+    for (const sx of [-1.2, 1.2]) for (const sz of [-1.5, .7]) p(sx, -5.6, sz, .24, 3.8, .24);   // patas
+    for (const sx of [-1.25, 1.25]) p(sx, -1.4, -1.85, .26, 4.2, .26);        // parantes del respaldo
+    for (const y of [-2.4, -1.1, .2]) p(0, y, -1.85, 2.5, .38, .16);          // listones
+  }
+
+  function armarBar(){
+    const g = new THREE.Group(), L = Lote(), R = azar(21);
+    const M = {
+      ladrilloL: std(0xffffff, .95, { map: ladrilloTex(54 / 19.2, 29.5 / 14.4) }), ladrilloF: std(0xffffff, .95, { map: ladrilloTex(60 / 19.2, 29.5 / 14.4) }),
+      piso: std(0xffffff, .8, { map: baldosaTex(6, 5.4) }), techo: std(0x2e2620, .95),
+      madera: std(0x4a2c18, .7), maderaOsc: std(0x2a1a10, .65), maderaClara: std(0x6b4426, .6),
+      tablas: std(0xffffff, .6, { map: tablasTex() }), bronce: std(0xb08a45, .35, { metalness: .7 }), hierro: std(0x1b1715, .5, { metalness: .4 }),
+      marco: std(0x3a2414, .6), dorado: std(0xa8873e, .4, { metalness: .6 }), blanco: std(0xf2efe6, .6),
+      vidrio: new THREE.MeshStandardMaterial({ color: 0x5f7480, emissive: 0x8aa4b4, emissiveIntensity: .55, roughness: .3 }),
+      cartel: new THREE.MeshStandardMaterial({ map: carteltex(), roughness: .8 }), pizarra: new THREE.MeshStandardMaterial({ map: pizarraTex(), roughness: .9 }),
+      tele: new THREE.MeshBasicMaterial({ map: teleTex() }), salida: new THREE.MeshBasicMaterial({ color: 0x2f9e57 }),
+      pantalla: std(0x101010, .4), foco: new THREE.MeshBasicMaterial({ color: 0xffe2a8 }), pantallaLamp: std(0x1f3a2c, .55, { side: 2 }),   // 2 = las dos caras (DoubleSide)
+      vidrios: [std(0x2f5d32, .22), std(0x7a4515, .22), std(0x9fb3a8, .18), std(0x5a1a1e, .25), std(0xc9a85a, .3)],
+    };
+    const cuadros = ['retrato', 'equipo', 'afiche', 'paisaje', 'naipes', 'diario', 'retrato'].map((t, i) => new THREE.MeshStandardMaterial({ map: cuadroTex(t, 30 + i), roughness: .85 }));
+    const H = TECHO - PISO, YM = (TECHO + PISO) / 2;
+
+    // piso, techo con vigas y las cuatro paredes de ladrillo
+    L.add(GEO.plane, M.piso, 0, PISO, (BZ0 + BZ1)/2, BX*2, BZ1 - BZ0, 1, 0, -PI/2);
+    L.add(GEO.plane, M.techo, 0, TECHO, (BZ0 + BZ1)/2, BX*2, BZ1 - BZ0, 1, 0, PI/2);
+    for (const z of [-18, -6, 6, 18]) L.add(GEO.box, M.maderaOsc, 0, TECHO - .7, z, BX*2, 1.4, 1.6);
+    L.add(GEO.plane, M.ladrilloF, 0, YM, BZ0, BX*2, H, 1, 0);
+    L.add(GEO.plane, M.ladrilloF, 0, YM, BZ1, BX*2, H, 1, PI);
+    L.add(GEO.plane, M.ladrilloL, -BX, YM, (BZ0 + BZ1)/2, BZ1 - BZ0, H, 1, PI/2);
+    L.add(GEO.plane, M.ladrilloL, BX, YM, (BZ0 + BZ1)/2, BZ1 - BZ0, H, 1, -PI/2);
+    // zócalo de madera
+    L.add(GEO.box, M.maderaOsc, 0, PISO + .6, BZ0 + .15, BX*2, 1.2, .3); L.add(GEO.box, M.maderaOsc, 0, PISO + .6, BZ1 - .15, BX*2, 1.2, .3);
+    L.add(GEO.box, M.maderaOsc, -BX + .15, PISO + .6, 1, .3, 1.2, BZ1 - BZ0); L.add(GEO.box, M.maderaOsc, BX - .15, PISO + .6, 1, .3, 1.2, BZ1 - BZ0);
+
+    // fondo: la pared de madera con la puerta de vidrio, las ventanas, el cartel y "SALIDA"
+    const zf = BZ0 + .25;
+    L.add(GEO.box, M.madera, 0, 1.75, zf, 28, 18.5, .5);
+    L.add(GEO.plane, M.vidrio, -2.45, 1.2, zf + .3, 4.3, 14.6, 1, 0); L.add(GEO.plane, M.vidrio, 2.45, 1.2, zf + .3, 4.3, 14.6, 1, 0);   // la puerta, dos hojas
+    for (const x of [-5, 0, 5]) L.add(GEO.box, M.maderaOsc, x, 1.2, zf + .45, .5, 15.4, .4);
+    L.add(GEO.box, M.maderaOsc, 0, 8.9, zf + .45, 10.5, .5, .4); L.add(GEO.box, M.maderaOsc, 0, -6.5, zf + .45, 10.5, .5, .4);
+    L.add(GEO.box, M.bronce, -.8, 1, zf + .75, .2, 2.2, .2); L.add(GEO.box, M.bronce, .8, 1, zf + .75, .2, 2.2, .2);   // manijas
+    for (const sx of [-1, 1]) {   // ventanas a los costados, con cortinas por la mitad
+      L.add(GEO.plane, M.vidrio, sx*9.5, 3.5, zf + .3, 6.2, 8.4, 1, 0);
+      L.add(GEO.box, M.maderaOsc, sx*9.5, 3.5, zf + .45, 6.8, .4, .35); L.add(GEO.box, M.maderaOsc, sx*9.5, -.8, zf + .45, 6.8, .5, .4);
+      L.add(GEO.box, M.maderaOsc, sx*9.5, 7.8, zf + .45, 6.8, .5, .4); L.add(GEO.box, M.maderaOsc, sx*6.4, 3.5, zf + .45, .4, 8.8, .4); L.add(GEO.box, M.maderaOsc, sx*12.6, 3.5, zf + .45, .4, 8.8, .4);
+      L.add(GEO.plane, M.blanco, sx*9.5, 2.2, zf + .5, 6, 3.4, 1, 0);
+    }
+    L.add(GEO.box, M.maderaOsc, 0, 11.2, zf + .2, 28.6, .6, .9);           // cornisa
+    L.add(GEO.box, M.marco, 0, 15.6, zf + .2, 23, 7.6, .4); L.add(GEO.plane, M.cartel, 0, 15.6, zf + .45, 22, 7.1, 1, 0);
+    L.add(GEO.plane, M.salida, 0, 10, zf + .5, 2.4, .7, 1, 0);
+    L.add(GEO.box, M.marco, -20.5, 5.5, zf + .1, 6.4, 8.4, .3); L.add(GEO.plane, M.pizarra, -20.5, 5.5, zf + .3, 5.8, 7.8, 1, 0);   // la pizarra
+
+    // la barra a la derecha, con banquetas, la estantería con botellas y la tele en el rincón
+    const xb = 24.5, z0 = -17, z1 = 13, zc = (z0 + z1)/2, lb = z1 - z0;
+    L.add(GEO.box, M.madera, xb, -2.2, zc, 4.6, 10.6, lb);
+    L.add(GEO.box, M.maderaClara, xb - .2, 3.35, zc, 5.4, .5, lb + .6);
+    for (let i = 0; i < 6; i++) L.add(GEO.box, M.maderaOsc, xb - 2.32, -2.4, z0 + 2.5 + i*5, .1, 8.4, 3.8);   // paneles del frente
+    L.add(GEO.cyl, M.bronce, xb - 3, -5.6, zc, .12, lb, .12, 0, PI/2);   // el apoyapié
+    for (const z of [-13, -6.5, 0, 6.5]) {
+      L.add(GEO.cyl, M.maderaClara, xb - 5.3, -.2, z, 1.25, .5, 1.25);
+      L.add(GEO.cyl, M.hierro, xb - 5.3, -3.9, z, .2, 7.2, .2);
+      L.add(GEO.cyl, M.hierro, xb - 5.3, -7.35, z, 1.1, .3, 1.1);
+      L.add(GEO.torus, M.hierro, xb - 5.3, -4.8, z, .9, .9, .9, 0, PI/2);
+    }
+    for (const y of [6.5, 10.5, 14.5]) {
+      L.add(GEO.box, M.maderaOsc, BX - .9, y, zc, 1.8, .35, lb);
+      for (let i = 0; i < 9; i++) {
+        const z = z0 + 1.6 + i*(lb - 3.2)/8 + (R() - .5)*.8, s = .7 + R()*.25;
+        L.add(GEO.botella, M.vidrios[Math.floor(R()*M.vidrios.length)], BX - .9, y + .18, z, s, s*(.85 + R()*.3), s);
+      }
+    }
+    L.add(GEO.box, M.hierro, 27.6, 15.5, -22.6, 6.6, 4.2, .6, -.85); L.add(GEO.plane, M.tele, 27.33, 15.5, -22.37, 6, 3.7, 1, -.85);
+
+    // pared izquierda: cuadros de todos los tamaños y un estante alto con frascos y botellas
+    const cuadrosEn = (lado, zs) => zs.forEach((z, i) => {
+      const w = 3 + R()*1.6, h = 3.8 + R()*1.8, y = 4.5 + R()*8, mat = cuadros[Math.floor(R()*cuadros.length)];
+      const x = lado*(BX - .2), marco = R() < .3 ? M.dorado : M.marco;
+      L.add(GEO.box, marco, x, y, z, .3, h + .6, w + .6);
+      L.add(GEO.plane, mat, x - lado*.17, y, z, w, h, 1, -lado*PI/2);
+    });
+    cuadrosEn(-1, [-22, -17.5, -12.5, -8, -3, 2, 7, 12, 17, 22]);
+    L.add(GEO.box, M.maderaOsc, -BX + .9, 16.8, -9, 1.8, .35, 26);
+    for (let i = 0; i < 10; i++) { const z = -21 + i*2.6, s = .75 + R()*.3; L.add(i % 3 ? GEO.botella : GEO.cyl, i % 3 ? M.vidrios[Math.floor(R()*5)] : M.blanco, -BX + .9, 17 + (i % 3 ? 0 : .9), z, i % 3 ? s : .5, i % 3 ? s : 1.8, i % 3 ? s : .5); }
+    // la pared de atrás tuya (la ve quien mira el partido): más cuadros
+    [-20, -12, 12, 20].forEach(xc => { const w = 3.4 + R(), h = 4.4 + R(), y = 6 + R()*5, mat = cuadros[Math.floor(R()*cuadros.length)];
+      L.add(GEO.box, M.marco, xc, y, BZ1 - .2, w + .6, h + .6, .3); L.add(GEO.plane, mat, xc, y, BZ1 - .37, w, h, 1, PI); });
+
+    // otras mesas de madera con sus sillas y servilleteros (vacías: es temprano)
+    const mesaCuadrada = (x, z, ry) => {
+      L.add(GEO.box, M.tablas, x, -.22, z, 7, .45, 7, ry);
+      for (const sx of [-1, 1]) for (const sz of [-1, 1]) { const a = sx*3, b = sz*3; L.add(GEO.box, M.maderaOsc, x + a*Math.cos(ry) + b*Math.sin(ry), -3.9, z - a*Math.sin(ry) + b*Math.cos(ry), .5, 7.2, .5, ry); }
+      L.add(GEO.box, M.blanco, x, .55, z, 1.2, 1.1, .5, ry + .3);
+      sillaEn(L, M.madera, x + 5.2*Math.sin(ry), z + 5.2*Math.cos(ry), ry + PI);   // las sillas miran a la mesa
+      sillaEn(L, M.madera, x - 5.2*Math.sin(ry), z - 5.2*Math.cos(ry), ry);
+    };
+    const mesaRedonda = (x, z) => {
+      L.add(GEO.cyl, M.tablas, x, -.22, z, 3.4, .45, 3.4);
+      L.add(GEO.cyl, M.hierro, x, -3.9, z, .35, 7.2, .35); L.add(GEO.cyl, M.hierro, x, -7.35, z, 2, .3, 2);
+      L.add(GEO.box, M.blanco, x + .4, .55, z, 1.2, 1.1, .5, .5);
+      sillaEn(L, M.madera, x - 5, z, PI/2); sillaEn(L, M.madera, x + 5, z, -PI/2);
+    };
+    mesaCuadrada(-21, -14, 0); mesaCuadrada(-21, 11, PI/2); mesaRedonda(-8.5, -19.5); mesaCuadrada(10, -19.5, PI/2);
+
+    // lámparas colgando, con la luz cálida
+    // (todas en un grupo aparte, que se esconde en la vista desde arriba: desde ahí taparían la mesa)
+    const LL = Lote();
+    const lampara = (x, y, z) => {
+      LL.add(GEO.cyl, M.hierro, x, (y + TECHO)/2 + .5, z, .05, TECHO - y - 1, .05);
+      LL.add(GEO.pantalla, M.pantallaLamp, x, y + .4, z);
+      LL.add(GEO.sph, M.foco, x, y - .25, z, .42);
+    };
+    lamparaMesa = new THREE.Group(); g.add(lamparaMesa);
+    lampara(0, 16.2, 0);
+    lampara(-21, 15, -14); lampara(-21, 15, 11); lampara(-8.5, 15, -19.5); lampara(10, 15, -19.5); lampara(xb - 1, 15.5, -9); lampara(xb - 1, 15.5, 5);
+    LL.armar(lamparaMesa);
+    const luz1 = new THREE.PointLight(0xffb066, .9, 46, 0); luz1.position.set(-18, 14, -8); g.add(luz1);
+    const luz2 = new THREE.PointLight(0xffa85c, .8, 46, 0); luz2.position.set(20, 14, -4); g.add(luz2);
+    const luz3 = new THREE.PointLight(0xffb878, .45, 40, 0); luz3.position.set(0, 14, 20); g.add(luz3);
+
+    L.armar(g);
+    g.traverse(o => { if (o.isMesh) { o.castShadow = false; o.receiveShadow = false; } });
+    return g;
+  }
+  function soltar(gr){
+    const comunes = new Set(Object.values(GEO));
+    gr.traverse(o => {
+      if (!o.isMesh) return;
+      if (!comunes.has(o.geometry)) o.geometry.dispose();
+      (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => { if (m.map) m.map.dispose(); m.dispose(); });
+    });
+  }
+  function ponerEscenario(k){
+    if (!ESCENARIOS.includes(k)) k = 'clasico';
+    if (k === escena) return;
+    escena = k;
+    if (escG) { scene.remove(escG); soltar(escG); escG = null; lamparaMesa = null; }
+    if (k === 'bar') { escG = armarBar(); scene.add(escG); }
+    if (pisoClasico) pisoClasico.visible = k === 'clasico';
+    const fondo = k === 'bar' ? 0x1c130d : 0x140e0a;
+    scene.background.setHex(fondo); scene.fog.color.setHex(fondo);
+    scene.fog.near = k === 'bar' ? 60 : 34; scene.fog.far = k === 'bar' ? 150 : 75;
+  }
+  // la mesa del bar: redonda, del mismo tamaño que la de paño (así las cartas van a los mismos lugares), de madera
+  function buildTableBar(root, TR){
+    const tablas = std(0xffffff, .55, { map: tablasTex() }), canto = std(0x3a2414, .6), oscura = std(0x24160d, .6);
+    const top = mesh(new THREE.CylinderGeometry(TR, TR, .45, 96), [canto, tablas, canto], 0, -.225, 0); top.castShadow = false; root.add(top);
+    const rim = mesh(new THREE.TorusGeometry(TR + .02, .2, 12, 120), canto, 0, -.05, 0); rim.rotation.x = PI/2; root.add(rim);
+    root.add(mesh(new THREE.CylinderGeometry(TR - .6, TR - .6, .8, 48, 1, true), oscura, 0, -.85, 0));
+    root.add(mesh(new THREE.CylinderGeometry(.75, .95, 6.4, 20), oscura, 0, -4.1, 0));
+    for (const a of [0, PI/2]) { const pie = mesh(GEO.box, oscura, 0, -7.2, 0, 7.5, .5, .9); pie.rotation.y = a + PI/4; root.add(pie); }
+  }
+
   // ---------- personajes ----------
   const LOOKS = {
     Computadora: { skin: 0xe4b38b, hair: 'gorro', hc: 0x7d2335, brow: 0x3a2618 },
@@ -394,7 +718,8 @@ const V3 = (function(){
     const g = new THREE.Group(), body = new THREE.Group(); g.add(body);
     // silla
     g.add(mesh(GEO.box, M.wood, 0, -3.6, -.4, 2.8, .3, 2.6));
-    g.add(mesh(GEO.box, M.wood, 0, -1.4, -1.85, 2.8, 4.1, .28));
+    for (const sx of [-1.25, 1.25]) g.add(mesh(GEO.box, M.wood, sx, -1.4, -1.85, .26, 4.2, .26));   // respaldo: dos parantes y tres listones
+    for (const y of [-2.4, -1.1, .2]) g.add(mesh(GEO.box, M.wood, 0, y, -1.85, 2.5, .38, .16));
     for (const sx of [-1.2, 1.2]) for (const sz of [-1.5, .7]) g.add(mesh(GEO.box, M.wood, sx, -5.6, sz, .24, 3.8, .24));
     // cuerpo
     body.add(mesh(GEO.box, M.pants, 0, -3.0, .7, 2.2, .95, 2.8));
@@ -887,6 +1212,7 @@ const V3 = (function(){
     const R = G.round;
     if (!R) return;
     let fresh = false;
+    ponerEscenario(typeof escenarioActual === 'function' ? escenarioActual() : 'clasico');
     if (!Lay || Lay.n !== G.n || Lay.names !== claveMesa()) { build(); fresh = true; }
     if (S.mid !== G.id) {   // empezó otro partido (G es una copia nueva en cada dibujo: se compara la marca)
       S.mid = G.id; S.roundNo = null; S.jobs = []; S.job = null; S.said = {}; S.cnt.partido++;
@@ -1311,6 +1637,7 @@ const V3 = (function(){
       Lay.glow.position.set(rc.x, .012, rc.z); Lay.glow.rotation.z = d.z ? PI/2 : 0;
       Lay.glow.material.opacity += ((.55 + .25*Math.sin(t*4)) - Lay.glow.material.opacity) * Math.min(1, dt*6);
     } else Lay.glow.material.opacity *= .9;
+    if (lamparaMesa) lamparaMesa.visible = CAM.vista !== 'top';
     renderer.shadowMap.needsUpdate = true;
     renderer.render(scene, camera);
     renderPip();

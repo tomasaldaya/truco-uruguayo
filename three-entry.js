@@ -4,8 +4,8 @@
 //   npx esbuild three-entry.js --bundle --minify --format=iife --global-name=THREE --outfile=three.min.js
 // Si mesa3d.part.js empieza a usar otra clase de Three.js, agregala acá.
 export {
-  ACESFilmicToneMapping, BoxGeometry, CanvasTexture, CapsuleGeometry, CircleGeometry, Color, CylinderGeometry,
-  DirectionalLight, Fog, Group, HemisphereLight, Mesh, MeshBasicMaterial, MeshStandardMaterial, PCFShadowMap,
-  PerspectiveCamera, PlaneGeometry, Quaternion, Raycaster, RepeatWrapping, SRGBColorSpace, Scene, Shape,
+  ACESFilmicToneMapping, BoxGeometry, BufferGeometry, Float32BufferAttribute, CanvasTexture, CapsuleGeometry, CircleGeometry, Color, CylinderGeometry,
+  DirectionalLight, Fog, Group, HemisphereLight, LatheGeometry, Mesh, MeshBasicMaterial, MeshStandardMaterial, PCFShadowMap,
+  Object3D, PerspectiveCamera, PlaneGeometry, PointLight, Quaternion, Raycaster, RepeatWrapping, SRGBColorSpace, Scene, Shape,
   ShapeGeometry, SphereGeometry, SpotLight, TorusGeometry, Vector2, Vector3, WebGLRenderer, REVISION,
 } from 'three';

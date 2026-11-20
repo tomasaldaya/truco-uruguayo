@@ -420,11 +420,11 @@ t('reglas de la mesa: las elige quien la crea, las ven todos y solo el dueño la
   const W = mundo(), m = new Mesa(W.io, null);
   m.onOpen('a'); m.onMessage('a', { t: 'hello', name: 'Ana', pid: 'pa', crear: { n: 4, key: 'k', cfg: { target: 20, chicos: 2, achique: true, chat: true, voz: false } } });
   m.onOpen('b'); m.onMessage('b', { t: 'hello', name: 'Juan', pid: 'pb' });
-  assert.deepEqual(last(W.inbox, 'b', 'lobby').cfg, { target: 20, chicos: 2, achique: true, chat: true, voz: false });
+  assert.deepEqual(last(W.inbox, 'b', 'lobby').cfg, { target: 20, chicos: 2, achique: true, chat: true, voz: false, escenario: 'bar' });
   m.onMessage('b', { t: 'cfg', cfg: { target: 40 } });                      // el invitado no puede
   assert.equal(m.cfg.target, 20);
   m.onMessage('a', { t: 'cfg', cfg: { target: 10, chicos: 7, voz: 'sí', hackeo: true } });   // lo que no vale queda como estaba
-  assert.deepEqual(last(W.inbox, 'b', 'lobby').cfg, { target: 10, chicos: 2, achique: true, chat: true, voz: false });
+  assert.deepEqual(last(W.inbox, 'b', 'lobby').cfg, { target: 10, chicos: 2, achique: true, chat: true, voz: false, escenario: 'bar' });
   // empieza con esas reglas, aunque el dueño mande otras, y con todas las personas en modo realista
   m.onMessage('a', { t: 'start', rules: { target: 40, chicosToWin: 1, achique: false, tiempo: 60 } });
   assert.equal(m.GM.rules.target, 10); assert.equal(m.GM.target, 10); assert.equal(m.GM.chicosToWin, 2);
@@ -440,7 +440,7 @@ t('reglas de la mesa: las elige quien la crea, las ven todos y solo el dueño la
   // sin reglas (un navegador viejo): las de siempre
   const W3 = mundo(), m3 = new Mesa(W3.io, null);
   m3.onOpen('a'); m3.onMessage('a', { t: 'hello', name: 'Ana', pid: 'pa', crear: { n: 2, key: 'k' } });
-  assert.deepEqual(last(W3.inbox, 'a', 'lobby').cfg, { target: 30, chicos: 1, achique: false, chat: true, voz: true });
+  assert.deepEqual(last(W3.inbox, 'a', 'lobby').cfg, { target: 30, chicos: 1, achique: false, chat: true, voz: true, escenario: 'bar' });
 });
 
 t('reglas de la mesa: sin chat de texto o sin voz, el servidor no los reparte', () => {
@@ -559,9 +559,9 @@ await ta('pública: empieza sola al llenarse (a 30, un chico); si alguien se va 
 
 await ta('pública: quien la arma elige las reglas; se juegan con ellas y el salón las muestra', async () => {
   const W = mundo(); conCuentas(W); const salon = conSalon(W); const m = new Mesa(W.io, null);
-  m.onOpen('a'); m.onMessage('a', { t: 'hello', name: 'A', pid: 'pa', code: 'REGL', crear: { n: 2, key: 'k', publica: true, cfg: { target: 40, chicos: 2, achique: true, chat: false, voz: true } }, token: 'tA' }); await pausa();
+  m.onOpen('a'); m.onMessage('a', { t: 'hello', name: 'A', pid: 'pa', code: 'REGL', crear: { n: 2, key: 'k', publica: true, cfg: { target: 40, chicos: 2, achique: true, chat: false, voz: true, escenario: 'clasico' } }, token: 'tA' }); await pausa();
   W.run(500);
-  assert.deepEqual(salon[salon.length - 1].cfg, { target: 40, chicos: 2, achique: true, chat: false, voz: true });
+  assert.deepEqual(salon[salon.length - 1].cfg, { target: 40, chicos: 2, achique: true, chat: false, voz: true, escenario: 'clasico' });
   m.onMessage('a', { t: 'cfg', cfg: { target: 10 } });                 // en la pública no hay dueño: no se cambian
   assert.equal(m.cfg.target, 40);
   m.onOpen('b'); m.onMessage('b', { t: 'hello', name: 'B', pid: 'pb', token: 'tB' }); await pausa();
@@ -590,6 +590,15 @@ await ta('pública: con dos o más, si todos quieren empezar ya, la computadora 
   const id1 = m.GM.id;
   m.onMessage('a', { t: 'empezar' }); m.onMessage('b', { t: 'empezar' }); W.run(3500);
   assert.notEqual(m.GM.id, id1); assert.equal(m.GM.phase, 'play');
+});
+
+t('lugar de la mesa (escenario): bar por defecto, solo valores conocidos, y el dueño lo cambia', () => {
+  const W = mundo(), m = new Mesa(W.io, null);
+  m.onOpen('a'); m.onMessage('a', { t: 'hello', name: 'Ana', pid: 'pa', crear: { n: 2, key: 'k', cfg: { escenario: '<script>' } } });
+  m.onOpen('b'); m.onMessage('b', { t: 'hello', name: 'Beto', pid: 'pb' });
+  assert.equal(last(W.inbox, 'b', 'lobby').cfg.escenario, 'bar');
+  m.onMessage('b', { t: 'cfg', cfg: { escenario: 'clasico' } }); assert.equal(m.cfg.escenario, 'bar');   // no es el dueño
+  m.onMessage('a', { t: 'cfg', cfg: { escenario: 'clasico' } }); assert.equal(last(W.inbox, 'b', 'lobby').cfg.escenario, 'clasico');
 });
 
 t('gestos y sonidos: solo códigos válidos, solo de quien juega y de a uno cada tanto', () => {

@@ -159,3 +159,8 @@ function logrosHTML(p){
   return `<h3 class="clogt">Logros <small>${n} de ${l.length}</small></h3><div class="logros">` + l.map(x =>
     `<div class="logro${x.ok ? ' ok' : ''}" title="${esc(x.nm)}${x.ok ? ': conseguido' : `: ${x.v} de ${x.meta}`}"><span>${x.em}</span><b>${esc(x.nm)}</b>${x.ok || x.meta === 1 ? '' : `<i style="--pr:${Math.round(x.v / x.meta * 100)}%"></i>`}</div>`).join('') + '</div>';
 }
+
+// ---------- Dónde está la mesa en la 3D ----------
+// Contra la computadora, el de Configuración ('truco.lugar'); en una mesa online, el que eligió quien la creó.
+const escenarioSolo = () => store.get('truco.lugar') === 'clasico' ? 'clasico' : 'bar';
+function escenarioActual(){ return NET ? (mesaCfg().escenario === 'clasico' ? 'clasico' : 'bar') : escenarioSolo(); }

@@ -199,6 +199,7 @@ function renderConfig(box){
     <section class="cfgsec"><h3>Pantalla</h3><div class="cfg">
       ${row('view', 'Mesa', [['3d', '3D'], ['2d', '2D']], can3d && view3d ? '3d' : '2d', can3d ? 'La 3D tiene cámara que gira y caras que hacen las señas; la 2D es más simple.' : 'Este navegador no puede mostrar la mesa 3D.', !can3d)}
       ${row('help', 'Ayudas', [['1', 'Sí'], ['0', 'No']], showHelp ? '1' : '0', 'Marca qué cartas son pieza, mata o fío, qué significa cada seña y cuánto tenés de envido.')}
+      ${row('lugar', 'Lugar', ESCENARIOS_UI, escenarioSolo(), 'Dónde está la mesa 3D cuando jugás contra la computadora. En una mesa online lo elige quien la crea.', !can3d)}
       ${row('speed', 'Velocidad', Object.keys(SPEEDS).map(k => [k, k.charAt(0).toUpperCase() + k.slice(1)]), speed, 'Cuánto tarda la computadora en jugar.')}
     </div></section>
     <section class="cfgsec"><h3>Sonido</h3><div class="cfg">
@@ -224,4 +225,5 @@ function setCfg(k, v){
   else if (k === 'vol') SND.setVol(v);
   else if (k === 'level') { level = v; store.set('truco.level', v); }
   else if (k === 'real') setRealista(v === '1');
+  else if (k === 'lugar') store.set('truco.lugar', v);
 }

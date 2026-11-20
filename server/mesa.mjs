@@ -35,12 +35,13 @@ const CUENTA_ATRAS = 3000;
 // Las reglas de la mesa, que elige quien la crea (en la privada, el dueño las puede cambiar hasta empezar):
 // a cuántos puntos es cada chico, cuántos chicos, si se cobra el achique y si hay chat de texto y de voz.
 // En todas las mesas se juega en modo realista: cada persona canta sus puntos y su flor.
-export const CFG0 = { target: 30, chicos: 1, achique: false, chat: true, voz: true };
+export const ESCENARIOS = ['bar', 'clasico'];   // dónde está la mesa en la 3D (lo eligen al crearla; lo ven todos)
+export const CFG0 = { target: 30, chicos: 1, achique: false, chat: true, voz: true, escenario: 'bar' };
 export function limpiarCfg(x, base) {
   const b = base || CFG0, o = x && typeof x === 'object' ? x : {};
   const bool = k => typeof o[k] === 'boolean' ? o[k] : b[k];
   return { target: [10, 20, 30, 40].includes(o.target) ? o.target : b.target, chicos: [1, 2].includes(o.chicos) ? o.chicos : b.chicos,
-    achique: bool('achique'), chat: bool('chat'), voz: bool('voz') };
+    achique: bool('achique'), chat: bool('chat'), voz: bool('voz'), escenario: ESCENARIOS.includes(o.escenario) ? o.escenario : b.escenario || 'bar' };
 }
 // irse en medio del partido lo pierde: si se va a propósito, enseguida; si se le corta, tiene este rato para volver
 export const GRACIA_MS = 60000;

@@ -464,7 +464,7 @@ export class Cuentas {
     const nombres = JSON.stringify((Array.isArray(info.nombres) ? info.nombres : []).slice(0, 6).map(x => String(x).slice(0, 20)));
     // las reglas de la mesa, para mostrarlas en la lista (solo lo que se puede elegir)
     const c = info.cfg && typeof info.cfg === 'object' ? info.cfg : {};
-    const cfg = JSON.stringify({ target: [10, 20, 30, 40].includes(c.target) ? c.target : 30, chicos: c.chicos === 2 ? 2 : 1, achique: c.achique === true, chat: c.chat !== false, voz: c.voz !== false });
+    const cfg = JSON.stringify({ target: [10, 20, 30, 40].includes(c.target) ? c.target : 30, chicos: c.chicos === 2 ? 2 : 1, achique: c.achique === true, chat: c.chat !== false, voz: c.voz !== false, escenario: c.escenario === 'clasico' ? 'clasico' : 'bar' });
     const tanto = empezada && Array.isArray(info.tanto) ? JSON.stringify(info.tanto.slice(0, 2).map(x => int(x) || 0)) : null;
     const mirando = Math.min(99, int(info.mirando) || 0);
     if (antes) this.q(`UPDATE publicas SET n = ?, personas = ?, nombres = ?, cfg = ?, empezada = ?, tanto = ?, mirando = ?, actualizada = ? WHERE codigo = ?`, n, personas, nombres, cfg, empezada, tanto, mirando, this.now(), info.codigo);
