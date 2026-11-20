@@ -655,3 +655,10 @@ caro (un 37 % de cada cuadro), después la resolución, y en el bar las tres luc
   bar (`luzAmb`).
 - **Resolución que se adapta**: si mientras algo se mueve la compu no llega a 42 cuadros por segundo, baja la
   resolución de a poco (de 2 hasta 1 por punto; `DPR`). En el celular ya se usaba 1,5.
+
+## La página no se queda cargando (20/11)
+
+- A veces, justo después de publicar una versión nueva, la página se quedaba cargando. `sw.js` pedía siempre la página
+  a la red y esperaba sin límite. Ahora, si en 6 segundos no contestó o contestó con un error, abre la copia guardada
+  y guarda la nueva cuando llega (para la próxima vez). Probado con un servidor local que tarda 30 segundos o contesta
+  503: la página abre a los 6 segundos. Vale para quien ya abrió el juego alguna vez en ese navegador.

@@ -1,8 +1,8 @@
 // Truco Uruguayo instalado como app: guarda la página del juego para poder abrirla (y jugar contra la
 // computadora) sin internet. Solo se mete al abrir la página y con unos pocos archivos fijos; durante el
 // partido no interviene. La página se pide siempre primero a la red, así llega la última versión; si no hay
-// internet, se abre la guardada. Lo del servidor (cuentas, mesas) nunca se guarda.
-const CACHE = 'truco-v2';
+// internet (o tarda más de 6 segundos, o contesta con un error), se abre la guardada. Lo del servidor (cuentas, mesas) nunca se guarda.
+const CACHE = 'truco-v2';   // (cambiarlo borra lo guardado: no hace falta para actualizar la página)
 const FIJOS = ['./manifest.webmanifest', './icono-192.png', './icono-512.png', './icono-mascara-512.png', './icono-apple-180.png'];
 const RAIZ = new URL('./', self.registration.scope).pathname;
 const esLaPagina = u => u.pathname === RAIZ || u.pathname === RAIZ + 'index.html';
@@ -29,10 +29,21 @@ self.addEventListener('fetch', e => {
   if (r.method !== 'GET') return;
   const u = new URL(r.url);
   if (u.origin === location.origin && esLaPagina(u)) {
-    e.respondWith(fetch(r).then(res => {
-      if (res.ok) e.waitUntil(guardar(res.clone()));
-      return res;
-    }).catch(() => caches.match('./').then(x => x || Response.error())));
+    // primero la red; pero si en 6 segundos no contestó, o contestó con un error (por ejemplo, justo mientras se
+    // publica una versión nueva), se abre la guardada y la nueva se guarda cuando llegue (para la próxima vez)
+    e.respondWith((async () => {
+      const red = fetch(r);
+      const guardada = () => caches.match('./');
+      try {
+        const res = await Promise.race([red, new Promise((_, no) => setTimeout(() => no(new Error('lenta')), 6000))]);
+        if (res.ok) { e.waitUntil(guardar(res.clone())); return res; }
+        return (await guardada()) || res;
+      } catch (err) {
+        const x = await guardada();
+        if (x) { e.waitUntil(red.then(res => res.ok && guardar(res.clone())).catch(() => {})); return x; }
+        return red.catch(() => Response.error());
+      }
+    })());
     return;
   }
   if (u.origin === location.origin && FIJOS.some(f => u.pathname === RAIZ + f.slice(2))) {
