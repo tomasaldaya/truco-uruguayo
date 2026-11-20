@@ -40,6 +40,7 @@ export default {
 export class CuentasDO extends DurableObject {
   constructor(ctx, env) {
     super(ctx, env);
+    this.env = env;
     this.c = new Cuentas({
       sql: (q, ...a) => ctx.storage.sql.exec(q, ...a).toArray(),
       google: verificarGoogle, googleId: env.GOOGLE_CLIENT_ID || '', prueba: env.DEV_LOGIN === '1',
@@ -59,6 +60,20 @@ export class CuentasDO extends DurableObject {
       this.ctx.acceptWebSocket(server);
       server.serializeAttachment({ uid: null });
       return new Response(null, { status: 101, webSocket: client });
+    }
+    // Ensayo de restauración (solo en el entorno de pruebas, con PERMITIR_RESTAURAR=1, y solo quien administra): vuelve
+    // la base de cuentas a como estaba hace N minutos, con la recuperación a un momento dado de SQLite en Cloudflare
+    // (hasta 30 días). POST /api/admin/restaurar { minutos }. El objeto se reinicia y arranca con esa copia.
+    if (new URL(req.url).pathname === '/api/admin/restaurar' && req.method === 'POST') {
+      if (this.env.PERMITIR_RESTAURAR !== '1') return Response.json({ error: 'Solo en el entorno de pruebas.' }, { status: 403 });
+      const u = await this.c.sesionDe((req.headers.get('authorization') || '').replace(/^Bearer\s+/i, ''));
+      if (!u || !this.c.admins.has(u.id)) return Response.json({ error: 'Solo quien administra el juego.' }, { status: 403 });
+      let min = 0; try { min = Number((await req.json()).minutos); } catch (e) {}
+      if (!(min > 0 && min <= 30 * 24 * 60)) return Response.json({ error: 'minutos: entre 1 y 43200' }, { status: 400 });
+      const marca = await this.ctx.storage.getBookmarkForTime(Date.now() - min * 60e3);
+      await this.ctx.storage.onNextSessionRestoreBookmark(marca);
+      setTimeout(() => this.ctx.abort('restaurar'), 50);
+      return Response.json({ ok: true, marca });
     }
     const r = await this.c.http(req);
     // las fotos llevan su versión en la dirección: el navegador las guarda para siempre
@@ -124,6 +139,8 @@ export class MesaDO {
       cuenta: env.CUENTAS ? token => cuentas(env).quien(token) : null,
       registrar: env.CUENTAS ? r => cuentas(env).registrar(r) : null,
       salon: env.CUENTAS ? info => cuentas(env).salon(info) : null,
+      despertar: ms => { this.ctx.storage.setAlarm(Date.now() + ms).catch(() => {}); },
+      log: o => console.log(JSON.stringify({ mesa: 1, ...o })),   // registros de Cloudflare (solo totales y estados)
     };
     ctx.blockConcurrencyWhile(async () => {
       const saved = await ctx.storage.get('mesa');
@@ -151,6 +168,8 @@ export class MesaDO {
     return new Response(null, { status: 101, webSocket: client });
   }
   async alarm() {
+    // un resultado que las cuentas todavía no confirmaron: se reintenta y la mesa no se borra
+    if (this.mesa.pendiente) { this.mesa.enviarResultado(); await this.ctx.storage.setAlarm(Date.now() + 5 * 60e3); return; }
     if (this.socks.size) return;
     await this.ctx.storage.deleteAll();
     this.mesa = new Mesa(this.mesa.io, null);

@@ -17,7 +17,7 @@
     "pruebas": {
       "name": "truco-uruguayo-pruebas",
       "durable_objects": { "bindings": [{ "name": "MESAS", "class_name": "MesaDO" }, { "name": "CUENTAS", "class_name": "CuentasDO" }] },
-      "vars": { "GOOGLE_CLIENT_ID": "585711184422-tgds2q4ivf64q8i57pvldn9uu2l0cqgr.apps.googleusercontent.com", "ADMINS": "1" }
+      "vars": { "GOOGLE_CLIENT_ID": "585711184422-tgds2q4ivf64q8i57pvldn9uu2l0cqgr.apps.googleusercontent.com", "ADMINS": "1", "PERMITIR_RESTAURAR": "1" }
     }
   }
 }

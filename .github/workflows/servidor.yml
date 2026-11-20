@@ -15,7 +15,8 @@ on:
 concurrency: cloudflare-${{ github.ref }}
 jobs:
   probar:
-    runs-on: ubuntu-latest
+    # 24.04: Playwright todavía no trae navegadores para ubuntu-latest (26.04)
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

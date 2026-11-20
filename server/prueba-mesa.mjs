@@ -630,5 +630,31 @@ t('gestos y sonidos: solo códigos válidos, solo de quien juega y de a uno cada
   m.onMessage('c', { t: 'gesto', k: 'g:risa' }); assert(!last(W.inbox, 'a', 'gesto'));   // quien mira, no
 });
 
+await ta('resultado del partido: si las cuentas no contestan, queda pendiente, se guarda y se reintenta hasta que confirmen', async () => {
+  const W = mundo(), m = new Mesa(W.io, null);
+  let fallas = 2, intentos = 0; const reg = [];
+  W.io.cuenta = tok => Promise.resolve({ tA: { id: 1, apodo: 'Ana' }, tB: { id: 2, apodo: 'Beto' } }[tok] || null);
+  W.io.registrar = r => { intentos++; if (fallas-- > 0) return Promise.reject(new Error('reinicio')); reg.push(r); return Promise.resolve({ anotado: true, jugadores: r.cuentas.map(c => ({ uid: c.uid, gano: c.equipo === r.ganador, delta: 16, puntos: 1016, racha: 1 })) }); };
+  const logs = []; W.io.log = o => logs.push(o);
+  m.onOpen('a'); m.onMessage('a', { t: 'hello', name: 'A', pid: 'pa', crear: { n: 2, key: 'k' }, token: 'tA' });
+  m.onOpen('b'); m.onMessage('b', { t: 'hello', name: 'B', pid: 'pb', token: 'tB' });
+  await pausa();
+  m.onMessage('a', { t: 'start', rules: { target: 10, chicosToWin: 1 }, speed: 'rápida' });
+  await hastaElFinal(m, W, ['a', 'b']);
+  assert.equal(m.GM.phase, 'matchEnd');
+  assert(m.pendiente && W.saved.data.pendiente, 'queda pendiente y guardado');
+  assert.equal(reg.length, 0);
+  // al despertar de otra instancia (la mesa se reinició) también lo reintenta
+  const W2 = mundo(); let reg2 = 0; W2.io.registrar = r => { reg2++; return Promise.resolve({ anotado: false, por: 'repetido' }); };
+  const m2 = new Mesa(W2.io, W.saved.data); W2.run(1500); await pausa(); await pausa();
+  assert.equal(reg2, 1); assert.equal(m2.pendiente, null);
+  // en la primera, los reintentos siguen hasta que confirma (5 s, 10 s…)
+  for (let i = 0; i < 30 && !reg.length; i++) { vivo(m, W, 'a'); vivo(m, W, 'b'); W.run(3000); await pausa(); await pausa(); }   // siguen conectados
+  assert.equal(reg.length, 1); assert.equal(intentos, 3); assert.equal(m.pendiente, null);
+  assert(last(W.inbox, 'a', 'ranking') && last(W.inbox, 'b', 'ranking'));
+  assert.deepEqual(logs.filter(l => l.ev === 'resultado').map(l => l.estado), ['reintento', 'reintento', 'anotado']);
+  W.run(60000); await pausa(); assert.equal(intentos, 3);   // y no lo manda más
+});
+
 console.log(fails ? `\n${fails} FALLAS` : '\nTodo OK');
 process.exitCode = fails ? 1 : 0;

@@ -488,7 +488,10 @@ export class Cuentas {
   // Anota un partido terminado. r = { id, fecha, n, ganador, tanteador, equipos: [[{nombre, cuenta, compu}], [...]],
   //   cuentas: [{ uid, equipo, abandono, stats: { manos, manosGanadas, envidos, flores, trucos } }] }
   // Cuenta para el ranking solo si hay alguien con cuenta en cada equipo.
-  registrar(r) {
+  // todo el partido se aplica junto (partido, jugadas, ELO, estadísticas, gremios) o nada: si algo falla en el medio,
+  // no queda a medias y la mesa lo vuelve a mandar
+  registrar(r) { return this.transaccion(() => this.registrar0(r)); }
+  registrar0(r) {
     if (!r || typeof r.id !== 'string' || ![0, 1].includes(r.ganador) || !Array.isArray(r.cuentas)) return { anotado: false, por: 'datos' };
     if (this.q1(`SELECT id FROM partidos WHERE id = ?`, r.id)) return { anotado: false, por: 'repetido' };
     const vistos = new Set(), jug = [];

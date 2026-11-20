@@ -341,5 +341,19 @@ await t('logros: el resultado trae lo de antes y lo de después', async () => {
   assert.equal(j.antes.ganados, 0); assert.equal(j.despues.ganados, 1); assert.equal(j.despues.falta37, 1); assert.equal(j.despues.mejorRacha, 1);
 });
 
+await t('registrar es todo o nada: si falla en el medio no queda a medias, y reintentarlo lo anota una sola vez', async () => {
+  const W = mundo();
+  W.c.transaccion = f => { W.db.exec('BEGIN'); try { const r = f(); W.db.exec('COMMIT'); return r; } catch (e) { W.db.exec('ROLLBACK'); throw e; } };
+  const a = (await W.alta('Ana')).yo.id, b = (await W.alta('Beto')).yo.id;
+  const q0 = W.c.q.bind(W.c); let romper = true;
+  W.c.q = (sql, ...x) => { if (romper && /INSERT INTO jugadas/.test(sql)) { romper = false; throw new Error('se cortó'); } return q0(sql, ...x); };
+  assert.throws(() => W.c.registrar(partido('t1', 0, [{ uid: a, equipo: 0, stats }, { uid: b, equipo: 1, stats }])));
+  assert.equal(W.c.q1(`SELECT COUNT(*) AS n FROM partidos`).n, 0);                      // no quedó el partido
+  assert.equal(W.c.q1(`SELECT partidos FROM usuarios WHERE id = ?`, a).partidos, 0);     // ni el ELO ni las estadísticas
+  assert(W.c.registrar(partido('t1', 0, [{ uid: a, equipo: 0, stats }, { uid: b, equipo: 1, stats }])).anotado);
+  assert.equal(W.c.registrar(partido('t1', 0, [{ uid: a, equipo: 0, stats }, { uid: b, equipo: 1, stats }])).por, 'repetido');
+  assert.equal(W.c.q1(`SELECT partidos FROM usuarios WHERE id = ?`, a).partidos, 1);
+});
+
 console.log(fails ? `\n${fails} pruebas fallaron` : '\nTodo OK');
 process.exit(fails ? 1 : 0);

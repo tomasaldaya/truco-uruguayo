@@ -64,7 +64,8 @@ const roundKey = S => S.roundNo + ':' + (S.round && S.round.duel ? S.round.duel.
 
 export class Mesa {
   // io: { send(cid, msg), close(cid), now(), setTimeout, clearTimeout, setInterval, clearInterval, save(data), end(), idle(),
-  //       cuenta(token) -> Promise<{id, apodo}|null>, registrar(resumen) -> Promise, salon(info) }   (los tres últimos pueden faltar)
+  //       cuenta(token) -> Promise<{id, apodo}|null>, registrar(resumen) -> Promise, salon(info), despertar(ms), log(obj) }
+  //       (los cinco últimos pueden faltar)
   constructor(io, saved) {
     this.io = io;
     this.conns = new Map();            // cid -> { pid, alive, chatAt, msgs, name, mira: { id, name, echar } | null, vozId }
@@ -89,6 +90,9 @@ export class Mesa {
     // cuentas que juegan este partido: uid -> { equipo, abandono, stats }; hasta que vuelvan, figuran como que se fueron
     this.cuentas = new Map((s.cuentas || []).map(([uid, c]) => [uid, { ...c, abandono: true }]));
     this.anotada = s.anotada ?? null; this.registrado = !!s.registrado;
+    // el resultado del partido que todavía no confirmaron las cuentas (se reintenta al despertar)
+    this.pendiente = s.pendiente || null; this.intentos = 0; this.resT = null; this.enviando = false;
+    if (this.pendiente) this.resT = io.setTimeout(() => { this.resT = null; this.enviarResultado(); }, 1000);
   }
 
   // ---------- conexión ----------
@@ -231,7 +235,7 @@ export class Mesa {
       let back = pid ? this.seats.findIndex(x => x.kind === 'ai' && x.left && !x.host && x.pid === pid) : -1;
       if (back < 0 && c.uid) back = this.seats.findIndex(x => x.kind === 'ai' && x.left && !x.host && x.uid === c.uid);
       if (back < 0) back = this.seats.findIndex(x => x.kind === 'ai' && x.left && !x.host && x.name === name);
-      if (back >= 0) this.takeSeat(back, { ...who, name: this.seats[back].name });
+      if (back >= 0) { this.log({ ev: 'vuelve' }); this.takeSeat(back, { ...who, name: this.seats[back].name }); }
       else if (m.mirar) this.mirar(cid);
       else { this.send(cid, this.lobbyMsg()); this.sendChatlog(cid); }
       return;
@@ -541,17 +545,42 @@ export class Mesa {
       const tanteador = G.chicosToWin > 1 ? `${G.chicos[0]} a ${G.chicos[1]} en chicos` : `${G.scores[0]} a ${G.scores[1]}`;
       const resumen = { id: G.id, n: G.n, ganador: G.matchWinner, tanteador, equipos,
         cuentas: [...this.cuentas].map(([uid, c]) => ({ uid, equipo: c.equipo, abandono: c.abandono, stats: c.stats })) };
-      Promise.resolve(this.io.registrar(resumen)).then(r => {
-        if (!r || !r.anotado) return;
-        // a cada uno, cómo le fue en el ranking
-        for (const j of r.jugadores || []) {
-          const p = this.seats.findIndex(s => s.kind !== 'ai' && s.uid === j.uid);
-          if (p >= 0) { this.seats[p].racha = j.racha | 0; const cc = this.conns.get(this.seats[p].cid); if (cc) cc.racha = j.racha | 0; }
-          if (p >= 0 && this.seats[p].cid) this.send(this.seats[p].cid, { t: 'ranking', ...j });
-        }
-      }).catch(() => {});
+      this.anotarResultado(resumen);
     }
   }
+  // ---------- el resultado del partido, para el ranking ----------
+  // Queda guardado como pendiente (con la mesa) y se reintenta hasta que las cuentas contesten; las cuentas lo aplican
+  // una sola vez por id de partido y en una transacción, así que reintentar nunca lo anota dos veces. Si la mesa se
+  // duerme o se reinicia en el medio, lo vuelve a mandar al despertar (constructor y alarma del Durable Object).
+  anotarResultado(resumen) { this.pendiente = resumen; this.intentos = 0; this.saveNow(); this.enviarResultado(); }
+  enviarResultado() {
+    const r0 = this.pendiente;
+    if (!r0 || this.enviando || !this.io.registrar) return;
+    this.enviando = true; this.intentos++;
+    Promise.resolve().then(() => this.io.registrar(r0)).then(r => {
+      this.enviando = false;
+      if (!r || typeof r !== 'object') throw new Error('sin respuesta');
+      // contestó (anotado, repetido o que no corresponde): ya no está pendiente
+      if (this.pendiente === r0) { this.pendiente = null; this.saveNow(); if (!this.conns.size) this.io.idle(); }
+      this.log({ ev: 'resultado', estado: r.anotado ? 'anotado' : 'no anotado', por: r.por || undefined, intentos: this.intentos });
+      if (!r.anotado) return;
+      // a cada uno, cómo le fue en el ranking
+      for (const j of r.jugadores || []) {
+        const p = this.seats ? this.seats.findIndex(s => s.kind !== 'ai' && s.uid === j.uid) : -1;
+        if (p >= 0) { this.seats[p].racha = j.racha | 0; const cc = this.conns.get(this.seats[p].cid); if (cc) cc.racha = j.racha | 0; }
+        if (p >= 0 && this.seats[p].cid) this.send(this.seats[p].cid, { t: 'ranking', ...j });
+      }
+    }).catch(() => {
+      this.enviando = false;
+      const ms = Math.min(5 * 60e3, 5000 * 2 ** Math.min(6, this.intentos - 1));   // 5 s, 10 s, 20 s… hasta 5 min
+      this.log({ ev: 'resultado', estado: 'reintento', intentos: this.intentos, enSegundos: Math.round(ms / 1000) });
+      this.io.clearTimeout(this.resT);
+      this.resT = this.io.setTimeout(() => { this.resT = null; this.enviarResultado(); }, ms);
+      if (this.io.despertar) this.io.despertar(ms + 1000);   // por si el Durable Object se duerme antes
+    });
+  }
+  // para los registros de Cloudflare: solo totales y estados, nunca nombres ni códigos
+  log(o) { if (this.io.log) try { this.io.log(o); } catch (e) {} }
   // tiempo por decisión de cada persona: si se le acaba, decide la computadora por ella
   clockSync() {
     const G = this.GM, lim = this.limit();
@@ -667,7 +696,7 @@ export class Mesa {
     if (!this.key) return null;
     return { code: this.code, key: this.key, n: this.n, started: this.started, publica: this.publica, cfg: this.cfg, speed: this.speed, level: this.level, chat: this.chat, GM: this.GM,
       seats: (this.seats || []).map(s => ({ kind: s.kind, name: s.name, pid: s.pid || null, left: !!s.left, host: !!s.host, uid: s.uid || null, racha: s.racha || 0 })),
-      cuentas: [...this.cuentas], anotada: this.anotada, registrado: this.registrado, vetados: this.vetados };
+      cuentas: [...this.cuentas], anotada: this.anotada, registrado: this.registrado, vetados: this.vetados, pendiente: this.pendiente || null };
   }
   save() { if (this.saveT) return; this.saveT = this.io.setTimeout(() => { this.saveT = null; this.saveNow(); }, 800); }
   saveNow() { const d = this.data(); if (d) this.io.save(d); }
