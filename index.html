@@ -739,6 +739,18 @@ img.avt{object-fit:cover;background:#2a1d13}
   .app.ver-tanteador>aside .cerrarhoja{display:block;position:sticky;top:0;align-self:flex-end;z-index:2;background:#2a2018}
   .pttfab{bottom:calc(64px + env(safe-area-inset-bottom))}
 }
+.festejo{position:fixed;inset:0;z-index:25;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:radial-gradient(circle at 50% 45%,rgba(40,90,50,.92),rgba(10,6,3,.94));color:#f6ecd2;text-align:center;padding:20px;cursor:pointer;animation:festIn .35s ease-out;overflow:hidden}
+.festejo .copa{font-size:min(22vw,110px);line-height:1;animation:festCopa .9s cubic-bezier(.2,1.6,.4,1) both}
+.festejo h2{margin:0;font-size:clamp(26px,7vw,44px);color:#f2c94c;text-shadow:0 2px 0 #5a3d10}
+.festejo .gan{font-size:clamp(18px,5vw,26px);font-weight:700}
+.festejo .tanto{font-size:clamp(15px,4vw,19px);opacity:.85}
+.festejo .salto{position:absolute;bottom:18px;font-size:13px;opacity:.7}
+.festejo i{position:absolute;top:-12px;width:9px;height:14px;border-radius:2px;animation:festCae linear forwards}
+.festejo.perdio h2{color:#e9d9b4}
+@keyframes festIn{from{opacity:0}to{opacity:1}}
+@keyframes festCopa{from{transform:scale(.2) rotate(-25deg);opacity:0}to{transform:none;opacity:1}}
+@keyframes festCae{to{transform:translateY(110vh) rotate(720deg)}}
+@media (prefers-reduced-motion:reduce){.festejo,.festejo .copa{animation:none}.festejo i{display:none}}
 </style>
 </head>
 <body>
@@ -1489,6 +1501,12 @@ img.avt{object-fit:cover;background:#2a1d13}
 
   function winTruco(G, t, pts, why) {
     const R = G.round;
+    if (R.flor.alFinal && !R.canto) {   // primero la flor que quedó para el final (los tantos se anotan antes que el truco)
+      R.flor.alFinal = false; R.florFinal = { t, pts, why };
+      info(G, 'Terminó la mano: ahora se cuentan las flores.');
+      startCanto(G, 'flor', { type: 'cmp', final: true }, 0);
+      return;
+    }
     for (let p = 0; p < G.n; p++) if (R.played[p] === 3 && reveal(G, p)) return;
     R.result = { winnerTeam: t, pts, reason: why };
     addPoints(G, t, pts, why, 'truco');
@@ -1499,7 +1517,9 @@ img.avt{object-fit:cover;background:#2a1d13}
   // ---- Canto de los puntos (Cap. V) ----
   function startCanto(G, kind, ctx, stake) {
     const R = G.round;
-    const order = fromMano(G).filter(q => kind !== 'flor' || R.flor.sung[q]);
+    // la flor del final de la mano: cuentan todos los que la cantaron, aunque después hayan pasado
+    const todos = ctx && ctx.final ? Array.from({ length: G.n }, (_, i) => (R.mano + i) % G.n) : fromMano(G);
+    const order = todos.filter(q => kind !== 'flor' || R.flor.sung[q]);
     R.canto = { kind, ctx, stake, order, best: null, sung: {}, declined: {}, lastIdx: -1, cur: order[0] };
     runAutoCanto(G);
   }
@@ -1553,6 +1573,7 @@ img.avt{object-fit:cover;background:#2a1d13}
       addPoints(G, rt, pts, 'flor: al rival se le acabó el tiempo para cantar', 'flor');
     }
     if (afterPoints(G)) return;
+    if (seguirTrasFlorFinal(G)) return;
     if (R.ley && R.ley.afterCanto) { const tr = R.ley.afterCanto; R.ley.afterCanto = null; leyTruco(G, tr.truco); }
   }
   function finishCanto(G) {
@@ -1589,7 +1610,14 @@ img.avt{object-fit:cover;background:#2a1d13}
       }
     }
     if (afterPoints(G)) return;
+    if (seguirTrasFlorFinal(G)) return;
     if (R.ley && R.ley.afterCanto) { const tr = R.ley.afterCanto; R.ley.afterCanto = null; leyTruco(G, tr.truco); }
+  }
+  function seguirTrasFlorFinal(G) {
+    const R = G.round, f = R.florFinal;
+    if (!f) return false;
+    R.florFinal = null; winTruco(G, f.t, f.pts, f.why);
+    return true;
   }
   function florCount(G) {
     const R = G.round, F = [0, 0];
@@ -1810,8 +1838,10 @@ img.avt{object-fit:cover;background:#2a1d13}
         R.florEnv.passed[t] = true;
         say(G, p, 'Con flor me achico');
         if (R.florEnv.passed[1 - t]) {
-          R.florEnv.done = true;
-          startCanto(G, 'flor', { type: 'cmp' }, 0);
+          // se achicaron todos: como en la mesa de verdad, quién tenía la mejor flor se ve al final de la
+          // mano, con las cartas a la vista (winTruco hace el canto antes de anotar el truco)
+          R.florEnv.done = true; R.flor.alFinal = true;
+          info(G, 'Se achicaron todos: la flor se cuenta al final de la mano, con las cartas a la vista.');
         } else R.florEnv.curTeam = 1 - t;
         return;
       }
@@ -2371,7 +2401,13 @@ img.avt{object-fit:cover;background:#2a1d13}
     for (let q = 0; q < n; q++) {
       if (q === s) continue;
       const show = ended && (opts.revealEnd || R.mustShow[q]) && rivalDeDuelo(q);
-      if (!show) {
+      // la flor que quedó para el final de la mano (se achicaron todos): las cartas de los que la cantaron
+      // se ven, para que cada uno cuente; los puntos los dice cada uno
+      const florFin = !ended && R.canto && R.canto.ctx && R.canto.ctx.final && R.canto.order.includes(q);
+      if (florFin) {
+        R.florHas[q] = null; R.florPts[q] = null; R.envPts[q] = null;
+        if (R.flor) { R.flor.pts[q] = null; R.flor.negada[q] = false; R.flor.lost[q] = false; if (R.flor.lostBy) R.flor.lostBy[q] = null; }
+      } else if (!show) {
         const inHand = new Set(R.hands[q].map(c => c.id));
         R.initial[q] = R.initial[q].map((c, i) => inHand.has(c.id) ? tapada('y', q, i) : c);
         R.hands[q] = R.hands[q].map((c, i) => tapada('x', q, i));
@@ -2424,9 +2460,9 @@ let G = null, busy = false, timer = null, showHelp = true, showRanks = false, re
 let customDeck = null;
 // Las reglas de la mesa son fijas (ya no se cambian en Configuración): a 30 puntos, al mejor de tres, 30 segundos por
 // decisión, con flor, flor anulada si tu compañero toca o grita, sin achique, parda, con señas y mazo solo. Contra la
-// computadora en tercetos, a 40. En una mesa online, quien la crea elige los puntos, los chicos y el achique.
+// computadora, un solo chico y, en tercetos, a 40. En una mesa online, quien la crea elige los puntos, los chicos y el achique.
 const tableRules = Object.assign({}, T.DEFAULT_RULES, { target: 30, chicosToWin: 2, tiempo: 30, flor: true, florCompanero: 'niega', achique: false, iguales: 'parda', senas: true, mazo: 'solo' });
-const reglasSolo = n => n === 6 ? Object.assign({}, tableRules, { target: 40 }) : tableRules;
+const reglasSolo = n => Object.assign({}, tableRules, { chicosToWin: 1 }, n === 6 ? { target: 40 } : {});   // contra la computadora, un solo chico
 let level = 'normal';
 let players = 2, speed = 'normal', holdUntil = 0, lastRoundNo = 0, lastTricks = 0, holdTimer = null;
 const SPEEDS = { lenta: 1.6, normal: 1, 'rápida': 0.55 };
@@ -2900,7 +2936,7 @@ function otherSeat(p, act){
   if (act===p && G.phase==='play') tags.push('<span class="tag turn">juega</span>');
   if (R.out[p]) tags.push('<span class="tag out">pasó</span>');
   const who = el('div','who', `<div class="name">${esc(G.names[p])}${fuego(p)}${NET && NET.talking && NET.talking[p] ? ' <span class="mic">🎙</span>' : ''}</div>${G.n>=4?`<div class="sub">${mirando() ? 'equipo ' + colorEq(team(p)) : partner?'tu compañero':'rival'}</div>`:''}<div class="tags">${tags.join('')}</div>`);
-  const muestra = G.phase !== 'play' && R.mustShow[p] && R.initial[p].every(c => !c.hidden);
+  const muestra = (G.phase !== 'play' && R.mustShow[p] || florAlFinal(R, p)) && R.initial[p].every(c => !c.hidden);
   const h = muestra ? mostradasEl(p) : el('div','hand' + (pos==='top' && G.n===2 ? '' : ' mini'));
   if (!muestra) R.hands[p].forEach(() => h.appendChild(backEl()));
   s.appendChild(who); s.appendChild(h);
@@ -3100,6 +3136,8 @@ function pedirAlCompa(k){
 }
 function senasCond(){ const R = G.round; return G.n>=4 && G.phase==='play' && G.rules.senas && !R.duel && !R.leyPhase && !myCardsHidden(); }
 // a ley de juego: mientras se decide (y los que la impusieron, hasta la respuesta) no se ven las propias cartas
+// la flor que quedó para el final de la mano: se muestran las cartas de los que la cantaron
+const florAlFinal = (R, p) => !!(R && R.canto && R.canto.ctx && R.canto.ctx.final && R.canto.order.includes(p));
 function myCardsHidden(){ const R = G.round; return !!(R && R.hands[ME] && R.hands[ME].some(c => c.hidden)); }
 function myTagsEl(){
   const R = G.round, tags = [];
@@ -3204,6 +3242,7 @@ function hintFor(acts){
   if (R.ley && R.ley.pendingResp) return ` — ${esc(G.names[R.ley.decider])} impuso a ley de juego (${esc(T.LEY_FORMS[R.ley.form].toLowerCase())}). Como sos el pie, contestás todo de una vez`;
   if (R.canto) {
     const what = R.canto.kind==='flor' ? 'tu flor' : 'tu envido';
+    if (R.canto.ctx && R.canto.ctx.final && !R.canto.best) return ' — terminó la mano: ¿cuántos puntos tenías de flor? Contalos con las cartas que quedaron a la vista';
     if (!R.canto.best) return ` — sos el más mano: cantá ${what}`;
     return ` — ${esc(G.names[R.canto.best.p])} cantó ${R.canto.best.pts}: cantá más o decí "son buenas"`;
   }
@@ -3586,7 +3625,7 @@ function step(){
         step();
       }), delay);
     }
-  } else timer = setTimeout(() => whenFree(showRoundEnd), ((GM.n>=4 ? 2200 : 1600) + (GM.round && GM.round.mustShow.some(Boolean) ? 700 : 0)) * delayScale());
+  } else timer = setTimeout(() => whenFree(showRoundEnd), ((GM.n>=4 ? 2200 : 1600) + (GM.round && GM.round.mustShow.some(Boolean) ? 700 : 0) + (GM.phase === 'matchEnd' ? 900 : 0)) * delayScale());
 }
 // Pausas para ver lo que pasa: al empezar la mano y al cerrarse cada baza (devuelve cuánto esperar de más)
 function notePauses(S){
@@ -3607,7 +3646,32 @@ function startRoundHook(){}
 function cardsRow(name, cards){ return `<div class="cards"><span class="nm">${esc(name)}</span>${cards.map(c=>(c.hidden ? backEl() : cardEl(c)).outerHTML).join('')}</div>`; }
 // Quien mira: el resultado de la mano, con los nombres de los equipos, lo que se mostró y el tanteador;
 // el botón solo cierra el cuadro (la mano siguiente empieza cuando los que juegan quieren).
+// Fin del partido: antes del resumen, una pantalla cortita con quién ganó (se saltea tocando o con cualquier tecla)
+let festejado = null;
+function festejo(seguir){
+  if (document.querySelector('.festejo')) return true;
+  const k = G.id + ':' + G.roundNo;
+  if (G.phase !== 'matchEnd' || festejado === k || G.disq) return false;
+  festejado = k;
+  const w = G.matchWinner, mira = mirando(), gane = !mira && w === MT();
+  const nombres = G.n === 2 ? [G.names[w]] : G.names.filter((_, q) => team(q) === w);
+  const quien = nombres.map(n => n === 'Vos' ? 'vos' : n);
+  const titulo = mira ? '¡Terminó el partido!' : gane ? (G.n >= 4 ? '¡Ganaron!' : '¡Ganaste!') : (G.n >= 4 ? 'Ganaron ellos' : 'Perdiste');
+  const gan = (quien.length === 1 && quien[0] === 'vos') ? 'El partido es tuyo' : 'Ganó ' + joinY(quien.map(esc));
+  const conf = gane || mira ? Array.from({ length: 36 }, (_, i) => `<i style="left:${(i * 37) % 100}%;background:${['#f2c94c', '#e85d4a', '#4aa3e8', '#7ac74f', '#f6ecd2'][i % 5]};animation-duration:${1.6 + (i % 7) * .25}s;animation-delay:${(i % 9) * .08}s"></i>`).join('') : '';
+  const box = document.createElement('div');
+  box.className = 'festejo' + (gane || mira ? '' : ' perdio'); box.setAttribute('role', 'dialog'); box.setAttribute('aria-label', titulo);
+  box.innerHTML = `${conf}<div class="copa">${gane || mira ? '🏆' : '🃏'}</div><h2>${titulo}</h2><div class="gan">${gan}</div><div class="tanto">${esc(G.teamNames[w])} ${G.scores[w]} a ${G.scores[1 - w]}${G.chicosToWin > 1 ? ` · chicos ${G.chicos[w]} a ${G.chicos[1 - w]}` : ''}</div><div class="salto">Tocá para seguir</div>`;
+  document.body.appendChild(box);
+  if (gane) try { SND.play('win'); } catch (e) {}
+  let listo = false;
+  const fin = () => { if (listo) return; listo = true; clearTimeout(t); removeEventListener('keydown', fin); box.remove(); seguir(); };
+  const t = setTimeout(fin, 4000);
+  box.onclick = fin; setTimeout(() => addEventListener('keydown', fin), 300);
+  return true;
+}
 function finMirando(){
+  if (festejo(finMirando)) return;
   const R = G.round, res = R.result || {}, eq = t => G.teamNames[t];
   const lines = [];
   if (res.reason === 'abandono') lines.push(`<li><b>${esc(res.texto)}</b></li>`);
@@ -3622,7 +3686,7 @@ function finMirando(){
   if (R.duel && R.mustShow.some(Boolean) && !shown) shown = '<p class="small">Pico a pico: las cartas se muestran solo al rival del duelo.</p>';
   const chicos = `<p class="small">Chicos: ${esc(eq(0))} ${G.chicos[0]} — ${esc(eq(1))} ${G.chicos[1]}. Tanteador: ${G.scores[0]} a ${G.scores[1]}.</p>`;
   const fin = G.phase==='matchEnd';
-  modal(`<h3>${esc(title)}</h3><ul>${lines.join('')||'<li>Nadie sumó puntos.</li>'}</ul>${shown}${chicos}<div class="row"><button class="act" id="mNext">${fin ? 'Volver al inicio' : 'Seguir mirando'}</button></div>`);
+  modal(`<h3>${esc(title)}</h3><ul>${lines.join('')||'<li>Nadie sumó puntos.</li>'}</ul>${shown}${chicos}<div class="row"><button class="act" id="mNext">${fin ? 'Volver al menú' : 'Seguir mirando'}</button></div>`);
   $('mNext').onclick = () => { closeModal(); if (fin) { leaveNet(); showHome(); } };
   $('mNext').focus();
 }
@@ -3630,6 +3694,7 @@ function finMirando(){
 document.addEventListener('click', e => { if (e.target.closest && e.target.closest('[data-dejar-mirar]')) { leaveNet(); showHome(); } });
 function showRoundEnd(){
   if (mirando()) return finMirando();
+  if (festejo(showRoundEnd)) return;
   const R = G.round, we = G.n>=4, mt = MT();
   const them = NET && G.n === 2 ? G.names[otherOf2()] : 'La computadora';
   const lines = [];
@@ -3674,7 +3739,7 @@ function showRoundEnd(){
   if (R.mustShow[ME] || R.penalty || R.flor.negada[ME]) shown += `<p class="small">Tus cartas:</p>${cardsRow('Vos', R.initial[ME])}`;
   if (R.flor.negada[ME] && !R.penalty && !G.disq) shown += `<p class="small">Negaste la flor y no llegó a verse: no se descubrió.</p>`;
   const chicos = `<p class="small">Chicos: ${esc(tName(mt))} ${G.chicos[mt]} — ${esc(tName(1-mt))} ${G.chicos[1-mt]}. Tanteador: ${G.scores[mt]} a ${G.scores[1-mt]}.</p>`;
-  const btn = G.phase==='matchEnd' ? (NET ? 'Volver al inicio' : 'Jugar otro partido') : G.phase==='chicoEnd' ? 'Empezar el siguiente chico' : G.phase==='duelEnd' ? 'Siguiente duelo' : 'Siguiente mano';
+  const btn = G.phase==='matchEnd' ? 'Volver al menú' : G.phase==='chicoEnd' ? 'Empezar el siguiente chico' : G.phase==='duelEnd' ? 'Siguiente duelo' : 'Siguiente mano';
   const all = `<div id="mAll" hidden><p class="small">Repaso: ${NET ? 'las cartas que se vieron de cada uno' : 'las cartas que tenía cada uno'}.</p>${R.initial.map((h, q) => cardsRow(nameOf(q), h)).join('')}</div>`;
   const allBtn = '<button class="act sec" id="mShowAll">Ver las cartas de todos</button>';
   const endClk = NET && G.phase !== 'matchEnd' && clockLimit(G) ? '<p class="endclock" hidden>Si alguien no toca el botón, se sigue solo en <b></b>.</p>' : '';
@@ -4886,7 +4951,7 @@ function crearV3(){
       h.forEach((c, i) => {
         if (fueMazo(p)) { out[c.id] = { key: 'd', deck: true }; return; }
         if (yoSentado(p)) { out[c.id] = cartasEnMesa(p) ? { key: `a:${p}:${i}:${k}`, pose: dejadaPose(p, i, k, c.id), face: false, p } : { key: 'hand', hand: true, face: true }; return; }
-        if (ended) { const up = !!R.mustShow[p] && !c.hidden; out[c.id] = { key: `r:${p}:${i}:${k}:${up}`, pose: downPose(p, i, k, up, c.id), face: up, p }; return; }
+        if (ended || florAlFinal(R, p)) { const up = (!!R.mustShow[p] || florAlFinal(R, p)) && !c.hidden; out[c.id] = { key: `r:${p}:${i}:${k}:${up}`, pose: downPose(p, i, k, up, c.id), face: up, p }; return; }
         if (!R.active[p] || R.out[p]) { out[c.id] = { key: `x:${p}:${i}:${k}`, pose: downPose(p, i, k, false, c.id), face: false, p }; return; }
         if (cartasEnMesa(p)) { out[c.id] = { key: `a:${p}:${i}:${k}`, pose: dejadaPose(p, i, k, c.id), face: false, p }; return; }
         out[c.id] = { key: `f:${p}:${i}:${k}`, pose: fanPose(p, i, k), face: false, fan: true, p };
@@ -6393,7 +6458,7 @@ function onState(m){
   render();
   if (!$('home').hidden) return;
   if (G.phase !== 'play') {
-    if (NET.shownEnd !== m.key && !$('mNext')) { NET.shownEnd = m.key; const k = m.key; setTimeout(() => { if (NET && NET.key === k && $('home').hidden && !$('mNext')) (NET.mira ? finMirando : showRoundEnd)(); }, ((G.n >= 4 ? 2200 : 1600) + (G.round && G.round.mustShow && G.round.mustShow.some(Boolean) ? 700 : 0)) * delayScale()); }
+    if (NET.shownEnd !== m.key && !$('mNext')) { NET.shownEnd = m.key; const k = m.key; setTimeout(() => { if (NET && NET.key === k && $('home').hidden && !$('mNext')) (NET.mira ? finMirando : showRoundEnd)(); }, ((G.n >= 4 ? 2200 : 1600) + (G.round && G.round.mustShow && G.round.mustShow.some(Boolean) ? 700 : 0) + (G.phase === 'matchEnd' ? 900 : 0)) * delayScale()); }
   } else if ($('mNext')) closeModal();
 }
 
@@ -7681,7 +7746,7 @@ cuentaInit();
 // ---------- cuánto se usa y qué falla ----------
 // Se cuenta por día y sin datos de nadie: que se abrió (y de dónde vino el enlace), si está instalada,
 // si se juega contra la computadora u online. Los errores del navegador van igual: el texto y dónde, nada más.
-const VERSION = 'f92574f9';
+const VERSION = 'a3f4d07c';
 function avisarServidor(ruta, cuerpo){
   if (!serverOK()) return;
   try { fetch(serverURL() + '/api/' + ruta, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(cuerpo), keepalive: true }).catch(() => {}); } catch (e) {}

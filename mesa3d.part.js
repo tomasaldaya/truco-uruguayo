@@ -1159,7 +1159,7 @@ function crearV3(){
       h.forEach((c, i) => {
         if (fueMazo(p)) { out[c.id] = { key: 'd', deck: true }; return; }
         if (yoSentado(p)) { out[c.id] = cartasEnMesa(p) ? { key: `a:${p}:${i}:${k}`, pose: dejadaPose(p, i, k, c.id), face: false, p } : { key: 'hand', hand: true, face: true }; return; }
-        if (ended) { const up = !!R.mustShow[p] && !c.hidden; out[c.id] = { key: `r:${p}:${i}:${k}:${up}`, pose: downPose(p, i, k, up, c.id), face: up, p }; return; }
+        if (ended || florAlFinal(R, p)) { const up = (!!R.mustShow[p] || florAlFinal(R, p)) && !c.hidden; out[c.id] = { key: `r:${p}:${i}:${k}:${up}`, pose: downPose(p, i, k, up, c.id), face: up, p }; return; }
         if (!R.active[p] || R.out[p]) { out[c.id] = { key: `x:${p}:${i}:${k}`, pose: downPose(p, i, k, false, c.id), face: false, p }; return; }
         if (cartasEnMesa(p)) { out[c.id] = { key: `a:${p}:${i}:${k}`, pose: dejadaPose(p, i, k, c.id), face: false, p }; return; }
         out[c.id] = { key: `f:${p}:${i}:${k}`, pose: fanPose(p, i, k), face: false, fan: true, p };

@@ -465,13 +465,15 @@ export class Mesa {
     const libre = !this.started || (this.GM && this.GM.phase === 'matchEnd');
     // empieza llena, o cuando todos los que están votan empezar (aunque sea uno solo: la computadora completa, y los
     // que lleguen después se sientan en sus lugares)
-    const g = this.gente(), lleno = g.length === this.n, todos = g.length >= 1 && g.every(p => this.votos.has(p));
+    // después de un partido no arranca otro solo por estar llena: cada uno vuelve al menú o vota jugar otro
+    const terminado = this.started && this.GM && this.GM.phase === 'matchEnd';
+    const g = this.gente(), lleno = g.length === this.n && !terminado, todos = g.length >= 1 && g.every(p => this.votos.has(p));
     if (libre && (lleno || todos)) {
       if (this.cuentaT) return;
       this.empiezaEn = this.io.now() + CUENTA_ATRAS;
       this.cuentaT = this.io.setTimeout(() => {
         this.cuentaT = null; this.empiezaEn = null;
-        const g2 = this.gente(), sigue = (!this.started || (this.GM && this.GM.phase === 'matchEnd')) && (g2.length === this.n || (g2.length >= 1 && g2.every(p => this.votos.has(p))));
+        const g2 = this.gente(), fin2 = this.started && this.GM && this.GM.phase === 'matchEnd', sigue = (!this.started || fin2) && ((g2.length === this.n && !fin2) || (g2.length >= 1 && g2.every(p => this.votos.has(p))));
         if (sigue) { this.votos = new Set(); this.startMatch({ speed: 'normal', level: 'normal' }); }
         else this.lobbyChanged();
       }, CUENTA_ATRAS);

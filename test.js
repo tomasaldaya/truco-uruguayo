@@ -236,13 +236,36 @@ t('con achique, el con flor envido (o contra flor) no querido cobra la flor y un
   G = setup(H0, [C(6, 'basto'), C(7, 'basto'), C(3, 'basto')], M, null, false, false, { achique: true });
   act(G, 0, typ('flor')); act(G, 1, typ('flor'));
   act(G, 0, typ('chica')); act(G, 1, typ('chica'));
-  assert.deepEqual(G.scores, [0, 3]);
+  assert.deepEqual(G.scores, [0, 0]);              // la flor se cuenta al final de la mano
+  act(G, 0, typ('mazo'));
+  assert.deepEqual(G.scores, [0, 3 + 1]);          // la flor mayor (3) y el punto de la mano
+  assert.equal(G.round.florEnv.result.pts, 3);
 });
 t('ambos se achican: gana la flor mayor', () => {
   const G = setup([C(1, 'oro'), C(3, 'oro'), C(6, 'oro')], [C(6, 'basto'), C(7, 'basto'), C(3, 'basto')], C(4, 'espada'));
   act(G, 0, typ('flor')); act(G, 1, typ('flor'));
   act(G, 0, typ('chica')); act(G, 1, typ('chica'));
-  assert.deepEqual(G.scores, [0, 3]);
+  assert.deepEqual(G.scores, [0, 0]);              // la flor se cuenta al final de la mano
+  act(G, 0, typ('mazo'));
+  assert.deepEqual(G.scores, [0, 3 + 1]);          // la flor mayor (3) y el punto de la mano
+  assert.equal(G.round.florEnv.result.pts, 3);
+});
+t('ambos se achican en modo realista: al final de la mano cada uno canta, con las cartas a la vista', () => {
+  const G = setup([C(1, 'oro'), C(3, 'oro'), C(6, 'oro')], [C(6, 'basto'), C(7, 'basto'), C(3, 'basto')], C(4, 'espada'));
+  act(G, 0, typ('flor')); act(G, 1, typ('flor'));
+  act(G, 0, typ('chica')); act(G, 1, typ('chica'));
+  assert.equal(G.round.canto, null);
+  G.manual = [true, true];
+  while (!G.round.canto && G.phase === 'play') { const p = T.actor(G); T.apply(G, p, T.legal(G, p).find(x => x.type === 'play')); }
+  assert(G.round.canto && G.round.canto.ctx.final && G.phase === 'play');   // terminaron las bazas: ahora la flor
+  const V = require('./vista.js').viewFor(G, 0, {});
+  assert(V.round.initial[1].every(c => !c.hidden)); assert.equal(V.round.flor.pts[1], null);   // se ven las cartas, no los puntos
+  const real = G.round.flor.pts;
+  T.apply(G, T.actor(G), { type: 'sing', pts: real[T.actor(G)] });
+  const q = T.actor(G);
+  T.apply(G, q, real[q] > real[1 - q] ? { type: 'sing', pts: real[q] } : { type: 'buenas' });
+  assert.equal(G.phase, 'roundEnd');
+  assert.equal(G.round.gained[0].concat(G.round.gained[1]).filter(g => g.cat === 'flor').length, 1);
 });
 t('truco querido vale 2, retruco no querido 2, vale cuatro 4', () => {
   let G = setup([C(1, 'espada'), C(1, 'basto'), C(7, 'espada')], [C(4, 'basto'), C(5, 'basto'), C(6, 'copa')], C(4, 'oro'));

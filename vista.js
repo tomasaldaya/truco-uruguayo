@@ -37,7 +37,13 @@
     for (let q = 0; q < n; q++) {
       if (q === s) continue;
       const show = ended && (opts.revealEnd || R.mustShow[q]) && rivalDeDuelo(q);
-      if (!show) {
+      // la flor que quedó para el final de la mano (se achicaron todos): las cartas de los que la cantaron
+      // se ven, para que cada uno cuente; los puntos los dice cada uno
+      const florFin = !ended && R.canto && R.canto.ctx && R.canto.ctx.final && R.canto.order.includes(q);
+      if (florFin) {
+        R.florHas[q] = null; R.florPts[q] = null; R.envPts[q] = null;
+        if (R.flor) { R.flor.pts[q] = null; R.flor.negada[q] = false; R.flor.lost[q] = false; if (R.flor.lostBy) R.flor.lostBy[q] = null; }
+      } else if (!show) {
         const inHand = new Set(R.hands[q].map(c => c.id));
         R.initial[q] = R.initial[q].map((c, i) => inHand.has(c.id) ? tapada('y', q, i) : c);
         R.hands[q] = R.hands[q].map((c, i) => tapada('x', q, i));

@@ -684,6 +684,12 @@
 
   function winTruco(G, t, pts, why) {
     const R = G.round;
+    if (R.flor.alFinal && !R.canto) {   // primero la flor que quedó para el final (los tantos se anotan antes que el truco)
+      R.flor.alFinal = false; R.florFinal = { t, pts, why };
+      info(G, 'Terminó la mano: ahora se cuentan las flores.');
+      startCanto(G, 'flor', { type: 'cmp', final: true }, 0);
+      return;
+    }
     for (let p = 0; p < G.n; p++) if (R.played[p] === 3 && reveal(G, p)) return;
     R.result = { winnerTeam: t, pts, reason: why };
     addPoints(G, t, pts, why, 'truco');
@@ -694,7 +700,9 @@
   // ---- Canto de los puntos (Cap. V) ----
   function startCanto(G, kind, ctx, stake) {
     const R = G.round;
-    const order = fromMano(G).filter(q => kind !== 'flor' || R.flor.sung[q]);
+    // la flor del final de la mano: cuentan todos los que la cantaron, aunque después hayan pasado
+    const todos = ctx && ctx.final ? Array.from({ length: G.n }, (_, i) => (R.mano + i) % G.n) : fromMano(G);
+    const order = todos.filter(q => kind !== 'flor' || R.flor.sung[q]);
     R.canto = { kind, ctx, stake, order, best: null, sung: {}, declined: {}, lastIdx: -1, cur: order[0] };
     runAutoCanto(G);
   }
@@ -748,6 +756,7 @@
       addPoints(G, rt, pts, 'flor: al rival se le acabó el tiempo para cantar', 'flor');
     }
     if (afterPoints(G)) return;
+    if (seguirTrasFlorFinal(G)) return;
     if (R.ley && R.ley.afterCanto) { const tr = R.ley.afterCanto; R.ley.afterCanto = null; leyTruco(G, tr.truco); }
   }
   function finishCanto(G) {
@@ -784,7 +793,14 @@
       }
     }
     if (afterPoints(G)) return;
+    if (seguirTrasFlorFinal(G)) return;
     if (R.ley && R.ley.afterCanto) { const tr = R.ley.afterCanto; R.ley.afterCanto = null; leyTruco(G, tr.truco); }
+  }
+  function seguirTrasFlorFinal(G) {
+    const R = G.round, f = R.florFinal;
+    if (!f) return false;
+    R.florFinal = null; winTruco(G, f.t, f.pts, f.why);
+    return true;
   }
   function florCount(G) {
     const R = G.round, F = [0, 0];
@@ -1005,8 +1021,10 @@
         R.florEnv.passed[t] = true;
         say(G, p, 'Con flor me achico');
         if (R.florEnv.passed[1 - t]) {
-          R.florEnv.done = true;
-          startCanto(G, 'flor', { type: 'cmp' }, 0);
+          // se achicaron todos: como en la mesa de verdad, quién tenía la mejor flor se ve al final de la
+          // mano, con las cartas a la vista (winTruco hace el canto antes de anotar el truco)
+          R.florEnv.done = true; R.flor.alFinal = true;
+          info(G, 'Se achicaron todos: la flor se cuenta al final de la mano, con las cartas a la vista.');
         } else R.florEnv.curTeam = 1 - t;
         return;
       }
