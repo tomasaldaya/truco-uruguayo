@@ -583,6 +583,7 @@ const V3 = (function(){
   // dónde está la boca, en las coordenadas del cuerpo (para llevar el dedo o la bombilla justo ahí)
   const tmpB = v3(0, 0, 0);
   function bocaDe(c){ c.mouth.getWorldPosition(tmpB); return c.body.worldToLocal(tmpB).clone(); }
+  function ojoDe(c){ c.eyes[1].g.getWorldPosition(tmpB); return c.body.worldToLocal(tmpB).clone(); }   // el ojo derecho
   const suave = x => x*x*(3 - 2*x);
   const mezcla = (a, b, k) => a.clone().lerp(b, suave(clamp(k, 0, 1)));
   const GA = {
@@ -595,9 +596,10 @@ const V3 = (function(){
     } },
     risa: { d: 2.4, f: t => ({ H: v3(-.4, 1.0, 1.15), s: 'abierta', hp: -.28, bob: .08*Math.abs(Math.sin(t*15)), face: { open: .6, eyeA: .3, eyeB: .3, browUp: .3 } }) },
     bienahi: { d: 2.0, f: t => ({ H: v3(-1.3, 4.3 + .12*Math.sin(t*12), .9), s: 'puño', face: { open: .4, browUp: .6 } }) },
-    // al costado de la cara, con el dedo yendo al ojo; después te señala
+    // la mano sube desde abajo y la punta del índice toca el párpado de abajo; después te señala
+    // (la punta del índice queda un poco abajo del ojo derecho y apenas adelante: ojo es dónde va la mano desde ahí)
     mirar: { d: 2.8, f: t => { const k = (t - 1.25) / .4;
-      return { H: mezcla(v3(-1.45, 3.87, 1.02), v3(-.8, 3.3, 2.05), k), s: 'indice', dir: mezcla(v3(1, -.06, -.12), v3(-.2, .08, 1), k), face: { browIn: .5, eyeA: .75, eyeB: .75 } }; } },
+      return { ojo: v3(-.08, -.73, .22), H2: v3(-.8, 3.3, 2.05), k, s: 'indice', dir: mezcla(v3(.12, 1, -.2), v3(-.2, .08, 1), k), face: { browIn: .5, eyeA: .75, eyeB: .75 } }; } },
     // la mano a su derecha, palma para arriba, con los dedos y el pulgar apuntando para afuera
     quese: { d: 2.2, f: () => ({ H: v3(-1.8, 2.15, 1.35), s: 'palma', dir: v3(-1, .12, .3), nrm: v3(0, 1, 0), hr: .22, bob: .1, face: { browUp: .85, twist: .3 } }) },
     pensar: { d: 3.0, f: () => ({ H: v3(-.2, 3.35, 1.05), s: 'puño', hr: .15, hp: -.12, face: { browIn: .3, twist: .35, eyeA: .8, eyeB: .8 } }) },
@@ -618,6 +620,7 @@ const V3 = (function(){
       else { e = suave(clamp(Math.min(tt / .35, (g.d - tt) / .4), 0, 1)); out = GA[g.k].f(tt, c); }
     }
     if (out && out.boca) out.H = bocaDe(c).add(out.boca);
+    if (out && out.ojo) { const b = ojoDe(c).add(out.ojo); out.H = out.H2 ? mezcla(b, out.H2, out.k) : b; }
     c.arms.forEach((A, i) => {
       const o = out && (i === 1 ? out : out.L);
       if (o) {

@@ -577,3 +577,5 @@ Herramientas: `tools/ia/lalo.js` (esa mano, con lo que decide la computadora) y 
 - **Aplausos**: deja las cartas boca abajo en la mesa, delante suyo (`dejadaPose`, mientras `aplaudiendo`), aplaude
   con las dos manos y las vuelve a agarrar. La pantalla vuelve a acomodar las cartas al empezar y al terminar.
 - Para mirar un instante de un gesto en las pruebas: `__v3.debug().Lay.chars[p].ag.fijo = segundos`.
+- **Te estoy mirando** (ajuste): la mano sube desde abajo y la punta del índice toca el párpado de abajo del ojo
+  derecho. Se calcula dónde está el ojo en cada cuadro (`ojoDe`), así anda igual con todos los personajes.
