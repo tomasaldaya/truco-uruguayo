@@ -19,11 +19,11 @@ const SND = (() => {
       for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
       noise = n;
     }
-    if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+    if (ctx.state !== 'running') ctx.resume().catch(() => {});   // en iPhone queda 'interrupted' al usar el micrófono
     return ctx;
   }
   // los navegadores no dejan sonar nada hasta que la persona toca algo
-  ['pointerdown', 'keydown'].forEach(ev => addEventListener(ev, () => { if (on && (!ctx || ctx.state === 'suspended')) ac(); }, { passive: true }));
+  ['pointerdown', 'keydown'].forEach(ev => addEventListener(ev, () => { if (on && (!ctx || ctx.state !== 'running')) ac(); }, { passive: true }));
 
   // ruido filtrado con envolvente: roce de cartas, golpes
   function hiss(t, dur, f0, f1, q, gain, type){

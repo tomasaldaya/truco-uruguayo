@@ -739,3 +739,8 @@ Lo que se podía hacer sin el dominio propio:
 - Tablas nuevas en cuentas: `reportes`, `visitas`, `errores`; columnas `suspendido_hasta` y `suspension_motivo`. Rutas: `reporte`, `visita`, `error`, `admin/reportes`, `admin/reporte`, `admin/suspender`, `admin/uso`.
 
 Lo que queda por tu lado: confirmar que se puede usar el texto del reglamento, probar en celulares reales, y poner la pantalla de permisos de Google en "Producción".
+
+## Arreglos de la voz (20/11, directo en main)
+Lo que contaron: a veces al prender el micrófono no se oía a nadie hasta silenciar y volver a activar, o hablar y tocar el sonido; y en el celular, después de jugar, WhatsApp no podía grabar audios.
+- **No se oía**: los navegadores del celular no dejan sonar un audio que llega sin que la persona toque algo, y en iPhone tomar el micrófono pausa lo que sonaba. Ahora cada voz que llega se reintenta con cualquier toque o tecla, al volver a la página y justo después de tomar el micrófono; los audios llevan `playsinline`. Si igual sigue trabada, aparece "Tocá la pantalla para escuchar a los demás". Los sonidos del juego también se reaniman si iPhone los deja 'interrupted'.
+- **El micrófono quedaba tomado**: se tenía desde que se prendía hasta irse de la mesa, aunque la página estuviera atrás. Ahora se suelta (se apagan las pistas y se deja de mandar a cada uno) al salir de la página (otra app, pantalla apagada, `pagehide`) y a los 2 minutos sin hablar. Al volver a apretar el botón se toma de nuevo y, si se sigue apretando, ya habla (el permiso se recuerda en `truco.mic`).

@@ -973,7 +973,7 @@ function chatToast(m){
 // ---------- Voz: pulsar para hablar ----------
 // Por la misma conexión directa entre navegadores (WebRTC). El micrófono se pide la primera vez que
 // se pulsa, y solo manda sonido mientras se mantiene apretado el botón (o la tecla V).
-const VOZ = { stream: null, on: false, audios: {}, pend: {}, sent: {}, mute: store.get('truco.voces') === '0', err: '' };
+const VOZ = { stream: null, on: false, audios: {}, pend: {}, sent: {}, mute: store.get('truco.voces') === '0', err: '', yaPidio: store.get('truco.mic') === '1' };
 // Con el servidor, la sala de voz está abierta a cualquiera que sepa el código; por eso cada uno solo
 // escucha y le manda su voz a los que la mesa dice que están en ella (lobby.voces). Sin esa lista (un
 // servidor viejo, o de navegador a navegador) no se filtra.
@@ -1009,8 +1009,34 @@ function vozSync(){
   }
   renderVoz();
 }
+// El micrófono se toma solo mientras hace falta: se suelta al salir de la página (otra app, la pantalla
+// apagada) y a los 2 minutos sin hablar. Si no, en el celular queda tomado y otras apps (WhatsApp) no lo pueden usar.
+const VOZ_SUELTA_MS = 120000;
+function vozSoltarMic(){
+  clearTimeout(VOZ.suelta);
+  if (!VOZ.stream) return;
+  if (VOZ.on) talk(false);
+  const st = VOZ.stream, room = vozRoom();
+  if (room) {
+    if (NET && NET.vr) for (const peer in VOZ.sent) { try { room.removeStream(st, { target: peer }); } catch (e) {} }
+    else try { room.removeStream(st); } catch (e) {}
+  }
+  st.getTracks().forEach(t => t.stop());
+  VOZ.stream = null; VOZ.sent = {}; VOZ.on = false;
+  renderVoz();
+}
+function vozSoltarLuego(){ clearTimeout(VOZ.suelta); if (VOZ.stream) VOZ.suelta = setTimeout(() => { if (!VOZ.on) vozSoltarMic(); else vozSoltarLuego(); }, VOZ_SUELTA_MS); }
+// los navegadores (sobre todo en el celular) no dejan sonar un audio que llega sin que la persona haya tocado
+// algo, y en iPhone tomar el micrófono pausa lo que sonaba: se reintenta con cada toque y después de tomarlo
+function vozSonar(){
+  for (const k in VOZ.audios) {
+    const a = VOZ.audios[k];
+    if (a.paused) a.play().then(() => { if (VOZ.bloq) { VOZ.bloq = false; renderVoz(); } }).catch(() => { if (!VOZ.bloq) { VOZ.bloq = true; renderVoz(); } });
+  }
+}
+['pointerdown', 'keydown', 'touchend'].forEach(ev => addEventListener(ev, () => { for (const k in VOZ.audios) { vozSonar(); break; } }, { passive: true, capture: true }));
 async function vozMic(){
-  if (VOZ.stream) return true;
+  if (VOZ.stream) { vozSoltarLuego(); return true; }
   try {
     VOZ.stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
   } catch (e) {
@@ -1018,7 +1044,10 @@ async function vozMic(){
     renderVoz(); return false;
   }
   VOZ.err = '';
+  if (document.hidden) { vozSoltarMic(); return false; }     // se fue de la página mientras pedía permiso
   VOZ.stream.getAudioTracks().forEach(t => { t.enabled = false; });
+  vozSoltarLuego();
+  vozSonar(); setTimeout(vozSonar, 400);                     // en iPhone, lo que sonaba se pausa al tomar el micrófono
   if (NET && NET.vr) vozRevisar();                         // con el servidor: a cada uno de los que están en la mesa
   else if (vozRoom()) try { vozRoom().addStream(VOZ.stream); } catch (e) {}
   return true;
@@ -1031,22 +1060,27 @@ async function talk(on){
   if (!VOZ.stream || VOZ.on !== on) return;
   VOZ.stream.getAudioTracks().forEach(t => { t.enabled = on; });
   clearTimeout(VOZ.cut); if (on) VOZ.cut = setTimeout(() => talk(false), 60000);   // nadie queda hablando sin querer
+  vozSoltarLuego();
   if (NET.role === 'host') { setTalking(0, on); netPost({ t: 'talk', p: 0, on }); } else netPost({ t: 'talk', on });
   renderVoz();
 }
 function vozStop(){
+  clearTimeout(VOZ.suelta);
   if (VOZ.stream) VOZ.stream.getTracks().forEach(t => t.stop());
   VOZ.stream = null; VOZ.on = false; VOZ.pend = {}; VOZ.sent = {};
   for (const k in VOZ.audios) vozDetach(k);
 }
 function vozAttach(peer, stream){
   vozDetach(peer);
-  const a = document.createElement('audio'); a.autoplay = true; a.srcObject = stream; a.muted = VOZ.mute || vozSilenciada(peer); a.dataset.peer = peer;
-  document.body.appendChild(a); a.play().catch(() => {});
+  const a = document.createElement('audio'); a.autoplay = true; a.playsInline = true; a.setAttribute('playsinline', '');
+  a.srcObject = stream; a.muted = VOZ.mute || vozSilenciada(peer); a.dataset.peer = peer;
+  document.body.appendChild(a);
   VOZ.audios[peer] = a;
+  try { stream.onaddtrack = () => vozSonar(); } catch (e) {}
+  vozSonar();
 }
 function vozDetach(peer){ const a = VOZ.audios[peer]; if (a) { a.srcObject = null; a.remove(); delete VOZ.audios[peer]; } }
-function setVocesMute(m){ VOZ.mute = m; store.set('truco.voces', m ? '0' : '1'); aplicarSilencio(); renderVoz(); }
+function setVocesMute(m){ VOZ.mute = m; store.set('truco.voces', m ? '0' : '1'); aplicarSilencio(); if (!m) vozSonar(); renderVoz(); }
 function setTalking(p, on){
   if (!NET || typeof p !== 'number') return;
   NET.talking[p] = on;
@@ -1072,28 +1106,37 @@ function renderVoz(){
     }
     const b = box.querySelector('.ptt'), who = talkingNames();
     b.classList.toggle('on', VOZ.on); b.setAttribute('aria-pressed', String(VOZ.on));
-    b.textContent = '🎙 ' + (VOZ.on ? 'Hablando…' : VOZ.prep ? 'Prendiendo el micrófono…' : VOZ.stream ? 'Mantené apretado para hablar' : 'Prender el micrófono');
+    b.textContent = '🎙 ' + (VOZ.on ? 'Hablando…' : VOZ.prep ? 'Prendiendo el micrófono…' : VOZ.stream || VOZ.yaPidio ? 'Mantené apretado para hablar' : 'Prender el micrófono');
     const m = box.querySelector('.vmute'); m.setAttribute('aria-pressed', String(VOZ.mute)); m.textContent = VOZ.mute ? '🔇 Voces apagadas' : '🔈 Escuchando voces';
-    box.querySelector('.vozn').innerHTML = (who.length ? `🎙 Habla ${esc(joinY(who))}` : VOZ.stream ? 'También con la tecla V.' : 'Se prende una vez y después hablás manteniendo apretado el botón o la tecla V.') + (VOZ.err ? ` <span class="err">${esc(VOZ.err)}</span>` : '');
+    box.querySelector('.vozn').innerHTML = (who.length ? `🎙 Habla ${esc(joinY(who))}` : VOZ.stream ? 'También con la tecla V.' : 'Se prende una vez y después hablás manteniendo apretado el botón o la tecla V.') + (VOZ.bloq && !VOZ.mute ? ' <span class="err">Tocá la pantalla para escuchar a los demás.</span>' : '') + (VOZ.err ? ` <span class="err">${esc(VOZ.err)}</span>` : '');
   });
   const fab = $('pttFab');
-  if (fab) { fab.hidden = !(ok && $('home').hidden); fab.classList.toggle('on', VOZ.on); fab.classList.toggle('off', !VOZ.stream); fab.setAttribute('aria-label', VOZ.stream ? 'Mantené apretado para hablar' : 'Prender el micrófono'); }
+  if (fab) { fab.hidden = !(ok && $('home').hidden); fab.classList.toggle('on', VOZ.on); fab.classList.toggle('off', !VOZ.stream && !VOZ.yaPidio); fab.setAttribute('aria-label', VOZ.stream || VOZ.yaPidio ? 'Mantené apretado para hablar' : 'Prender el micrófono'); }
 }
 function bindPtt(b){
   if (!b) return;
   b.onpointerdown = e => {
     e.preventDefault();
     // la primera vez solo se prende el micrófono (pide permiso y conecta); después, apretar es hablar
-    if (!VOZ.stream) { VOZ.prep = true; renderVoz(); vozMic().then(() => { VOZ.prep = false; renderVoz(); }); return; }
-    try { b.setPointerCapture(e.pointerId); } catch (x) {} talk(true);
+    try { b.setPointerCapture(e.pointerId); } catch (x) {}
+    if (!VOZ.stream) {
+      // la primera vez solo se prende el micrófono (pide permiso); si ya se había prendido antes y se soltó,
+      // se vuelve a tomar y, si sigue apretado, ya habla
+      const primera = !VOZ.yaPidio;
+      VOZ.prep = true; VOZ.apretado = true; renderVoz();
+      vozMic().then(ok => { VOZ.prep = false; if (ok) { VOZ.yaPidio = true; store.set('truco.mic', '1'); } renderVoz(); if (ok && VOZ.apretado && !primera) talk(true); });
+      return;
+    }
+    VOZ.apretado = true; talk(true);
   };
-  b.onpointerup = b.onpointercancel = b.onlostpointercapture = () => talk(false);
+  b.onpointerup = b.onpointercancel = b.onlostpointercapture = () => { VOZ.apretado = false; talk(false); };
   b.oncontextmenu = e => e.preventDefault();
 }
 document.addEventListener('keydown', e => { if ((e.key === 'v' || e.key === 'V') && !e.repeat && NET && !/INPUT|SELECT|TEXTAREA/.test((document.activeElement || {}).tagName || '')) talk(true); });
 document.addEventListener('keyup', e => { if (e.key === 'v' || e.key === 'V') talk(false); });
 addEventListener('blur', () => talk(false));
-document.addEventListener('visibilitychange', () => { if (document.hidden) talk(false); });
+document.addEventListener('visibilitychange', () => { if (document.hidden) { talk(false); vozSoltarMic(); } else vozSonar(); });
+addEventListener('pagehide', () => vozSoltarMic());
 
 // al abrir: si esta pestaña estaba en una mesa (se recargó la página), vuelve a ella
 const netBack = netOK() && netRestore();

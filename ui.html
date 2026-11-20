@@ -1849,7 +1849,7 @@ if (GM) { players = GM.n; refreshView(); }
 /*RED*/
 /*CUENTAS*/
 $('chatBox').innerHTML = chatUI('ch'); bindChat('ch'); bindPtt($('pttFab'));
-window.__trucoSnd = SND; window.__trucoVoz = VOZ; window.__trucoChat = t => chatSend(t); window.__trucoPost = m => netPost(m);   // para las pruebas: un mensaje crudo a la mesa
+window.__trucoSnd = SND; window.__trucoVoz = VOZ; window.__trucoVozSoltar = () => vozSoltarMic(); window.__trucoChat = t => chatSend(t); window.__trucoPost = m => netPost(m);   // para las pruebas: un mensaje crudo a la mesa
 if (netBack && NET && NET.role === 'host' && NET.started) { showHome(); continueGame(); }
 else if (netBack) showHome('lobby');
 else if (netOK() && invitedCode()) { joinCode = invitedCode(); showHome('join'); }
