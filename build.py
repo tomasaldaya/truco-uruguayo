@@ -10,4 +10,7 @@ s = s.replace('<script>/*TRYSTERO*/</script>', '<script>\n' + part('trystero.min
 s = s.replace('<script>/*VISTA*/</script>', '<script>\n' + part('vista.js') + '\n</script>')
 import json
 s = s.replace("/*REGLAMENTO*/''", json.dumps(part('reglamento.txt'), ensure_ascii=False).replace('</', '<\\/'))
+# controles: que no falte ninguna parte ni el reglamento (si falla, no se escribe index.html)
+assert 'const REGLAMENTO = "EL TRUCO' in s, 'falta el reglamento (const REGLAMENTO en extras.part.js)'
+assert not any(ph in s for ph in ['/*SONIDO*/', '/*EXTRAS*/', '/*NAIPES*/', '/*CARDS*/', '/*TALLY*/', '/*MESA3D*/', '/*HOME*/', '/*RED*/', '/*CUENTAS*/', '/*REGLAMENTO*/']), 'quedó una parte sin reemplazar'
 open('index.html', 'w', encoding='utf-8').write(s)

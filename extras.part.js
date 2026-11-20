@@ -6,6 +6,9 @@
 // Gestos y sonidos viajan solo como código (g:…, s:…) en el mensaje "gesto"; nunca texto libre. Para sumar dichos, gestos o
 // sonidos, alcanza con agregarlos a estas listas (el código: minúsculas, números y guiones, hasta 24).
 
+// El reglamento completo: build.py pone acá el texto de reglamento.txt.
+const REGLAMENTO = /*REGLAMENTO*/'';
+
 // El frasero: solo para leer (y decirlo por la voz); no toca el partido ni se muestra en la mesa.
 // Para agregar un dicho, ponelo tal cual se dice en el grupo que va (truco, envido o flor).
 const DICHOS = [

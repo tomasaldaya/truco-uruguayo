@@ -579,3 +579,9 @@ Herramientas: `tools/ia/lalo.js` (esa mano, con lo que decide la computadora) y 
 - Para mirar un instante de un gesto en las pruebas: `__v3.debug().Lay.chars[p].ag.fijo = segundos`.
 - **Te estoy mirando** (ajuste): la mano sube desde abajo y la punta del índice toca el párpado de abajo del ojo
   derecho. Se calcula dónde está el ojo en cada cuadro (`ojoDe`), así anda igual con todos los personajes.
+
+## El reglamento volvió (19/11)
+
+- Al rehacer la lista de dichos se borró sin querer `const REGLAMENTO` de `extras.part.js`, y el botón "Reglamento"
+  (y "Ver el reglamento completo") dejó de abrir. Volvió, y `build.py` ahora se niega a armar `index.html` si falta el
+  reglamento o si quedó alguna parte sin reemplazar.
