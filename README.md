@@ -562,3 +562,18 @@ Herramientas: `tools/ia/lalo.js` (esa mano, con lo que decide la computadora) y 
   pantallas de más de 980 px mide lo mismo que la mesa y, si no entra, se desplaza adentro.
 - **Logo nuevo**: el 2, el 4 y el 5 de oro en abanico con la muestra, el 1 de oro, acostada atrás, en el inicio
   (`paintFan`, `.fan .mu`) y en los íconos de la app (`tools/icono/icono.py`, regenerados).
+
+## Gestos más claros (19/11, cuarta tanda)
+
+- **Dedito para arriba**: el puño de costado con los dedos doblados al frente (nudillos) y el pulgar arriba, del
+  lado de adentro; antes el pulgar solo, en el medio del puño, parecía el dedo del medio.
+- **Te estoy mirando**: la mano al costado de la cabeza, con el índice de lado yendo al ojo (de frente, el dedo sobre
+  la cara no se distinguía), y después te señala.
+- **Qué sé yo**: la mano a su derecha, palma para arriba, con los dedos y el pulgar apuntando para afuera (forma
+  `palma`; la mano se orienta con `apuntar`: hacia dónde van los dedos y hacia dónde mira la palma).
+- **Shhh** y **mate**: se calcula dónde está la boca en cada cuadro (`bocaDe`) y se lleva ahí el índice (parado sobre
+  los labios) o la punta de la bombilla.
+- **Qué bronca**: los golpes, más a su derecha, lejos de las cartas.
+- **Aplausos**: deja las cartas boca abajo en la mesa, delante suyo (`dejadaPose`, mientras `aplaudiendo`), aplaude
+  con las dos manos y las vuelve a agarrar. La pantalla vuelve a acomodar las cartas al empezar y al terminar.
+- Para mirar un instante de un gesto en las pruebas: `__v3.debug().Lay.chars[p].ag.fijo = segundos`.

@@ -409,16 +409,19 @@ const V3 = (function(){
       const up = mesh(GEO.brazo, M.shirt), lo = mesh(GEO.brazo, M.shirt); body.add(up); body.add(lo);
       const hg = new THREE.Group(); hg.position.copy(H0); body.add(hg);
       const palm = mesh(GEO.sph, M.skin, 0, 0, 0, .34, .3, .36); hg.add(palm); hands.push(palm);
-      const thumb = mesh(GEO.sph, M.skin, 0, .34, .06, .095, .2, .095); thumb.visible = false; hg.add(thumb);
+      // pulgar arriba: el puño de costado con los dedos doblados (nudillos al frente) y el pulgar arriba, del lado de adentro
+      const thumb = new THREE.Group(); thumb.visible = false; hg.add(thumb);
+      const pg1 = mesh(GEO.sph, M.skin, -sx*.11, .34, .04, .11, .2, .11); pg1.rotation.z = -sx*.18; thumb.add(pg1);
+      for (let i = 0; i < 4; i++) thumb.add(mesh(GEO.sph, M.skin, sx*.03, .17 - i*.115, .27, .16, .062, .085));
       const index = mesh(GEO.sph, M.skin, 0, .4, .06, .075, .27, .075); index.visible = false; hg.add(index);
       const open = new THREE.Group(); open.visible = false; hg.add(open);
       for (let i = 0; i < 4; i++) open.add(mesh(GEO.sph, M.skin, -.2 + i*.135, .5 - Math.abs(i - 1.5)*.05, 0, .06, .19, .065));
-      const pul = mesh(GEO.sph, M.skin, sx*-.38, .12, 0, .07, .17, .07); pul.rotation.z = sx*.7; open.add(pul);
+      const pul = mesh(GEO.sph, M.skin, sx*-.38, .12, 0, .07, .17, .07); pul.rotation.z = sx*.7; open.add(pul);   // en 'palma' va casi junto a los dedos
       const mate = new THREE.Group(); mate.visible = false; hg.add(mate);
       mate.add(mesh(GEO.sph, std(0x6e4e2a, .7), 0, .36, .1, .27, .3, .27));
       mate.add(mesh(GEO.sph, std(0x55702e, .95), 0, .62, .1, .18, .04, .18));
       const bo = mesh(GEO.bombilla, std(0xcfd3d6, .25, { metalness: .8 }), 0, .82, .02); bo.rotation.x = -.45; mate.add(bo);
-      arms.push({ sx, S, H0, up, lo, hg, palm, thumb, index, open, mate, shape: 'puño', quieto: false });
+      arms.push({ sx, S, H0, up, lo, hg, palm, thumb, index, open, pul, mate, shape: 'puño', quieto: false });
     }
     // cabeza
     const pivot = new THREE.Group(); pivot.position.set(0, 3.25, -.08); pivot.rotation.order = 'YXZ'; body.add(pivot);
@@ -560,40 +563,68 @@ const V3 = (function(){
   }
   function forma(A, s){
     if (A.shape === s) return; A.shape = s;
-    A.thumb.visible = s === 'pulgar'; A.index.visible = s === 'indice'; A.open.visible = s === 'abierta'; A.mate.visible = s === 'mate';
-    if (s === 'abierta') A.palm.scale.set(.32, .36, .13); else A.palm.scale.set(.34, .3, .36);
+    const abierta = s === 'abierta' || s === 'palma';
+    A.thumb.visible = s === 'pulgar'; A.index.visible = s === 'indice'; A.open.visible = abierta; A.mate.visible = s === 'mate';
+    if (abierta) A.palm.scale.set(.32, .36, .13); else if (s === 'pulgar') A.palm.scale.set(.3, .36, .32); else A.palm.scale.set(.34, .3, .36);
+    // la palma abierta con el pulgar casi junto a los dedos (para que, de frente, todo apunte para el mismo lado)
+    if (s === 'palma') { A.pul.position.set(A.sx*-.3, .26, 0); A.pul.rotation.z = A.sx*.25; } else { A.pul.position.set(A.sx*-.38, .12, 0); A.pul.rotation.z = A.sx*.7; }
   }
+  // gira la mano para que los dedos apunten a "dir" y la palma mire hacia "nrm" (si se da)
+  const tmpD = v3(0, 0, 0), tmpN = v3(0, 0, 0), tmpZ = v3(0, 0, 0), qMano = new THREE.Quaternion(), qId = new THREE.Quaternion();
+  function apuntar(dir, nrm){
+    tmpD.copy(dir).normalize(); qMano.setFromUnitVectors(UP, tmpD);
+    if (nrm) {
+      tmpZ.copy(ZAX).applyQuaternion(qMano); tmpN.copy(nrm).addScaledVector(tmpD, -nrm.dot(tmpD)).normalize();
+      const a = Math.atan2(tmpZ.clone().cross(tmpN).dot(tmpD), tmpZ.dot(tmpN));
+      qMano.premultiply(qA(tmpD, a));
+    }
+    return qMano;
+  }
+  // dónde está la boca, en las coordenadas del cuerpo (para llevar el dedo o la bombilla justo ahí)
+  const tmpB = v3(0, 0, 0);
+  function bocaDe(c){ c.mouth.getWorldPosition(tmpB); return c.body.worldToLocal(tmpB).clone(); }
   const suave = x => x*x*(3 - 2*x);
   const mezcla = (a, b, k) => a.clone().lerp(b, suave(clamp(k, 0, 1)));
   const GA = {
     pulgar: { d: 2.2, f: t => ({ H: v3(-.95, 3.05 + .06*Math.sin(t*9), 1.75), s: 'pulgar', face: { browUp: .35, twist: .25 } }) },
     nodedo: { d: 2.4, f: t => ({ H: v3(-.55, 3.65, 1.7), s: 'indice', rz: .5*Math.sin(t*13), hy: .12*Math.sin(t*13), face: { browIn: .45, pucker: .25 } }) },
-    // palmea la mano que tiene las cartas
-    aplauso: { d: 2.4, f: (t, c) => { const L = c.arms[0].H0, k = .5 + .5*Math.cos(t*13); return { H: v3(L.x - .42 - .5*k, L.y + .4 + .1*k, L.z + .1), s: 'abierta', ry: -PI/2, face: { browUp: .3, open: .2 } }; } },
+    // deja las cartas boca abajo en la mesa (computeSlots) y aplaude con las dos manos
+    aplauso: { d: 3.0, cartas: 2.45, f: t => {
+      const on = t > .55 && t < 2.35, k = on ? .5 + .5*Math.cos((t - .55)*14) : 1, gap = .13 + .32*k;
+      return { H: v3(-gap, 2.75, 1.7), s: 'abierta', ry: PI/2, L: { H: v3(gap, 2.75, 1.7), s: 'abierta', ry: -PI/2 }, face: { browUp: .35, open: .25 } };
+    } },
     risa: { d: 2.4, f: t => ({ H: v3(-.4, 1.0, 1.15), s: 'abierta', hp: -.28, bob: .08*Math.abs(Math.sin(t*15)), face: { open: .6, eyeA: .3, eyeB: .3, browUp: .3 } }) },
     bienahi: { d: 2.0, f: t => ({ H: v3(-1.3, 4.3 + .12*Math.sin(t*12), .9), s: 'puño', face: { open: .4, browUp: .6 } }) },
-    // se señala los ojos y después te señala a vos
-    mirar: { d: 2.6, f: t => { const k = (t - 1.1) / .35; return { H: mezcla(v3(-.4, 4.05, 1.35), v3(-.55, 3.3, 2.2), k), s: 'indice', rx: -1.5 + 3*suave(clamp(k, 0, 1)), face: { browIn: .5, eyeA: .75, eyeB: .75 } }; } },
-    quese: { d: 2.2, f: () => ({ H: v3(-1.85, 2.05, 1.25), s: 'abierta', rx: PI/2, hr: .22, bob: .1, face: { browUp: .85, twist: .3 } }) },
+    // al costado de la cara, con el dedo yendo al ojo; después te señala
+    mirar: { d: 2.8, f: t => { const k = (t - 1.25) / .4;
+      return { H: mezcla(v3(-1.45, 4.25, .95), v3(-.8, 3.3, 2.05), k), s: 'indice', dir: mezcla(v3(1, .06, -.12), v3(-.2, .08, 1), k), face: { browIn: .5, eyeA: .75, eyeB: .75 } }; } },
+    // la mano a su derecha, palma para arriba, con los dedos y el pulgar apuntando para afuera
+    quese: { d: 2.2, f: () => ({ H: v3(-1.8, 2.15, 1.35), s: 'palma', dir: v3(-1, .12, .3), nrm: v3(0, 1, 0), hr: .22, bob: .1, face: { browUp: .85, twist: .3 } }) },
     pensar: { d: 3.0, f: () => ({ H: v3(-.2, 3.35, 1.05), s: 'puño', hr: .15, hp: -.12, face: { browIn: .3, twist: .35, eyeA: .8, eyeB: .8 } }) },
-    shh: { d: 2.2, f: () => ({ H: v3(-.08, 3.78, 1.25), s: 'indice', face: { pucker: .85, browUp: .3 } }) },
-    // golpea la mesa con el puño, dos veces
-    bronca: { d: 2.2, f: t => { const ph = (t*2.4) % 1, up = ph < .65 ? suave(ph/.65) : 1 - suave((ph - .65)/.35); return { H: v3(-.7, 1.35 + 1.3*up, 1.55), s: 'puño', face: { browIn: 1, nose: .4, bite: .4 } }; } },
+    // el índice parado sobre los labios
+    shh: { d: 2.4, f: () => ({ boca: v3(0, -.42, .05), s: 'indice', face: { pucker: .85, browUp: .3 } }) },
+    // golpea la mesa con el puño, dos veces, a su derecha (lejos de las cartas)
+    bronca: { d: 2.2, f: t => { const ph = (t*2.4) % 1, up = ph < .65 ? suave(ph/.65) : 1 - suave((ph - .65)/.35); return { H: v3(-1.5, 1.35 + 1.25*up, 1.45), s: 'puño', face: { browIn: 1, nose: .4, bite: .4 } }; } },
     saludo: { d: 2.4, f: t => ({ H: v3(-1.75, 3.9, 1.0), s: 'abierta', rz: .4*Math.sin(t*11), face: { browUp: .4, twist: .2 } }) },
-    // se lleva el mate a la boca y chupa la bombilla
-    mate: { d: 3.4, f: t => ({ H: v3(-.3, 3.5, 1.3), s: 'mate', hp: .08, face: t > .6 && t < 2.7 ? { pucker: .75, eyeA: .45, eyeB: .45 } : {} }) },
+    // la punta de la bombilla en la boca
+    mate: { d: 3.4, f: t => ({ boca: v3(0, -1.13, .15), s: 'mate', face: t > .6 && t < 2.7 ? { pucker: .75, eyeA: .45, eyeB: .45 } : {} }) },
   };
+  function aplaudiendo(p){ const c = Lay && Lay.chars[p]; return !!(c && c.ag && GA[c.ag.k] && GA[c.ag.k].cartas && clock() - c.ag.t0 < GA[c.ag.k].cartas); }
   function gestoMano(c, t){
     const g = c.ag; let out = null, e = 0;
     if (g) {
-      const tt = t - g.t0;
+      const tt = g.fijo != null ? g.fijo : t - g.t0;   // fijo: para mirar un instante del gesto (pruebas)
       if (tt >= g.d || !GA[g.k]) c.ag = null;
       else { e = suave(clamp(Math.min(tt / .35, (g.d - tt) / .4), 0, 1)); out = GA[g.k].f(tt, c); }
     }
+    if (out && out.boca) out.H = bocaDe(c).add(out.boca);
     c.arms.forEach((A, i) => {
-      if (out && i === 1) {
-        ikArm(A, mezcla(A.H0, out.H, e)); forma(A, e > .25 ? out.s : 'puño');
-        A.hg.rotation.set((out.rx || 0)*e, (out.ry || 0)*e, (out.rz || 0)*e); A.quieto = false;
+      const o = out && (i === 1 ? out : out.L);
+      if (o) {
+        ikArm(A, mezcla(A.H0, o.H, e)); forma(A, e > .25 ? o.s : 'puño');
+        if (o.dir) A.hg.quaternion.copy(qId).slerp(apuntar(o.dir, o.nrm), e);
+        else A.hg.rotation.set((o.rx || 0)*e, (o.ry || 0)*e, (o.rz || 0)*e);
+        A.quieto = false;
       } else if (!A.quieto) { ikArm(A, A.H0); forma(A, 'puño'); A.hg.rotation.set(0, 0, 0); A.quieto = true; }
     });
     return out ? { out, e } : null;
@@ -701,6 +732,11 @@ const V3 = (function(){
     const c = onCircle(ang(p), rowRad(p) + Lay.inact), d = i - (k-1)/2, r = rowDir(p);   // abiertas a lo largo de su fila
     return flat(c.x + r.x*d*.45, .02 + i*.007, c.z + r.z*d*.45, up, hashJ(id, 'r')*.12 + d*.12);
   }
+  // las cartas que deja boca abajo sobre la mesa, delante suyo, para aplaudir
+  function dejadaPose(p, i, k, id){
+    const c = Lay.chars[p], d = i - (k-1)/2, w = c.g.localToWorld(v3(d*.62, 0, 2.55));
+    return flat(w.x, .02 + i*.007, w.z, false, hashJ(id, 'a')*.12 + d*.12);
+  }
   function fanPose(p, i, k){
     const c = Lay.chars[p], d = i - (k-1)/2;
     const lp = v3(d*.36, 1.78 - Math.abs(d)*.07, 1.5 - Math.abs(d)*.03 + i*.012);
@@ -763,6 +799,7 @@ const V3 = (function(){
         if (yoSentado(p)) { out[c.id] = { key: 'hand', hand: true, face: true }; return; }
         if (ended) { const up = !!R.mustShow[p] && !c.hidden; out[c.id] = { key: `r:${p}:${i}:${k}:${up}`, pose: downPose(p, i, k, up, c.id), face: up, p }; return; }
         if (!R.active[p] || R.out[p]) { out[c.id] = { key: `x:${p}:${i}:${k}`, pose: downPose(p, i, k, false, c.id), face: false, p }; return; }
+        if (aplaudiendo(p)) { out[c.id] = { key: `a:${p}:${i}:${k}`, pose: dejadaPose(p, i, k, c.id), face: false, p }; return; }
         out[c.id] = { key: `f:${p}:${i}:${k}`, pose: fanPose(p, i, k), face: false, fan: true, p };
       });
     }
@@ -1318,6 +1355,7 @@ const V3 = (function(){
       const c = Lay.chars[p];
       showBubble(p, c ? text.split(' ')[0] : text, ms);   // al personaje se lo ve haciendo el gesto: alcanza con el dibujito
       if (c && GA[k]) { c.ag = { k, t0: clock(), d: GA[k].d }; c.react = null; c.talkTo = 0; }
+      return GA[k] && GA[k].cartas ? GA[k].cartas : 0;   // si deja las cartas en la mesa, cuándo las vuelve a agarrar
     },
     debug: () => ({ CARDS, S, CAM, Lay, camera, setView, renderer, queue: (p, l, k) => { queueSenas(p, l, k || 'partner'); S.jobs[S.jobs.length-1].notBefore = now; } }),
   };

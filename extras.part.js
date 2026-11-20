@@ -56,7 +56,10 @@ function recibirGesto(m){
   else if (tipo === 's') { const x = SONIDOS_MESA.find(g => g[0] === id); if (!x) return; txt = x[1] + ' ' + x[2]; if (mio || sonMesa) SND.mesa(id); }
   else return;
   GESTO_VIVO[m.p] = { txt, at: Date.now(), ms, largo };
-  if (use3D()) V3.gesto(m.p, txt, tipo === 'g' ? id : null, ms);
+  if (use3D()) {
+    const cartas = V3.gesto(m.p, txt, tipo === 'g' ? id : null, ms);
+    if (cartas) { render(); setTimeout(() => { if (G) render(); }, cartas * 1000 + 30); }   // deja las cartas y las vuelve a agarrar
+  }
   else { render(); setTimeout(() => { if (G && !use3D()) render(); }, ms + 80); }
 }
 // mesa 2D: si alguien acaba de hacer un gesto, va en su etiqueta (en vez de lo último que dijo)
