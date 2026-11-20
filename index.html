@@ -8146,7 +8146,7 @@ const V3 = (function(){
     lbls = $('lbls3d'); pipEl = $('pip3d'); bazEl = $('baz3d'); myBub = $('mybub3d'); hintEl = $('hint3d'); muLbl = $('mue3d');
     // en celulares y tablets, 1,5 alcanza para que se vea nítida y le pide mucho menos a la placa
     const tactil = window.matchMedia && matchMedia('(pointer: coarse)').matches;
-    renderer.setPixelRatio(Math.min(tactil ? 1.5 : 2, window.devicePixelRatio || 1));
+    renderer.setPixelRatio(DPR.ahora = Math.min(tactil ? 1.5 : 2, window.devicePixelRatio || 1));
     renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFShadowMap; renderer.shadowMap.autoUpdate = false;
     renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.1;
     scene = new THREE.Scene();
@@ -8157,7 +8157,7 @@ const V3 = (function(){
     pipCam = new THREE.PerspectiveCamera(26, 1, .1, 80);
     ray = new THREE.Raycaster(); ray.layers.enableAll();
 
-    scene.add(new THREE.HemisphereLight(0xffe8c8, 0x2b1a10, 1.15));
+    luzAmb = new THREE.HemisphereLight(0xffe8c8, 0x2b1a10, 1.15); scene.add(luzAmb);
     const spot = new THREE.SpotLight(0xffdcae, 3.4, 0, .66, .6, 0);
     spot.position.set(0, 17, 1.5); spot.target.position.set(0, 0, 0); scene.add(spot, spot.target);
     spot.castShadow = true; spot.shadow.mapSize.set(2048, 2048); spot.shadow.camera.near = 6; spot.shadow.camera.far = 32; spot.shadow.bias = -.0004; spot.shadow.normalBias = .02;
@@ -8221,7 +8221,7 @@ const V3 = (function(){
     outline.visible = false;
     const badge = new THREE.Mesh(GEO.badge, new THREE.MeshBasicMaterial({ transparent: true, map: TEX.badge.pieza }));
     badge.position.set(0, -CH/2 + .02, .007); badge.visible = false;
-    front.castShadow = back.castShadow = true;
+    back.castShadow = true; front.castShadow = false;   // la sombra de una carta la hace una sola de sus caras
     g.add(outline, front, back, badge);
     g.visible = false; scene.add(g);
     front.userData.cardId = id;
@@ -8231,7 +8231,7 @@ const V3 = (function(){
   function setOnTop(o, on, order){
     if (o.onTop !== on) {
       o.onTop = on;
-      [o.front, o.back, o.outline, o.badge].forEach(m => { m.material.depthTest = !on; m.material.depthWrite = !on; m.layers.set(on ? 1 : 0); m.castShadow = !on && m !== o.outline && m !== o.badge; });
+      [o.front, o.back, o.outline, o.badge].forEach(m => { m.material.depthTest = !on; m.material.depthWrite = !on; m.layers.set(on ? 1 : 0); m.castShadow = !on && m === o.back; });
     }
     const r = on ? (order || 0) : 0;
     o.outline.renderOrder = r; o.front.renderOrder = r + 1; o.back.renderOrder = r + 1; o.badge.renderOrder = r + 2;
@@ -8323,7 +8323,7 @@ const V3 = (function(){
   // sombras. Se elige al crear la mesa online (cfg.escenario) o en Configuración para jugar solo (escenarioActual).
   // Unidades: 1 = 10 cm; la tapa de la mesa está en y = 0 y el piso en y = -7.5.
   const ESCENARIOS = ['bar', 'clasico'];
-  let escena = null, escG = null, pisoClasico = null, lamparaMesa = null;
+  let escena = null, escG = null, pisoClasico = null, lamparaMesa = null, luzAmb = null;
   const PISO = -7.5, TECHO = 22, BX = 30, BZ0 = -26, BZ1 = 28;
 
   // números al azar que siempre salen iguales (el bar se ve igual cada vez y para todos)
@@ -8597,9 +8597,6 @@ const V3 = (function(){
     lampara(0, 16.2, 0);
     lampara(-21, 15, -14); lampara(-21, 15, 11); lampara(-8.5, 15, -19.5); lampara(10, 15, -19.5); lampara(xb - 1, 15.5, -9); lampara(xb - 1, 15.5, 5);
     LL.armar(lamparaMesa);
-    const luz1 = new THREE.PointLight(0xffb066, .9, 46, 0); luz1.position.set(-18, 14, -8); g.add(luz1);
-    const luz2 = new THREE.PointLight(0xffa85c, .8, 46, 0); luz2.position.set(20, 14, -4); g.add(luz2);
-    const luz3 = new THREE.PointLight(0xffb878, .45, 40, 0); luz3.position.set(0, 14, 20); g.add(luz3);
 
     L.armar(g);
     g.traverse(o => { if (o.isMesh) { o.castShadow = false; o.receiveShadow = false; } });
@@ -8620,6 +8617,7 @@ const V3 = (function(){
     if (escG) { scene.remove(escG); soltar(escG); escG = null; lamparaMesa = null; }
     if (k === 'bar') { escG = armarBar(); scene.add(escG); }
     if (pisoClasico) pisoClasico.visible = k === 'clasico';
+    if (luzAmb) { luzAmb.color.setHex(k === 'bar' ? 0xffcf96 : 0xffe8c8); luzAmb.groundColor.setHex(k === 'bar' ? 0x4a2e1a : 0x2b1a10); luzAmb.intensity = k === 'bar' ? 2.1 : 1.15; }
     const fondo = k === 'bar' ? 0x1c130d : 0x140e0a;
     scene.background.setHex(fondo); scene.fog.color.setHex(fondo);
     scene.fog.near = k === 'bar' ? 60 : 34; scene.fog.far = k === 'bar' ? 150 : 75;
@@ -8752,6 +8750,11 @@ const V3 = (function(){
     const c = { p, g, body, pivot, head, skull, eyes, brows, nose, mouth, lipU, lipL, inner, teeth, ring, tongue, hands, arms, ag: null,
       F: Object.assign({}, NEUTRAL), yaw: 0, pitch: 0, blinkAt: clock() + 1 + Math.random()*3, blinkTo: 0,
       talkTo: 0, react: null, lookTo: null, lookUntil: 0, gest: null, phase: Math.random()*6 };
+    // sombras: solo lo que se nota (el torso, la cabeza, el pelo y los brazos); los detalles de la cara, las piernas
+    // y la silla no cambian nada y cada uno costaba otro dibujo en cada cuadro
+    g.traverse(o => { if (o.isMesh) o.castShadow = false; });
+    [torso, skull, ...arms.flatMap(a => [a.up, a.lo, a.palm])].forEach(m => { m.castShadow = true; });
+    head.children.forEach(m => { if (m.isMesh && m.material === M.hair) m.castShadow = true; });
     return c;
   }
   function hair(head, lk, M){
@@ -9585,7 +9588,8 @@ const V3 = (function(){
 
   // ---------- bucle ----------
   // ¿se está moviendo algo que pida dibujar a 60 cuadros? (cartas en viaje, cámara, el dedo o el mouse)
-  let ultimoCuadro = 0, ultimoToque = 0;
+  let ultimoCuadro = 0, ultimoToque = 0, ultimaSombra = 0;
+  const DPR = { ahora: 1, suma: 0, n: 0 };
   function animando(t){
     for (const id in CARDS) if (CARDS[id].tws.length) return true;
     if (drag || ptrs.size || t - ultimoToque < 1.2 || S.jobs.length || S.job) return true;
@@ -9599,7 +9603,7 @@ const V3 = (function(){
     // quieta (solo las caras que miran y parpadean), a 30 cuadros por segundo: la mitad de trabajo
     if (t - ultimoCuadro < 1 / 31 && !animando(t)) return;
     ultimoCuadro = t;
-    const dt = Math.min(.05, t - last || .016); last = t; now = t;
+    const crudo = t - last, dt = Math.min(.05, crudo || .016); last = t; now = t;
     updateCamera(dt);
     if (NET) avisarMirada(miradaPropia());
     camera.updateMatrixWorld(true);
@@ -9620,7 +9624,16 @@ const V3 = (function(){
     if (lamparaMesa) lamparaMesa.visible = CAM.vista !== 'top';
     const ck = Array.from({ length: G.n }, (_, p) => miraAtras(p) ? 1 : 0).join('');
     if (ck !== S.atras) { const antes = S.atras; S.atras = ck; if (antes !== undefined) update(lastAct, myLegal); }
-    renderer.shadowMap.needsUpdate = true;
+    let mov = false; for (const id in CARDS) if (CARDS[id].tws.length) { mov = true; break; }
+    if (mov || t - ultimaSombra > .1) { renderer.shadowMap.needsUpdate = true; ultimaSombra = t; }
+    // si la compu no llega a dibujar fluido (menos de 42 cuadros por segundo mientras algo se mueve), baja la resolución
+    if (mov || drag) {
+      DPR.suma += crudo; DPR.n++;
+      if (DPR.n >= 90) {
+        if (DPR.suma / DPR.n > 1/42 && DPR.ahora > 1) { DPR.ahora = Math.max(1, DPR.ahora - .25); renderer.setPixelRatio(DPR.ahora); resize(); }
+        DPR.suma = DPR.n = 0;
+      }
+    }
     renderer.render(scene, camera);
     renderPip();
     placeLabels();

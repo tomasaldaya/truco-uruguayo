@@ -641,3 +641,17 @@ Herramientas: `tools/ia/lalo.js` (esa mano, con lo que decide la computadora) y 
   (`cartasEnMesa`, `dejadaPose`) y las vuelve a agarrar al darse vuelta otra vez. Vale para vos y para los demás:
   la mirada que se reparte (`mirada`) ahora va de -π a π (servidor y anfitrión), y la pantalla reacomoda las cartas
   cuando alguien se da vuelta.
+
+## Rendimiento de la mesa 3D (20/11)
+
+Medido (tiempo de dibujar un cuadro, con el navegador dibujando por software para comparar): las sombras eran lo más
+caro (un 37 % de cada cuadro), después la resolución, y en el bar las tres luces de las lámparas (un 8 %).
+
+- **Sombras**: solo proyectan sombra el torso, la cabeza, el pelo y los brazos de cada personaje (ni la cara, ni las
+  piernas debajo de la mesa, ni la silla) y una sola cara de cada carta: de 338 piezas a unas 100, y de 377 a 274
+  llamadas de dibujo. Y la sombra se recalcula cuando se mueve una carta o, si no, diez veces por segundo (antes, en
+  cada cuadro): los personajes se mueven tan poco que no se nota.
+- **Bar sin luces puntuales**: la luz cálida la da la luz ambiente, más cálida y más fuerte cuando la mesa está en el
+  bar (`luzAmb`).
+- **Resolución que se adapta**: si mientras algo se mueve la compu no llega a 42 cuadros por segundo, baja la
+  resolución de a poco (de 2 hasta 1 por punto; `DPR`). En el celular ya se usaba 1,5.
