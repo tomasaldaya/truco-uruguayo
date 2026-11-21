@@ -450,5 +450,13 @@ await t('mensajes privados: solo entre amigos, con no leídos, avisos y los últ
   assert.equal(W.c.q(`SELECT COUNT(*) AS n FROM mensajes`)[0].n, 0);
 });
 
+await t('la forma de tantear se guarda en la cuenta', async () => {
+  const W = mundo(); const A = await W.alta('Ana');
+  assert.equal((await W.pedir('POST', 'cuenta/editar', A.token, { tanteo: 'filas' })).yo.tanteo, 'filas');
+  assert.equal((await W.pedir('POST', 'cuenta/editar', A.token, { tanteo: 'raro' })).s, 400);
+  assert.equal((await W.pedir('GET', 'cuenta/yo', A.token)).yo.tanteo, 'filas');
+  assert.equal((await W.pedir('POST', 'cuenta/editar', A.token, { tanteo: null })).yo.tanteo, null);
+});
+
 console.log(fails ? `\n${fails} pruebas fallaron` : '\nTodo OK');
 process.exit(fails ? 1 : 0);

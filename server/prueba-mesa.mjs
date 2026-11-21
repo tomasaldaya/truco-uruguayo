@@ -523,6 +523,11 @@ await ta('cada uno manda cómo tantea (porotos) y queda en el partido', async ()
   await pausa();
   m.onMessage('a', { t: 'start', key: 'k' }); await pausa();
   assert.deepEqual(m.GM.tqs, ['filas', null]);
+  // en pleno partido se puede cambiar (con un tope de tiempo) y le llega a todos
+  m.onMessage('b', { t: 'tanteo', tq: 'sueltos' }); await pausa();
+  assert.deepEqual(m.GM.tqs, ['filas', 'sueltos']);
+  m.onMessage('b', { t: 'tanteo', tq: 'filas' }); await pausa();
+  assert.deepEqual(m.GM.tqs, ['filas', 'sueltos']);   // muy seguido: no
 });
 
 await ta('pública: una cuenta suspendida no entra; en la mesa se ve la cuenta y la voz de cada uno', async () => {

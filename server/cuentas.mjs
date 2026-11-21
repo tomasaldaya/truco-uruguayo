@@ -75,7 +75,7 @@ export class Cuentas {
     try { this.q(`ALTER TABLE publicas ADD COLUMN tanto TEXT`); } catch (e) {}
     try { this.q(`ALTER TABLE publicas ADD COLUMN mirando INTEGER DEFAULT 0`); } catch (e) {}
     // lo del perfil (columnas que se agregaron después: si ya están, no pasa nada)
-    for (const col of ['nombre TEXT', 'bio TEXT', 'lugar TEXT', 'cuadro TEXT', 'color INTEGER', 'foto_v INTEGER DEFAULT 0', 'pj TEXT', 'faltas INTEGER DEFAULT 0', 'falta37 INTEGER DEFAULT 0', 'gremio INTEGER', 'gremio_desde INTEGER', 'suspendido_hasta INTEGER', 'suspension_motivo TEXT']) {
+    for (const col of ['nombre TEXT', 'bio TEXT', 'lugar TEXT', 'cuadro TEXT', 'color INTEGER', 'foto_v INTEGER DEFAULT 0', 'pj TEXT', 'tanteo TEXT', 'faltas INTEGER DEFAULT 0', 'falta37 INTEGER DEFAULT 0', 'gremio INTEGER', 'gremio_desde INTEGER', 'suspendido_hasta INTEGER', 'suspension_motivo TEXT']) {
       try { this.q(`ALTER TABLE usuarios ADD COLUMN ${col}`); } catch (e) {}
     }
     this.q(`CREATE TABLE IF NOT EXISTS fotos (usuario INTEGER PRIMARY KEY, tipo TEXT, datos TEXT)`);
@@ -184,7 +184,7 @@ export class Cuentas {
     const mesActual = mesDe(this.now()), mes = u.mes === mesActual;
     return {
       id: u.id, apodo: u.apodo, desde: u.creado, ...this.cara(u),
-      nombre: u.nombre || '', bio: u.bio || '', lugar: u.lugar || '', cuadro: u.cuadro || '', pj: u.pj || null,
+      nombre: u.nombre || '', bio: u.bio || '', lugar: u.lugar || '', cuadro: u.cuadro || '', pj: u.pj || null, tanteo: u.tanteo || null,
       puntos: Math.round(u.elo), posicion: this.posicion(u),
       partidos: u.partidos, ganados: u.ganados, abandonos: u.abandonos, racha: u.racha, mejorRacha: u.mejor_racha,
       manos: u.manos, manosGanadas: u.manos_ganadas, envidos: u.envidos, flores: u.flores, trucos: u.trucos, faltas: u.faltas || 0, falta37: u.falta37 || 0,
@@ -265,6 +265,8 @@ export class Cuentas {
           if (c.lugar !== undefined) { const l = String(c.lugar || ''); if (l && !LUGARES.includes(l)) return mal(400, 'Elegí de la lista de dónde sos.'); set.lugar = l; }
           // el personaje de la mesa 3D: el código de uno de los que vienen hechos (la lista está en la página)
           if (c.pj !== undefined) { const k = c.pj === null || c.pj === '' ? null : String(c.pj); if (k !== null && !PJ_RE.test(k)) return mal(400, 'Personaje inválido.'); set.pj = k; }
+          // cómo deja los porotos en la mesa 3D
+          if (c.tanteo !== undefined) { const k = c.tanteo || null; if (k !== null && !['montones', 'filas', 'sueltos'].includes(k)) return mal(400, 'Forma de tantear inválida.'); set.tanteo = k; }
           if (c.color !== undefined) { const k = c.color === null ? null : int(c.color); if (k !== null && (k < 0 || k >= N_COLORES)) return mal(400, 'Color inválido.'); set.color = k; }
           if (c.foto === null) { this.q(`DELETE FROM fotos WHERE usuario = ?`, yo.id); set.foto_v = 0; }
           else if (c.foto !== undefined) {

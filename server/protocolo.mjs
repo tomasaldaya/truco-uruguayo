@@ -27,7 +27,8 @@
 /** @typedef {{ t: 'start', rules?: Record<string, unknown>, speed?: string, level?: string }} Start */
 /** @typedef {{ t: 'close' }} Close */
 /** @typedef {{ t: 'voz', esperados?: number, conectados?: number, turn?: boolean }} Voz */
-/** @typedef {Hello|Pong|Sit|Bye|Empezar|Act|Senas|Pedido|Ready|Chat|Talk|VozId|Mirar|Mirada|Echar|Gesto|Mode|Name|Cfg|Start|Close|Voz} DelJugador */
+/** @typedef {{ t: 'tanteo', tq?: string }} Tanteo */
+/** @typedef {Tanteo|Hello|Pong|Sit|Bye|Empezar|Act|Senas|Pedido|Ready|Chat|Talk|VozId|Mirar|Mirada|Echar|Gesto|Mode|Name|Cfg|Start|Close|Voz} DelJugador */
 
 /** @typedef {'s'|'n'|'b'|'o'|'as'} Clase  s: texto, n: número, b: sí/no, o: objeto, as: lista de textos */
 /** @type {Record<string, Record<string, Clase>>} */
@@ -54,6 +55,7 @@ const CAMPOS = {
   start: { rules: 'o', speed: 's', level: 's' },
   close: {},
   voz: { esperados: 'n', conectados: 'n', turn: 'b' },
+  tanteo: { tq: 's' },
 };
 export const TIPOS_DEL_JUGADOR = Object.keys(CAMPOS);
 const MAX_TEXTO = 2000;

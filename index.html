@@ -789,7 +789,7 @@ img.avt{object-fit:cover;background:#2a1d13}
       <div class="ov3d" id="lbls3d"></div>
       <div class="ov3d">
         <div class="baz3d" id="baz3d"></div>
-        <div class="cam3d"><button class="tool" id="cam3dMine" title="Volver a mirar desde tu lugar (doble clic)">Tu lugar</button><button class="tool" id="cam3dTop" title="Ver la mesa desde arriba">Desde arriba</button></div>
+        <div class="cam3d"><button class="tool" id="cam3dMine" title="Volver a mirar desde tu lugar (doble clic)">Tu lugar</button><button class="tool" id="cam3dTop" title="Ver la mesa desde arriba">Desde arriba</button><button class="tool" id="cam3dTq" title="Cambiar cómo dejás tus porotos">Porotos</button></div>
         <div class="hint3d" id="hint3d">Arrastrá para mirar para cualquier lado · rueda o pellizco para acercarte</div>
         <div class="mue3d" id="mue3d">Muestra</div>
         <div class="mybub" id="mybub3d"></div>
@@ -5532,6 +5532,8 @@ function crearV3(){
     setTimeout(() => hintEl && hintEl.classList.add('gone'), 12000);
     $('cam3dMine').onclick = () => setView('mine');
     $('cam3dTop').onclick = () => setView('top');
+    // cómo dejás tus porotos: cada toque, la otra forma (montoncitos → filas → sueltos)
+    $('cam3dTq').onclick = () => elegirTanteo(TANTEO_SIG[estiloDe(ME)] || 'montones');
   }
   function startUserCam(){ if (S.mz) { S.mz = null; muLbl.classList.remove('on'); } if (!CAM.ojo) CAM.ojo = ojo0(); if (!CAM.g) CAM.g = defaultCam(); CAM.user = true; CAM.k = 9; }
 
@@ -6402,6 +6404,7 @@ function onHostMsg(m){
     }
     case 'senas': if (s >= 0 && NET.started && GM && GM.phase === 'play') { T.setSenas(GM, s, Array.isArray(m.list) ? m.list.filter(k => T.SENAS[k]) : []); render(); } return;
     case 'pedido': if (s >= 0 && NET.started && GM && GM.phase === 'play' && T.PEDIDOS[m.k] && T.pedir(GM, s, m.k)) render(); return;
+    case 'tanteo': if (s >= 0 && NET.started && GM) { const k = tanteoValido(m.tq); NET.seats[s].tq = k; if (!GM.tqs) GM.tqs = Array(GM.n).fill(null); GM.tqs[s] = k; render(); } return;
     case 'ready': if (s >= 0 && NET.started && m.key === roundKey(GM)) { NET.ready.add(s); checkReady(); } return;
     case 'chat': {
       if (!mesaCfg().chat) return;
@@ -7903,7 +7906,22 @@ function renderEditar(box){
 // ---------- Cómo tanteás: cómo dejás los porotos en la mesa 3D (se guarda en este navegador y se manda al sentarte) ----------
 const TANTEO_OP = [['montones', 'Montoncitos de 5'], ['filas', 'Filas de 5'], ['sueltos', 'Sueltos']];
 const tanteoValido = k => TANTEO_OP.some(x => x[0] === k) ? k : null;
-const miTanteo = () => tanteoValido(store.get('truco.tanteo'));
+const miTanteo = () => (conCuenta() && CUENTA.yo.tanteo !== undefined ? tanteoValido(CUENTA.yo.tanteo) : tanteoValido(store.get('truco.tanteo')));
+// cambiarlo se puede cuando quieras, también en pleno partido (como en la mesa de verdad): se reacomodan tus
+// porotos y, si estás en una mesa online, los demás lo ven al toque
+async function elegirTanteo(k){
+  k = tanteoValido(k);
+  store.set('truco.tanteo', k || '');
+  if (conCuenta()) CUENTA.yo.tanteo = k;
+  if (typeof GM !== 'undefined' && GM && GM.tqs && !NET) GM.tqs[ME] = k;
+  if (NET && NET.started) {
+    if (NET.role === 'host' && GM) { if (!GM.tqs) GM.tqs = Array(GM.n).fill(null); GM.tqs[NET.seat] = k; }
+    else netPost({ t: 'tanteo', tq: k || null });
+  }
+  if (G && G.round && typeof render === 'function') render();
+  if (conCuenta()) { try { const r = await api('cuenta/editar', { tanteo: k }); cuentaGuardar(undefined, r.yo); } catch (e) {} }
+}
+const TANTEO_SIG = { montones: 'filas', filas: 'sueltos', sueltos: 'montones' };
 
 // ---------- Tu personaje: cómo te ven los demás en la mesa 3D ----------
 // Se guarda en este navegador y, con cuenta, también en la cuenta (así es el mismo en el celular y en la
@@ -7924,14 +7942,13 @@ function pjModal(){
     <div class="pjgrid" role="group" aria-label="Personajes">${items}${op('', 'Que lo elija el juego', '<span class="pjsin nada" aria-hidden="true">?</span>')}</div>
     <p class="small" id="pjNota" role="status"></p>
     <h3>Cómo tanteás</h3>
-    <p class="small">Cómo dejás los porotos al lado tuyo cuando tu equipo suma.${NET ? ' En esta mesa, los demás lo ven desde la próxima vez que entres.' : ''}</p>
+    <p class="small">Cómo dejás los porotos al lado tuyo cuando tu equipo suma. En pleno partido también se cambia con el botón de los porotos, arriba en la mesa.</p>
     <div class="seg" role="group" aria-label="Cómo tanteás">${TANTEO_OP.concat([['', 'Que lo elija el juego']]).map(([k, t]) => `<button type="button" data-tq="${k}" aria-pressed="${(miTanteo() || '') === k}">${t}</button>`).join('')}</div>
     <div class="row"><button class="act" id="pjListo">Listo</button></div>`);
   document.querySelectorAll('.pjop').forEach(b => b.onclick = () => elegirPj(b.dataset.pj || null));
   document.querySelectorAll('[data-tq]').forEach(b => b.onclick = () => {
-    store.set('truco.tanteo', b.dataset.tq);
     document.querySelectorAll('[data-tq]').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
-    if (G && G.round && typeof render === 'function') render();   // los tuyos se reacomodan al toque
+    elegirTanteo(b.dataset.tq);
   });
   $('pjListo').onclick = closeTool;
 }
@@ -8006,7 +8023,7 @@ cuentaInit();
 // ---------- cuánto se usa y qué falla ----------
 // Se cuenta por día y sin datos de nadie: que se abrió (y de dónde vino el enlace), si está instalada,
 // si se juega contra la computadora u online. Los errores del navegador van igual: el texto y dónde, nada más.
-const VERSION = '60bd80ee';
+const VERSION = '30281579';
 function avisarServidor(ruta, cuerpo){
   if (!serverOK()) return;
   try { fetch(serverURL() + '/api/' + ruta, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(cuerpo), keepalive: true }).catch(() => {}); } catch (e) {}

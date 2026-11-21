@@ -378,6 +378,7 @@ function onHostMsg(m){
     }
     case 'senas': if (s >= 0 && NET.started && GM && GM.phase === 'play') { T.setSenas(GM, s, Array.isArray(m.list) ? m.list.filter(k => T.SENAS[k]) : []); render(); } return;
     case 'pedido': if (s >= 0 && NET.started && GM && GM.phase === 'play' && T.PEDIDOS[m.k] && T.pedir(GM, s, m.k)) render(); return;
+    case 'tanteo': if (s >= 0 && NET.started && GM) { const k = tanteoValido(m.tq); NET.seats[s].tq = k; if (!GM.tqs) GM.tqs = Array(GM.n).fill(null); GM.tqs[s] = k; render(); } return;
     case 'ready': if (s >= 0 && NET.started && m.key === roundKey(GM)) { NET.ready.add(s); checkReady(); } return;
     case 'chat': {
       if (!mesaCfg().chat) return;

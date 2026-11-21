@@ -730,7 +730,22 @@ function renderEditar(box){
 // ---------- Cómo tanteás: cómo dejás los porotos en la mesa 3D (se guarda en este navegador y se manda al sentarte) ----------
 const TANTEO_OP = [['montones', 'Montoncitos de 5'], ['filas', 'Filas de 5'], ['sueltos', 'Sueltos']];
 const tanteoValido = k => TANTEO_OP.some(x => x[0] === k) ? k : null;
-const miTanteo = () => tanteoValido(store.get('truco.tanteo'));
+const miTanteo = () => (conCuenta() && CUENTA.yo.tanteo !== undefined ? tanteoValido(CUENTA.yo.tanteo) : tanteoValido(store.get('truco.tanteo')));
+// cambiarlo se puede cuando quieras, también en pleno partido (como en la mesa de verdad): se reacomodan tus
+// porotos y, si estás en una mesa online, los demás lo ven al toque
+async function elegirTanteo(k){
+  k = tanteoValido(k);
+  store.set('truco.tanteo', k || '');
+  if (conCuenta()) CUENTA.yo.tanteo = k;
+  if (typeof GM !== 'undefined' && GM && GM.tqs && !NET) GM.tqs[ME] = k;
+  if (NET && NET.started) {
+    if (NET.role === 'host' && GM) { if (!GM.tqs) GM.tqs = Array(GM.n).fill(null); GM.tqs[NET.seat] = k; }
+    else netPost({ t: 'tanteo', tq: k || null });
+  }
+  if (G && G.round && typeof render === 'function') render();
+  if (conCuenta()) { try { const r = await api('cuenta/editar', { tanteo: k }); cuentaGuardar(undefined, r.yo); } catch (e) {} }
+}
+const TANTEO_SIG = { montones: 'filas', filas: 'sueltos', sueltos: 'montones' };
 
 // ---------- Tu personaje: cómo te ven los demás en la mesa 3D ----------
 // Se guarda en este navegador y, con cuenta, también en la cuenta (así es el mismo en el celular y en la
@@ -751,14 +766,13 @@ function pjModal(){
     <div class="pjgrid" role="group" aria-label="Personajes">${items}${op('', 'Que lo elija el juego', '<span class="pjsin nada" aria-hidden="true">?</span>')}</div>
     <p class="small" id="pjNota" role="status"></p>
     <h3>Cómo tanteás</h3>
-    <p class="small">Cómo dejás los porotos al lado tuyo cuando tu equipo suma.${NET ? ' En esta mesa, los demás lo ven desde la próxima vez que entres.' : ''}</p>
+    <p class="small">Cómo dejás los porotos al lado tuyo cuando tu equipo suma. En pleno partido también se cambia con el botón de los porotos, arriba en la mesa.</p>
     <div class="seg" role="group" aria-label="Cómo tanteás">${TANTEO_OP.concat([['', 'Que lo elija el juego']]).map(([k, t]) => `<button type="button" data-tq="${k}" aria-pressed="${(miTanteo() || '') === k}">${t}</button>`).join('')}</div>
     <div class="row"><button class="act" id="pjListo">Listo</button></div>`);
   document.querySelectorAll('.pjop').forEach(b => b.onclick = () => elegirPj(b.dataset.pj || null));
   document.querySelectorAll('[data-tq]').forEach(b => b.onclick = () => {
-    store.set('truco.tanteo', b.dataset.tq);
     document.querySelectorAll('[data-tq]').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
-    if (G && G.round && typeof render === 'function') render();   // los tuyos se reacomodan al toque
+    elegirTanteo(b.dataset.tq);
   });
   $('pjListo').onclick = closeTool;
 }

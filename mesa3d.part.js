@@ -1718,6 +1718,8 @@ function crearV3(){
     setTimeout(() => hintEl && hintEl.classList.add('gone'), 12000);
     $('cam3dMine').onclick = () => setView('mine');
     $('cam3dTop').onclick = () => setView('top');
+    // cómo dejás tus porotos: cada toque, la otra forma (montoncitos → filas → sueltos)
+    $('cam3dTq').onclick = () => elegirTanteo(TANTEO_SIG[estiloDe(ME)] || 'montones');
   }
   function startUserCam(){ if (S.mz) { S.mz = null; muLbl.classList.remove('on'); } if (!CAM.ojo) CAM.ojo = ojo0(); if (!CAM.g) CAM.g = defaultCam(); CAM.user = true; CAM.k = 9; }
 

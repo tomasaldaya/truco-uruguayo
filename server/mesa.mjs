@@ -162,6 +162,15 @@ export class Mesa {
         else if (c.mira) this.broadcast({ t: 'talk', m: c.mira.id, on: !!m.on });
         return;
       case 'vozid': if (typeof m.id === 'string' && VOZ_RE.test(m.id) && c.vozId !== m.id) { c.vozId = m.id; if (this.seats) this.broadcast(this.lobbyMsg()); } return;
+      case 'tanteo': {   // cambió cómo deja los porotos: se puede cuando quiera (con un tope, para que no moleste)
+        if (now - (c.tanteoAt || 0) < 700) return;
+        c.tanteoAt = now; c.tq = TANTEOS.includes(m.tq) ? m.tq : null;
+        if (s >= 0 && this.seats && this.seats[s]) {
+          this.seats[s].tq = c.tq;
+          if (this.started && this.GM) { if (!this.GM.tqs) this.GM.tqs = Array(this.GM.n).fill(null); this.GM.tqs[s] = c.tq; this.publish(); }
+        }
+        return;
+      }
       case 'mirar': return this.mirar(cid);
       case 'mirada': {
         if (s < 0 || !this.started) return;
