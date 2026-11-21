@@ -24,6 +24,9 @@ const vista = pg => pg.evaluate(() => window.__trucoView && window.__trucoView()
 // arma una mesa de mano a mano con dos personas y empieza el partido
 async function mesaDeDos(browser) {
   const a = await persona(browser);
+  // Truco uruguayo → Online: pide la cuenta (de prueba, con DEV_LOGIN) y ahí se crea la mesa
+  await a.pg.click('#pUru'); await a.pg.click('[data-tab="online"]');
+  await a.pg.fill('#cPruebaN', 'Ana'); await a.pg.locator('#cPrueba').evaluate(f => f.requestSubmit());
   await a.pg.click('#hHost');
   await a.pg.click('[data-cn] button[data-n="2"]');
   await a.pg.click('#hCrear');

@@ -9,22 +9,22 @@
 <meta name="apple-mobile-web-app-title" content="Truco">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Truco Uruguayo · jugá online con amigos</title>
+<title>Falta envido y truco · truco uruguayo online con amigos</title>
 <!-- para buscadores y para cuando se comparte el link (WhatsApp, Instagram, Facebook): build.py pone la dirección -->
 <meta name="description" content="Truco uruguayo gratis en el navegador: contra la computadora u online con amigos, mano a mano, en parejas o en tercetos, con flor y según el reglamento. Chat de voz, ranking y mesa 3D.">
 <link rel="canonical" href="https://truco-uruguayo.tomasaldaya.workers.dev/">
 <meta property="og:type" content="website">
-<meta property="og:site_name" content="Truco Uruguayo">
+<meta property="og:site_name" content="Falta envido y truco">
 <meta property="og:locale" content="es_UY">
-<meta property="og:title" content="Truco Uruguayo · jugá online con amigos">
+<meta property="og:title" content="Falta envido y truco · truco uruguayo online con amigos">
 <meta property="og:description" content="Mano a mano, en parejas o en tercetos, con flor y según el reglamento. Gratis, en el navegador.">
 <meta property="og:url" content="https://truco-uruguayo.tomasaldaya.workers.dev/">
 <meta property="og:image" content="https://truco-uruguayo.tomasaldaya.workers.dev/compartir.jpg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="Cuatro cartas de oro en abanico y el nombre Truco Uruguayo">
+<meta property="og:image:alt" content="El 2, el 4 y el 5 de oro en abanico y el nombre Falta envido y truco">
 <meta name="twitter:card" content="summary_large_image">
-<script type="application/ld+json">{"@context":"https://schema.org","@type":"VideoGame","name":"Truco Uruguayo","url":"https://truco-uruguayo.tomasaldaya.workers.dev/","image":"https://truco-uruguayo.tomasaldaya.workers.dev/compartir.jpg","description":"Truco uruguayo gratis en el navegador: contra la computadora u online, mano a mano, en parejas o en tercetos, con flor.","inLanguage":"es","genre":"Juego de cartas","gamePlatform":"Navegador web","playMode":["SinglePlayer","MultiPlayer"],"applicationCategory":"Game","operatingSystem":"Cualquiera con navegador","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"author":{"@type":"Person","name":"Tomás Aldaya"}}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"VideoGame","name":"Falta envido y truco","alternateName":"Truco uruguayo online","url":"https://truco-uruguayo.tomasaldaya.workers.dev/","image":"https://truco-uruguayo.tomasaldaya.workers.dev/compartir.jpg","description":"Truco uruguayo gratis en el navegador: contra la computadora u online, mano a mano, en parejas o en tercetos, con flor.","inLanguage":"es","genre":"Juego de cartas","gamePlatform":"Navegador web","playMode":["SinglePlayer","MultiPlayer"],"applicationCategory":"Game","operatingSystem":"Cualquiera con navegador","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"author":{"@type":"Person","name":"Tomás Aldaya"}}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Alegreya:wght@500;700;800&family=Alegreya+Sans:wght@400;500;700&display=swap" rel="stylesheet">
@@ -361,14 +361,13 @@ aside{display:flex;flex-direction:column;gap:14px;margin-top:13px}
     repeating-linear-gradient(45deg, var(--felt-line) 0 1px, transparent 1px 6px),
     linear-gradient(var(--felt), var(--felt2));
   box-shadow:0 0 0 12px var(--wood),0 0 0 15px var(--wood2),0 24px 60px rgba(0,0,0,.6),inset 0 0 90px rgba(0,0,0,.35)}
-.fan{position:relative;height:330px;margin:4px auto 34px;width:330px}
+.fan{position:relative;height:250px;margin:4px auto 30px;width:330px}
 .fan .card{position:absolute;left:50%;bottom:0;--cw:140px;--ch:213px;border-radius:12px;transform-origin:50% 100%;
   box-shadow:0 2px 0 var(--paper-edge),0 14px 28px rgba(0,0,0,.45)}
 .fan .card img{border-radius:12px}
 .fan .f0{transform:translateX(-50%) translateX(-78px) rotate(-14deg)}
 .fan .f1{transform:translateX(-50%) translateY(-14px)}
 .fan .f2{transform:translateX(-50%) translateX(78px) rotate(14deg)}
-.fan .card.mu{transform-origin:50% 50%;bottom:152px;transform:translateX(-50%) rotate(90deg);filter:brightness(.92)}
 .fan.deal .card{animation:dealIn .55s cubic-bezier(.2,.8,.25,1) both}
 .fan.deal .f1{animation-delay:.12s}.fan.deal .f2{animation-delay:.24s}
 .fan.deal .card.mu{animation:muIn .5s ease-out .36s both}
@@ -584,8 +583,7 @@ img.avt{object-fit:cover;background:#2a1d13}
   .home{align-items:flex-start;padding:30px 22px}
   .home-in{grid-template-columns:1fr;gap:26px}
   .hero{padding:24px 18px 22px;border-radius:26px}
-  .fan{height:232px;width:240px;margin-bottom:22px}
-  .fan .card.mu{bottom:106px}
+  .fan{height:170px;width:240px;margin-bottom:20px}
   .fan .card{--cw:96px;--ch:146px}
   .fan .f0{transform:translateX(-50%) translateX(-54px) rotate(-14deg)}
   .fan .f2{transform:translateX(-50%) translateX(54px) rotate(14deg)}
@@ -595,8 +593,7 @@ img.avt{object-fit:cover;background:#2a1d13}
 @media (max-width:520px){
   .home{padding:16px 14px}
   .hero{padding:14px 14px 16px}
-  .fan{height:158px;width:200px;margin:0 auto 10px}
-  .fan .card.mu{bottom:73px}
+  .fan{height:118px;width:200px;margin:0 auto 10px}
   .fan .card{--cw:66px;--ch:100px;border-radius:8px}
   .fan .f0{transform:translateX(-50%) translateX(-38px) rotate(-14deg)}
   .fan .f1{transform:translateX(-50%) translateY(-8px)}
@@ -758,6 +755,24 @@ img.avt{object-fit:cover;background:#2a1d13}
 .dmm small{display:block;font-size:11px;opacity:.6;text-align:right;margin-top:2px}
 .dmf{display:flex;gap:8px}.dmf input{flex:1;min-width:0}
 .hbar h2 .av{vertical-align:middle}
+/* la pantalla principal (portada) y las pestañas de Truco uruguayo */
+.home:not(.portada) .hero{display:none}
+.home:not(.portada) .home-in{grid-template-columns:1fr;max-width:780px}
+.pjuegos{display:grid;gap:14px;margin:6px 0 18px}
+.pjuego{display:flex;flex-direction:column;align-items:flex-start;gap:4px;text-align:left;padding:22px 24px;border-radius:20px;border:1px solid rgba(232,177,58,.45);
+  background:linear-gradient(135deg,rgba(232,177,58,.22),rgba(232,177,58,.06));color:var(--paper);cursor:pointer;font:inherit;transition:transform .15s,background .15s}
+.pjuego b{font-family:'Alegreya',serif;font-size:30px;font-weight:800;line-height:1.05}
+.pjuego span{font-size:15px;opacity:.85}
+.pjuego:hover{transform:translateY(-2px);background:linear-gradient(135deg,rgba(232,177,58,.32),rgba(232,177,58,.1))}
+.pjuego.prox{cursor:default;opacity:.5;border-style:dashed;border-color:rgba(255,255,255,.25);background:rgba(255,255,255,.04)}
+.pjuego.prox:hover{transform:none}
+.pjuego.prox span{font-weight:700;letter-spacing:.5px;text-transform:uppercase;font-size:12.5px}
+.htabs{display:flex;gap:6px;margin:4px 0 18px;padding:5px;border-radius:16px;background:rgba(0,0,0,.25);overflow-x:auto;scrollbar-width:none}
+.htabs button{flex:1 0 auto;padding:10px 14px;border-radius:12px;border:0;background:transparent;color:#d9d2c2;font:inherit;font-weight:700;cursor:pointer;white-space:nowrap}
+.htabs button[aria-selected="true"]{background:var(--gold, #e8b13a);color:#2a1c10}
+.hmas{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;margin-bottom:16px}
+.hmas .tool{padding:14px;font-size:16px}
+@media (max-width:520px){ .pjuego b{font-size:25px} .htabs button{padding:9px 11px;font-size:14px} }
 </style>
 </head>
 <body>
@@ -765,15 +780,15 @@ img.avt{object-fit:cover;background:#2a1d13}
   <div class="home-in">
     <div class="hero">
       <div class="fan" id="hfan" aria-hidden="true"></div>
-      <h1 class="htitle">Truco Uruguayo</h1>
-      <p class="hsub">Jugá con otras personas, mano a mano, en parejas o en tercetos, con las reglas del Reglamento del Truco Uruguayo. O practicá contra la computadora.</p>
+      <h1 class="htitle">Falta envido<br>y truco</h1>
+      <p class="hsub">Truco para jugar con otras personas, mano a mano, en parejas o en tercetos, o para practicar contra la computadora.</p>
     </div>
     <div class="hmain" id="hmain"></div>
   </div>
 </section>
 <div class="app">
   <header class="top">
-    <h1>Truco <span>Uruguayo</span><small id="modeLbl"></small></h1>
+    <h1>Falta envido <span>y truco</span><small id="modeLbl"></small></h1>
     <button type="button" class="scoremini" id="scoreMini" title="Ver el tanteador y lo que se dijo"></button>
     <div class="tools">
       <button class="tool" id="btnMenu" title="Volver a la pantalla de inicio (el partido queda en pausa)">Menú</button>
@@ -2899,7 +2914,7 @@ function render(){
   soundCues();
   if (NET) renderVoz();
   const R = G.round;
-  $('modeLbl').textContent = (G.n===6 ? 'tercetos' : G.n===4 ? 'parejas' : 'mano a mano') + (NET ? ', mesa ' + NET.code : '') + (mirando() ? ', mirando' : '');
+  $('modeLbl').textContent = 'truco uruguayo, ' + (G.n===6 ? 'tercetos' : G.n===4 ? 'parejas' : 'mano a mano') + (NET ? ', mesa ' + NET.code : '') + (mirando() ? ', mirando' : '');
   saveGame();
   if (!$('home').hidden) return;
   renderScore(); renderLog();
@@ -6159,14 +6174,14 @@ function howToModal(){
 document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
   if ($('overlay2').innerHTML) closeTool();
-  else if (!$('home').hidden && homeView !== 'main') { homeView = 'main'; renderHome(); }
+  else if (!$('home').hidden && homeView !== 'portada') { homeView = homeView === 'main' ? 'portada' : 'main'; renderHome(); }
 });
 
 // ---------- Pantalla de inicio ----------
 // Aparece al abrir el juego y con el botón Menú. Mientras se ve, el partido queda en pausa
 // (toolOpen() la cuenta como un menú abierto). El partido se guarda en este navegador en cada
 // jugada, así que "Continuar partido" sigue donde quedó aunque se cierre la página.
-let homeView = 'main', confirmNew = null, needStep = false, fanDealt = false;
+let homeView = 'portada', confirmNew = null, needStep = false, fanDealt = false;
 const MODES = [
   [2, 'Mano a mano', 'Vos contra la computadora.'],
   [4, 'Parejas', 'Vos y Pocho contra Tito y Nacho, con señas entre compañeros.'],
@@ -6235,6 +6250,7 @@ function showHome(view){
   // un partido online que ya terminó: al ir al menú, la mesa se cierra (no queda nada pendiente)
   if (NET && G && G.phase === 'matchEnd' && view !== 'lobby') { closeModal(); leaveNet(); }
   homeView = view || 'main'; confirmNew = null;
+  if (!view) uruTab = NET ? 'online' : GM ? 'compu' : uruTab;   // al volver del partido, a la pestaña de donde venías
   $('home').hidden = false; document.querySelector('.app').hidden = true;
   V3.pause();
   if (NET) renderVoz();
@@ -6246,8 +6262,7 @@ function showHome(view){
 // las tres cartas del abanico (con tu mazo, si cargaste uno); se reparten solo la primera vez
 function paintFan(deal){
   const fan = $('hfan'); fan.innerHTML = '';
-  // el logo: la muestra (el 1 de oro) acostada atrás, como queda en la mesa, y adelante tres piezas de oro: el 2, el 4 y el 5
-  const mu = cardEl({ n: 1, s: 'oro', id: '1-oro' }); mu.classList.add('mu'); fan.appendChild(mu);
+  // el logo: tres piezas de oro en abanico, el 2, el 4 y el 5
   [[2, 'oro'], [4, 'oro'], [5, 'oro']].forEach(([n, s], i) => { const c = cardEl({ n, s, id: n + '-' + s }); c.classList.add('f' + i); fan.appendChild(c); });
   fan.classList.toggle('deal', !!deal);
 }
@@ -6281,6 +6296,7 @@ function renderHome(){
 }
 function pintarInicio(){
   const box = $('hmain');
+  $('home').classList.toggle('portada', homeView === 'portada');   // el logo y el nombre, solo en la pantalla principal
   if (homeView === 'config') return renderConfig(box);
   if (homeView === 'lobby') return renderLobby(box);
   if (homeView === 'join') return renderJoin(box);
@@ -6294,58 +6310,114 @@ function pintarInicio(){
   if (homeView === 'admin') return renderAdmin(box);
   if (homeView === 'publicas') return renderPublicas(box);
   if (homeView === 'editar') return renderEditar(box);
+  if (homeView === 'portada') return renderPortada(box);
+  return renderUruguayo(box);
+}
+
+// ---------- La pantalla principal ----------
+// "Falta envido y truco": el logo, el nombre y qué truco jugar. El argentino todavía no está (Próximamente).
+// Si hay un partido sin terminar o una mesa online, aparece arriba para seguir.
+function seguirHTML(){
   const inGame = !!NET || (GM && GM.phase !== 'matchEnd');
-  let h = netNote ? `<p class="hnote" role="alert">${esc(netNote)}</p>` : '';
-  netNote = '';
   if (NET) {
     const started = NET.role === 'host' ? NET.started : !!G;
-    h += `<button class="cont" id="hCont"><b>${started ? 'Volver a la mesa' : 'Ver la mesa'}</b><span>Mesa ${esc(NET.code)}${NET.role === 'host' || NET.owner ? ', sos el anfitrión' : ''}${started ? '' : '. Todavía no empezó el partido'}.</span></button>
+    return `<button class="cont" id="hCont"><b>${started ? 'Volver a la mesa' : 'Ver la mesa'}</b><span>Mesa ${esc(NET.code)}${NET.role === 'host' || NET.owner ? ', sos el anfitrión' : ''}${started ? '' : '. Todavía no empezó el partido'}.</span></button>
       <div class="hlinks"><button class="tool" id="hLobby">Lugares de la mesa</button><button class="tool" id="hLeave">${NET.role === 'host' ? 'Cerrar la mesa' : 'Salir de la mesa'}</button></div>`;
-  } else if (inGame) {
-    const ch = G.chicos[0] + G.chicos[1];
-    h += `<button class="cont" id="hCont"><b>Continuar partido</b><span>${modeName(G.n)}: ${esc(G.teamNames[0])} ${G.scores[0]}, ${esc(G.teamNames[1])} ${G.scores[1]}${ch ? `. Chicos: ${G.chicos[0]} a ${G.chicos[1]}` : ''}.</span></button>`;
   }
-  // con el servidor de cuentas, lo primero es jugar con gente (mesas públicas); la computadora queda abajo
-  const conGente = cuentaOK() && (!!CUENTA.cfg || !CUENTA.cfgFallo);
-  if (conGente) h += cuentaFichaHTML();
-  if (conGente && !NET) h += publicasHomeHTML();
-  if (!NET) h += `<section><h2>${conGente ? 'Con amigos' : 'Jugar con otros'}</h2><div class="hlinks"><button class="tool" id="hHost">${conGente ? 'Crear una mesa privada' : 'Crear una mesa'}</button><button class="tool" id="hJoin">${conGente ? 'Unirme con un código' : 'Unirme a una mesa'}</button></div>
-    <p class="hkey">${netMode() === 'internet' ? 'Creá una mesa y pasale el link a quien quieras, o unite con el código que te pasaron.' : 'Sin internet: entre pestañas de este navegador, para probar cómo se ve el partido desde cada lugar.'}</p></section>`;
-  const chico = conGente && !NET;
-  h += `<section class="${chico ? 'hcompu' : ''}"><h2>${NET ? 'Jugar solo' : conGente ? 'Contra la computadora' : inGame ? 'Partido nuevo' : 'Elegí cómo jugar'}</h2><div class="hmodes${chico ? ' chicos' : ''}">`
-    + MODES.map(([n, nm, d]) => `<button class="hmode" data-n="${n}">${tableSVG(n)}<div><b>${nm}</b>${chico ? '' : `<span>${d}</span>`}</div></button>`).join('')
-    + `</div>${chico ? '<p class="hkey">Para practicar: la computadora juega los otros lugares, y el partido se guarda en este navegador.</p>' : '<p class="hkey">En celeste tu equipo y en bordó los rivales; el lugar con borde dorado es el tuyo.</p>'}`;
-  if (confirmNew) h += `<div class="hconfirm" role="alert"><p>${NET ? `Vas a salir de la mesa ${esc(NET.code)} para jugar solo, de ${modeName(confirmNew).toLowerCase()}.` : `Tenés un partido sin terminar. Si empezás uno nuevo de ${modeName(confirmNew).toLowerCase()}, ese se pierde.`}</p>
-    <div class="row"><button class="act flor" id="hYes">Empezar partido nuevo</button><button class="act mazo" id="hNo">Cancelar</button></div></div>`;
-  h += '</section>';
-  h += `<nav class="hlinks" aria-label="Más opciones">
-    <button class="tool" id="hCfg">Configuración</button><button class="tool" id="hPj">Tu personaje</button><button class="tool" id="hDeck">Tu mazo</button>
-    <button class="tool" id="hHow">Cómo se juega</button><button class="tool" id="hRegl">Reglamento</button><button class="tool" id="hStats">Estadísticas</button>
-    <button class="tool" id="hInstalar"${comoInstalar() ? '' : ' hidden'}>Instalar el juego</button></nav>
-    <p class="hcred">Cartas: baraja española libre de <a href="https://commons.wikimedia.org/wiki/Category:Spanish_playing_cards" target="_blank" rel="noopener">Basquetteur</a> (Wikimedia Commons), con licencia <a href="https://creativecommons.org/licenses/by-sa/3.0/deed.es" target="_blank" rel="noopener">CC BY-SA 3.0</a>.</p>
-    <p class="hcred">© 2026 Tomás Aldaya. Todos los derechos reservados. · <a href="terminos.html" target="_blank" rel="noopener">Términos de uso</a> · <a href="privacidad.html" target="_blank" rel="noopener">Privacidad</a></p>`;
-  box.innerHTML = h;
+  if (inGame) {
+    const ch = G.chicos[0] + G.chicos[1];
+    return `<button class="cont" id="hCont"><b>Continuar partido</b><span>${modeName(G.n)}: ${esc(G.teamNames[0])} ${G.scores[0]}, ${esc(G.teamNames[1])} ${G.scores[1]}${ch ? `. Chicos: ${G.chicos[0]} a ${G.chicos[1]}` : ''}.</span></button>`;
+  }
+  return '';
+}
+function bindSeguir(){
   if ($('hCont')) $('hCont').onclick = () => {
     if (NET && !(NET.role === 'host' ? NET.started : G)) { homeView = 'lobby'; renderHome(); } else continueGame();
   };
   if ($('hLobby')) $('hLobby').onclick = () => { homeView = 'lobby'; renderHome(); };
   if ($('hLeave')) $('hLeave').onclick = () => confirmarSalida($('hLeave'), () => { leaveNet(); renderHome(); });
+}
+const PIE_CREDITOS = `<p class="hcred">Cartas: baraja española libre de <a href="https://commons.wikimedia.org/wiki/Category:Spanish_playing_cards" target="_blank" rel="noopener">Basquetteur</a> (Wikimedia Commons), con licencia <a href="https://creativecommons.org/licenses/by-sa/3.0/deed.es" target="_blank" rel="noopener">CC BY-SA 3.0</a>.</p>
+    <p class="hcred">© 2026 Tomás Aldaya. Todos los derechos reservados. · <a href="terminos.html" target="_blank" rel="noopener">Términos de uso</a> · <a href="privacidad.html" target="_blank" rel="noopener">Privacidad</a></p>`;
+function renderPortada(box){
+  let h = netNote ? `<p class="hnote" role="alert">${esc(netNote)}</p>` : '';
+  netNote = '';
+  h += seguirHTML();
+  h += `<div class="pjuegos">
+    <button class="pjuego" id="pUru"><b>Truco uruguayo</b><span>Con muestra y flor. Online o contra la computadora.</span></button>
+    <div class="pjuego prox" aria-disabled="true"><b>Truco argentino</b><span>Próximamente</span></div>
+  </div>` + PIE_CREDITOS;
+  box.innerHTML = h;
+  bindSeguir();
+  $('pUru').onclick = () => { homeView = 'main'; renderHome(); window.scrollTo(0, 0); };
+}
+
+// ---------- Truco uruguayo: las pestañas ----------
+// Online (pide la cuenta para entrar), Contra la computadora, Perfil y Más (configuración, personaje, mazo,
+// cómo se juega, reglamento, estadísticas). La pestaña elegida se recuerda.
+const PESTANAS = [['online', 'Online'], ['compu', 'Contra la computadora'], ['perfil', 'Perfil'], ['mas', 'Más']];
+let uruTab = PESTANAS.some(p => p[0] === store.get('truco.pestana')) ? store.get('truco.pestana') : 'online';
+function irPestana(k){ uruTab = k; store.set('truco.pestana', k); confirmNew = null; renderHome(); }
+function loginHTML(para){
+  let h = `<div class="hpcta"><div id="hGsi" class="gsi"></div><span>${para}</span></div>`;
+  if (CUENTA.cfg && CUENTA.cfg.prueba) h += `<form id="cPrueba" class="hlinks"><input id="cPruebaN" placeholder="Nombre de prueba" maxlength="20" aria-label="Nombre de prueba"><button class="tool" type="submit">Entrar de prueba</button></form>`;
+  return h;
+}
+function renderUruguayo(box){
+  const inGame = !!NET || (GM && GM.phase !== 'matchEnd');
+  const cuentas = cuentaOK() && (!!CUENTA.cfg || !CUENTA.cfgFallo);
+  let h = netNote ? `<p class="hnote" role="alert">${esc(netNote)}</p>` : '';
+  netNote = '';
+  const A = conCuenta() && CUENTA.amigos, pend = A ? A.recibidas.length + A.amigos.reduce((n, a) => n + (a.sinLeer || 0), 0) : 0;
+  h += `<div class="hbar"><button class="tool" id="hInicio">Inicio</button><h2>Truco uruguayo</h2></div>`;
+  h += `<div class="htabs" role="tablist" aria-label="Truco uruguayo">${PESTANAS.map(([k, t]) => `<button type="button" role="tab" data-tab="${k}" aria-selected="${uruTab === k}">${t}${k === 'perfil' && pend ? ` <b class="cbadge">${pend}</b>` : ''}</button>`).join('')}</div>`;
+  h += avisoHTML() + seguirHTML();
+  if (uruTab === 'online') {
+    if (NET) h += '<p class="hkey">Estás en una mesa. Para entrar a otra, primero salí de esta.</p>';
+    // se pide la cuenta para jugar online (si se puede entrar: con Google configurado, o de prueba)
+    else if (cuentas && !conCuenta() && CUENTA.cfg && (CUENTA.cfg.google || CUENTA.cfg.prueba)) h += `<section class="hpub"><h2>Jugar online</h2>${loginHTML('Para jugar online entrá con tu cuenta de Google: así tenés tu nombre, aparecés en el ranking y sumás amigos.')}</section>`;
+    else {
+      if (cuentas) h += publicasHomeHTML();
+      h += `<section><h2>${cuentas ? 'Con amigos' : 'Jugar con otros'}</h2><div class="hlinks"><button class="tool" id="hHost">${cuentas ? 'Crear una mesa privada' : 'Crear una mesa'}</button><button class="tool" id="hJoin">${cuentas ? 'Unirme con un código' : 'Unirme a una mesa'}</button></div>
+        <p class="hkey">${netMode() === 'internet' ? 'Creá una mesa y pasale el link a quien quieras, o unite con el código que te pasaron.' : 'Sin internet: entre pestañas de este navegador, para probar cómo se ve el partido desde cada lugar.'}</p></section>`;
+    }
+  } else if (uruTab === 'compu') {
+    h += `<section><h2>${NET ? 'Jugar solo' : inGame ? 'Partido nuevo' : 'Elegí cómo jugar'}</h2><div class="hmodes">`
+      + MODES.map(([n, nm, d]) => `<button class="hmode" data-n="${n}">${tableSVG(n)}<div><b>${nm}</b><span>${d}</span></div></button>`).join('')
+      + `</div><p class="hkey">Para practicar: la computadora juega los otros lugares. En celeste tu equipo y en bordó los rivales; el lugar con borde dorado es el tuyo. Un chico, y no cuenta para el ranking.</p>`;
+    if (confirmNew) h += `<div class="hconfirm" role="alert"><p>${NET ? `Vas a salir de la mesa ${esc(NET.code)} para jugar solo, de ${modeName(confirmNew).toLowerCase()}.` : `Tenés un partido sin terminar. Si empezás uno nuevo de ${modeName(confirmNew).toLowerCase()}, ese se pierde.`}</p>
+      <div class="row"><button class="act flor" id="hYes">Empezar partido nuevo</button><button class="act mazo" id="hNo">Cancelar</button></div></div>`;
+    h += '</section>';
+  } else if (uruTab === 'perfil') {
+    if (conCuenta()) h += fichaHTML();
+    else if (cuentas) h += `<section><h2>Tu perfil</h2>${loginHTML('Entrá con tu cuenta de Google para tener tu perfil, tus estadísticas en el ranking, gremio y amigos.')}</section>`;
+    else h += '<p class="hkey">Las cuentas no están disponibles en este momento.</p>';
+    h += `<nav class="hlinks" aria-label="Tu juego"><button class="tool" id="hPj">Tu personaje y cómo tanteás</button><button class="tool" id="hDeck">Tu mazo</button><button class="tool" id="hStats">Estadísticas en este navegador</button></nav>`;
+  } else {
+    h += `<nav class="hmas" aria-label="Más opciones">
+      <button class="tool" id="hCfg">Configuración</button><button class="tool" id="hHow">Cómo se juega</button><button class="tool" id="hRegl">Reglamento</button>
+      <button class="tool" id="hInstalar"${comoInstalar() ? '' : ' hidden'}>Instalar el juego</button></nav>` + PIE_CREDITOS;
+  }
+  box.innerHTML = h;
+  $('hInicio').onclick = () => { homeView = 'portada'; renderHome(); };
+  box.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => irPestana(b.dataset.tab));
+  bindSeguir();
   if ($('hHost')) $('hHost').onclick = () => abrirCrear(false, GM && !NET ? GM.n : players);
   if ($('hJoin')) $('hJoin').onclick = () => { homeView = 'join'; renderHome(); };
   box.querySelectorAll('.hmode[data-n]').forEach(b => b.onclick = () => {
     const n = +b.dataset.n;
     if (inGame) { confirmNew = n; renderHome(); $('hYes').focus(); } else startGame(n);
   });
-  if (confirmNew) { $('hYes').onclick = () => startGame(confirmNew); $('hNo').onclick = () => { confirmNew = null; renderHome(); }; }
-  $('hCfg').onclick = () => { homeView = 'config'; renderHome(); $('hBack').focus(); };
-  $('hDeck').onclick = deckModal;
-  $('hPj').onclick = pjModal;
-  $('hInstalar').onclick = instalarJuego;
-  $('hHow').onclick = howToModal;
-  $('hRegl').onclick = reglamentoModal;
-  $('hStats').onclick = statsModal;
+  if (confirmNew && $('hYes')) { $('hYes').onclick = () => startGame(confirmNew); $('hNo').onclick = () => { confirmNew = null; renderHome(); }; }
+  if ($('hCfg')) $('hCfg').onclick = () => { homeView = 'config'; renderHome(); $('hBack').focus(); };
+  if ($('hDeck')) $('hDeck').onclick = deckModal;
+  if ($('hPj')) $('hPj').onclick = pjModal;
+  if ($('hInstalar')) $('hInstalar').onclick = instalarJuego;
+  if ($('hHow')) $('hHow').onclick = howToModal;
+  if ($('hRegl')) $('hRegl').onclick = reglamentoModal;
+  if ($('hStats')) $('hStats').onclick = statsModal;
   bindCuenta();
-  if (conGente && !NET) bindPublicasHome();
+  if (uruTab === 'online' && cuentas && !NET && conCuenta()) bindPublicasHome();
 }
 
 // ---------- Configuración ----------
@@ -6376,7 +6448,7 @@ function renderConfig(box){
       ${row('level', 'Dificultad', [['facil', 'Fácil'], ['normal', 'Normal'], ['dificil', 'Difícil']], level, 'En difícil la computadora se acuerda de tus mentiras y tus faroles.')}
       ${row('real', 'Modo realista', [['0', 'No'], ['1', 'Sí']], realista ? '1' : '0', 'Cantás tus puntos a mano y podés equivocarte o negar la flor, con las penas del reglamento. Rige desde la próxima mano. Es para jugar contra la computadora: en las mesas online se juega siempre en modo realista.')}
     </div></section>`;
-  $('hBack').onclick = () => { homeView = 'main'; renderHome(); $('hCfg').focus(); };
+  $('hBack').onclick = () => { homeView = 'main'; renderHome(); if ($('hCfg')) $('hCfg').focus(); };
   box.querySelectorAll('.seg button').forEach(b => b.onclick = () => {
     setCfg(b.parentNode.dataset.k, b.dataset.v);
     b.parentNode.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
@@ -8402,7 +8474,7 @@ cuentaInit();
 // ---------- cuánto se usa y qué falla ----------
 // Se cuenta por día y sin datos de nadie: que se abrió (y de dónde vino el enlace), si está instalada,
 // si se juega contra la computadora u online. Los errores del navegador van igual: el texto y dónde, nada más.
-const VERSION = '5329e70e';
+const VERSION = '64f7386c';
 function avisarServidor(ruta, cuerpo){
   if (!serverOK()) return;
   try { fetch(serverURL() + '/api/' + ruta, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(cuerpo), keepalive: true }).catch(() => {}); } catch (e) {}
@@ -8437,7 +8509,7 @@ if (/^(localhost|127\.0\.0\.1)$/.test(location.hostname)) window.__trucoPrueba =
 if (netBack && NET && NET.role === 'host' && NET.started) { showHome(); continueGame(); }
 else if (netBack) showHome('lobby');
 else if (netOK() && invitedCode()) { joinCode = invitedCode(); showHome('join'); }
-else showHome();
+else showHome('portada');
 loadSavedDeck();
 })();
 </script>

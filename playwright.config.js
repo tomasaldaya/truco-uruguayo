@@ -13,7 +13,7 @@ module.exports = defineConfig({
     // para usar un Chrome ya instalado en vez del de Playwright: CHROME=/ruta/al/chrome
     ...(process.env.CHROME ? { launchOptions: { executablePath: process.env.CHROME } } : {}) },
   webServer: {
-    command: 'npx wrangler dev --ip 127.0.0.1 --port 8787 --log-level warn',
+    command: 'npx wrangler dev --ip 127.0.0.1 --port 8787 --log-level warn --var DEV_LOGIN:1',   // DEV_LOGIN: entrar de prueba (jugar online pide cuenta)
     url: 'http://127.0.0.1:8787/api/salud',
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,

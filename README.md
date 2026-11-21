@@ -780,3 +780,11 @@ Se elige como el bar (Configuración → Lugar para jugar solo; al crear la mesa
 - **El banquito** bajo, al lado del jugador de tu derecha, con el vaso de whisky con hielo y el cenicero con el pucho prendido.
 - Lo que se mueve lo anima `campoAnim` (se llama en cada cuadro); lo quieto va en Lotes. Probado en mano a mano, parejas y tercetos.
 - **Ajustes del campo** (21/11): el galpón es más grande (32 × 20, paredes de 15) y el cartel entra entero en la pared (el texto se achica hasta caber); el caballo quedó a escala (55 %, más lento); al asador se le alargó el cuello para que la cabeza no quede separada del cuerpo.
+
+## Falta envido y truco: el nombre nuevo y el menú nuevo (21/11, directo en main)
+- **Nombre**: el juego se llama **Falta envido y truco** en todos lados (pantalla principal, título de la página, app instalada, vista previa al compartir, encabezado de la mesa —que dice "truco uruguayo" como modo—, términos y privacidad). La caché pasó a `truco-v5`.
+- **Logo**: sin el 1 de oro atrás, solo el 2, el 4 y el 5 de oro en abanico (en el inicio, los íconos y `compartir.jpg`, regenerados con `tools/icono/icono.py` y `tools/compartir/compartir.py`).
+- **Pantalla principal** (`homeView = 'portada'`, `renderPortada`): el logo, el nombre y qué truco jugar: **Truco uruguayo** o **Truco argentino** (Próximamente, sin tocar). Si hay un partido o una mesa sin terminar, aparece arriba para seguir. Siempre se arranca acá.
+- **Truco uruguayo** (`homeView = 'main'`, `renderUruguayo`): pestañas **Online · Contra la computadora · Perfil · Más** (se recuerda la última en `truco.pestana`; al volver de un partido, la de donde venías). Online pide la cuenta (Google, o de prueba en la compu) antes de mostrar las mesas públicas y las privadas; quien entra con el link de una mesa sigue pudiendo sin cuenta. Perfil: tu ficha (mi perfil, ranking, gremio, amigos, administrar) más tu personaje y cómo tanteás, tu mazo y las estadísticas de este navegador. Más: configuración, cómo se juega, reglamento e instalar.
+- Escape: de una sección vuelve a las pestañas, y de las pestañas a la pantalla principal.
+- Las pruebas de navegador entran de prueba (`DEV_LOGIN` solo en el servidor local de las pruebas).

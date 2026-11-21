@@ -9,22 +9,22 @@
 <meta name="apple-mobile-web-app-title" content="Truco">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Truco Uruguayo · jugá online con amigos</title>
+<title>Falta envido y truco · truco uruguayo online con amigos</title>
 <!-- para buscadores y para cuando se comparte el link (WhatsApp, Instagram, Facebook): build.py pone la dirección -->
 <meta name="description" content="Truco uruguayo gratis en el navegador: contra la computadora u online con amigos, mano a mano, en parejas o en tercetos, con flor y según el reglamento. Chat de voz, ranking y mesa 3D.">
 <link rel="canonical" href="/*SITIO*//">
 <meta property="og:type" content="website">
-<meta property="og:site_name" content="Truco Uruguayo">
+<meta property="og:site_name" content="Falta envido y truco">
 <meta property="og:locale" content="es_UY">
-<meta property="og:title" content="Truco Uruguayo · jugá online con amigos">
+<meta property="og:title" content="Falta envido y truco · truco uruguayo online con amigos">
 <meta property="og:description" content="Mano a mano, en parejas o en tercetos, con flor y según el reglamento. Gratis, en el navegador.">
 <meta property="og:url" content="/*SITIO*//">
 <meta property="og:image" content="/*SITIO*//compartir.jpg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="Cuatro cartas de oro en abanico y el nombre Truco Uruguayo">
+<meta property="og:image:alt" content="El 2, el 4 y el 5 de oro en abanico y el nombre Falta envido y truco">
 <meta name="twitter:card" content="summary_large_image">
-<script type="application/ld+json">{"@context":"https://schema.org","@type":"VideoGame","name":"Truco Uruguayo","url":"/*SITIO*//","image":"/*SITIO*//compartir.jpg","description":"Truco uruguayo gratis en el navegador: contra la computadora u online, mano a mano, en parejas o en tercetos, con flor.","inLanguage":"es","genre":"Juego de cartas","gamePlatform":"Navegador web","playMode":["SinglePlayer","MultiPlayer"],"applicationCategory":"Game","operatingSystem":"Cualquiera con navegador","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"author":{"@type":"Person","name":"Tomás Aldaya"}}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"VideoGame","name":"Falta envido y truco","alternateName":"Truco uruguayo online","url":"/*SITIO*//","image":"/*SITIO*//compartir.jpg","description":"Truco uruguayo gratis en el navegador: contra la computadora u online, mano a mano, en parejas o en tercetos, con flor.","inLanguage":"es","genre":"Juego de cartas","gamePlatform":"Navegador web","playMode":["SinglePlayer","MultiPlayer"],"applicationCategory":"Game","operatingSystem":"Cualquiera con navegador","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"author":{"@type":"Person","name":"Tomás Aldaya"}}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Alegreya:wght@500;700;800&family=Alegreya+Sans:wght@400;500;700&display=swap" rel="stylesheet">
@@ -361,14 +361,13 @@ aside{display:flex;flex-direction:column;gap:14px;margin-top:13px}
     repeating-linear-gradient(45deg, var(--felt-line) 0 1px, transparent 1px 6px),
     linear-gradient(var(--felt), var(--felt2));
   box-shadow:0 0 0 12px var(--wood),0 0 0 15px var(--wood2),0 24px 60px rgba(0,0,0,.6),inset 0 0 90px rgba(0,0,0,.35)}
-.fan{position:relative;height:330px;margin:4px auto 34px;width:330px}
+.fan{position:relative;height:250px;margin:4px auto 30px;width:330px}
 .fan .card{position:absolute;left:50%;bottom:0;--cw:140px;--ch:213px;border-radius:12px;transform-origin:50% 100%;
   box-shadow:0 2px 0 var(--paper-edge),0 14px 28px rgba(0,0,0,.45)}
 .fan .card img{border-radius:12px}
 .fan .f0{transform:translateX(-50%) translateX(-78px) rotate(-14deg)}
 .fan .f1{transform:translateX(-50%) translateY(-14px)}
 .fan .f2{transform:translateX(-50%) translateX(78px) rotate(14deg)}
-.fan .card.mu{transform-origin:50% 50%;bottom:152px;transform:translateX(-50%) rotate(90deg);filter:brightness(.92)}
 .fan.deal .card{animation:dealIn .55s cubic-bezier(.2,.8,.25,1) both}
 .fan.deal .f1{animation-delay:.12s}.fan.deal .f2{animation-delay:.24s}
 .fan.deal .card.mu{animation:muIn .5s ease-out .36s both}
@@ -584,8 +583,7 @@ img.avt{object-fit:cover;background:#2a1d13}
   .home{align-items:flex-start;padding:30px 22px}
   .home-in{grid-template-columns:1fr;gap:26px}
   .hero{padding:24px 18px 22px;border-radius:26px}
-  .fan{height:232px;width:240px;margin-bottom:22px}
-  .fan .card.mu{bottom:106px}
+  .fan{height:170px;width:240px;margin-bottom:20px}
   .fan .card{--cw:96px;--ch:146px}
   .fan .f0{transform:translateX(-50%) translateX(-54px) rotate(-14deg)}
   .fan .f2{transform:translateX(-50%) translateX(54px) rotate(14deg)}
@@ -595,8 +593,7 @@ img.avt{object-fit:cover;background:#2a1d13}
 @media (max-width:520px){
   .home{padding:16px 14px}
   .hero{padding:14px 14px 16px}
-  .fan{height:158px;width:200px;margin:0 auto 10px}
-  .fan .card.mu{bottom:73px}
+  .fan{height:118px;width:200px;margin:0 auto 10px}
   .fan .card{--cw:66px;--ch:100px;border-radius:8px}
   .fan .f0{transform:translateX(-50%) translateX(-38px) rotate(-14deg)}
   .fan .f1{transform:translateX(-50%) translateY(-8px)}
@@ -758,6 +755,24 @@ img.avt{object-fit:cover;background:#2a1d13}
 .dmm small{display:block;font-size:11px;opacity:.6;text-align:right;margin-top:2px}
 .dmf{display:flex;gap:8px}.dmf input{flex:1;min-width:0}
 .hbar h2 .av{vertical-align:middle}
+/* la pantalla principal (portada) y las pestañas de Truco uruguayo */
+.home:not(.portada) .hero{display:none}
+.home:not(.portada) .home-in{grid-template-columns:1fr;max-width:780px}
+.pjuegos{display:grid;gap:14px;margin:6px 0 18px}
+.pjuego{display:flex;flex-direction:column;align-items:flex-start;gap:4px;text-align:left;padding:22px 24px;border-radius:20px;border:1px solid rgba(232,177,58,.45);
+  background:linear-gradient(135deg,rgba(232,177,58,.22),rgba(232,177,58,.06));color:var(--paper);cursor:pointer;font:inherit;transition:transform .15s,background .15s}
+.pjuego b{font-family:'Alegreya',serif;font-size:30px;font-weight:800;line-height:1.05}
+.pjuego span{font-size:15px;opacity:.85}
+.pjuego:hover{transform:translateY(-2px);background:linear-gradient(135deg,rgba(232,177,58,.32),rgba(232,177,58,.1))}
+.pjuego.prox{cursor:default;opacity:.5;border-style:dashed;border-color:rgba(255,255,255,.25);background:rgba(255,255,255,.04)}
+.pjuego.prox:hover{transform:none}
+.pjuego.prox span{font-weight:700;letter-spacing:.5px;text-transform:uppercase;font-size:12.5px}
+.htabs{display:flex;gap:6px;margin:4px 0 18px;padding:5px;border-radius:16px;background:rgba(0,0,0,.25);overflow-x:auto;scrollbar-width:none}
+.htabs button{flex:1 0 auto;padding:10px 14px;border-radius:12px;border:0;background:transparent;color:#d9d2c2;font:inherit;font-weight:700;cursor:pointer;white-space:nowrap}
+.htabs button[aria-selected="true"]{background:var(--gold, #e8b13a);color:#2a1c10}
+.hmas{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;margin-bottom:16px}
+.hmas .tool{padding:14px;font-size:16px}
+@media (max-width:520px){ .pjuego b{font-size:25px} .htabs button{padding:9px 11px;font-size:14px} }
 </style>
 </head>
 <body>
@@ -765,15 +780,15 @@ img.avt{object-fit:cover;background:#2a1d13}
   <div class="home-in">
     <div class="hero">
       <div class="fan" id="hfan" aria-hidden="true"></div>
-      <h1 class="htitle">Truco Uruguayo</h1>
-      <p class="hsub">Jugá con otras personas, mano a mano, en parejas o en tercetos, con las reglas del Reglamento del Truco Uruguayo. O practicá contra la computadora.</p>
+      <h1 class="htitle">Falta envido<br>y truco</h1>
+      <p class="hsub">Truco para jugar con otras personas, mano a mano, en parejas o en tercetos, o para practicar contra la computadora.</p>
     </div>
     <div class="hmain" id="hmain"></div>
   </div>
 </section>
 <div class="app">
   <header class="top">
-    <h1>Truco <span>Uruguayo</span><small id="modeLbl"></small></h1>
+    <h1>Falta envido <span>y truco</span><small id="modeLbl"></small></h1>
     <button type="button" class="scoremini" id="scoreMini" title="Ver el tanteador y lo que se dijo"></button>
     <div class="tools">
       <button class="tool" id="btnMenu" title="Volver a la pantalla de inicio (el partido queda en pausa)">Menú</button>
@@ -910,7 +925,7 @@ function render(){
   soundCues();
   if (NET) renderVoz();
   const R = G.round;
-  $('modeLbl').textContent = (G.n===6 ? 'tercetos' : G.n===4 ? 'parejas' : 'mano a mano') + (NET ? ', mesa ' + NET.code : '') + (mirando() ? ', mirando' : '');
+  $('modeLbl').textContent = 'truco uruguayo, ' + (G.n===6 ? 'tercetos' : G.n===4 ? 'parejas' : 'mano a mano') + (NET ? ', mesa ' + NET.code : '') + (mirando() ? ', mirando' : '');
   saveGame();
   if (!$('home').hidden) return;
   renderScore(); renderLog();
@@ -1882,7 +1897,7 @@ function howToModal(){
 document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
   if ($('overlay2').innerHTML) closeTool();
-  else if (!$('home').hidden && homeView !== 'main') { homeView = 'main'; renderHome(); }
+  else if (!$('home').hidden && homeView !== 'portada') { homeView = homeView === 'main' ? 'portada' : 'main'; renderHome(); }
 });
 
 /*HOME*/
@@ -1904,7 +1919,7 @@ if (/^(localhost|127\.0\.0\.1)$/.test(location.hostname)) window.__trucoPrueba =
 if (netBack && NET && NET.role === 'host' && NET.started) { showHome(); continueGame(); }
 else if (netBack) showHome('lobby');
 else if (netOK() && invitedCode()) { joinCode = invitedCode(); showHome('join'); }
-else showHome();
+else showHome('portada');
 loadSavedDeck();
 })();
 </script>

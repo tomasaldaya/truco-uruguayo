@@ -1,5 +1,4 @@
-# Ícono de la app: la muestra (el 1 de oro) acostada sobre el paño verde, como queda en la mesa, y encima tres
-# piezas de oro abiertas en abanico: el 2, el 4 y el 5.
+# Ícono de la app: sobre el paño verde, tres piezas de oro abiertas en abanico: el 2, el 4 y el 5.
 # Las cartas salen de naipes.part.js (baraja de Basquetteur, CC BY-SA 3.0).
 import re, base64, io, sys, math
 from PIL import Image, ImageDraw, ImageFilter
@@ -25,13 +24,7 @@ def abanico(S, escala):
     # las tres giran alrededor de un mismo punto abajo, como una mano de cartas abierta
     capa = Image.new('RGBA', (S, S), (0, 0, 0, 0))
     W = int(S * .37 * escala); H = int(W * 488 / 320)
-    px, py, R = S / 2, S / 2 + S * .47 * escala, S * .40 * escala
-    # la muestra, acostada atrás y asomando por arriba del abanico
-    m = carta('1-oro').resize((W, H), Image.LANCZOS).rotate(90, resample=Image.BICUBIC, expand=True)
-    msh = Image.new('RGBA', m.size, (0, 0, 0, 0)); msh.putalpha(m.split()[3].point(lambda a: int(a * .45)))
-    mx, my = S / 2, S / 2 - S * .285 * escala
-    capa.alpha_composite(msh.filter(ImageFilter.GaussianBlur(S * .012)), (int(mx - m.width / 2 + S * .01), int(my - m.height / 2 + S * .018)))
-    capa.alpha_composite(m, (int(mx - m.width / 2), int(my - m.height / 2)))
+    px, py, R = S / 2, S / 2 + S * .43 * escala, S * .40 * escala
     for k, ang in [('2-oro', -20), ('5-oro', 20), ('4-oro', 0)]:
         c = carta(k).resize((W, H), Image.LANCZOS)
         sh = Image.new('RGBA', c.size, (0, 0, 0, 0)); sh.putalpha(c.split()[3].point(lambda a: int(a * .5)))

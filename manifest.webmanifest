@@ -1,7 +1,7 @@
 {
-  "name": "Truco Uruguayo",
+  "name": "Falta envido y truco",
   "short_name": "Truco",
-  "description": "Truco uruguayo con muestra y flor: mano a mano, en parejas o en tercetos, contra la computadora o con gente.",
+  "description": "Falta envido y truco: truco uruguayo con muestra y flor, mano a mano, en parejas o en tercetos, contra la computadora o con gente.",
   "lang": "es-UY",
   "id": "./",
   "start_url": "./",

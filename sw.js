@@ -2,7 +2,7 @@
 // computadora) sin internet. Solo se mete al abrir la página y con unos pocos archivos fijos; durante el
 // partido no interviene. La página se pide siempre primero a la red, así llega la última versión; si no hay
 // internet (o tarda más de 6 segundos, o contesta con un error), se abre la guardada. Lo del servidor (cuentas, mesas) nunca se guarda.
-const CACHE = 'truco-v4';   // v4: three.min.js con InstancedMesh (los porotos)   // (cambiarlo borra lo guardado: no hace falta para actualizar la página)
+const CACHE = 'truco-v5';   // v5: el nombre nuevo y el logo sin el 1 de oro (íconos)   // (cambiarlo borra lo guardado: no hace falta para actualizar la página)
 const FIJOS = ['./three.min.js', './manifest.webmanifest', './icono-192.png', './icono-512.png', './icono-mascara-512.png', './icono-apple-180.png'];
 const RAIZ = new URL('./', self.registration.scope).pathname;
 const esLaPagina = u => u.pathname === RAIZ || u.pathname === RAIZ + 'index.html';
