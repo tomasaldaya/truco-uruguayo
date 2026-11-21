@@ -4796,11 +4796,11 @@ function crearV3(){
     c.arms.forEach((A, i) => {
       const o = out && (i === 1 ? out : out.L);
       if (o) {
-        ikArm(A, mezcla(A.H0, o.H, e)); forma(A, e > .25 ? o.s : 'puño');
+        ikArm(A, mezcla(reposo(c, A).clone(), o.H, e)); forma(A, e > .25 ? o.s : 'puño');
         if (o.dir) A.hg.quaternion.copy(qId).slerp(apuntar(o.dir, o.nrm), e);
         else A.hg.rotation.set((o.rx || 0)*e, (o.ry || 0)*e, (o.rz || 0)*e);
         A.quieto = false;
-      } else if (!A.quieto) { ikArm(A, A.H0); forma(A, 'puño'); A.hg.rotation.set(0, 0, 0); A.quieto = true; }
+      } else if (!A.quieto || Math.abs((c.inc || 0) - (A.incV || 0)) > .002) { ikArm(A, reposo(c, A)); forma(A, 'puño'); A.hg.rotation.set(0, 0, 0); A.quieto = true; A.incV = c.inc || 0; }
     });
     return out ? { out, e } : null;
   }
@@ -4933,6 +4933,17 @@ function crearV3(){
     TT.piedra.forEach((o, i) => { TT.piedras[i].position.copy(o.pos); TT.piedras[i].rotation.set(0, o.yaw, 0); });
   }
 
+  // la cadera (en las coordenadas del cuerpo): la base del torso, sobre el asiento. Inclinarse gira desde acá.
+  const CADERA = v3(0, -2.25, -.2), INCLINA = .2;
+  // las manos en reposo (sobre la mesa, con las cartas) quedan donde estaban aunque el torso se incline:
+  // se deshace la inclinación del cuerpo, y se corren apenas para adelante, como al apoyarse en la mesa
+  const qInc = new THREE.Quaternion(), tmpR = v3(0, 0, 0);
+  function reposo(c, A){
+    const inc = c.inc || 0;
+    if (Math.abs(inc) < .002) return A.H0;
+    qInc.setFromAxisAngle(XAX, -inc);
+    return tmpR.copy(A.H0).add(v3(0, 0, inc * 2.2)).sub(CADERA).applyQuaternion(qInc).add(CADERA);
+  }
   function updateChars(t, dt){
     if (!Lay) return;
     const R = G.round;
@@ -4953,7 +4964,7 @@ function crearV3(){
       if (!c.gest && t > c.blinkAt) { c.blinkTo = t + .13; c.blinkAt = t + 2.5 + Math.random()*4; }
       applyFace(c, t);
       // mirada: la de la persona que juega ese lugar (si avisó hacia dónde mira), si no, la de siempre
-      const mi = !c.gest ? miradaDe(c.p) : null;
+      const mi = !c.gest ? miradaDe(c.p) || (window.__trucoMiradas && window.__trucoMiradas[c.p]) || null : null;   // __trucoMiradas: solo para probar
       let look, yaw, pitch, lean = 0;
       let tw = 0;
       if (mi && !mi.mu) { tw = torsion(mi.y); yaw = clamp(mi.y - tw, -1.15, 1.15); pitch = clamp(mi.pi, -.35, .6); lean = clamp((1 - mi.z) * 4, -.45, .6); }
@@ -4982,14 +4993,18 @@ function crearV3(){
         }
       }
       if (ga) { rx += (ga.out.hp || 0)*ga.e; ry += (ga.out.hy || 0)*ga.e; }
-      c.pivot.rotation.set(c.pitch + rx, c.yaw + ry, ga ? (ga.out.hr || 0)*ga.e : 0);
+      // acercarse (zoom) o echarse atrás: el torso se inclina desde la cadera, que queda en la silla
+      c.inc = c.lean * INCLINA;
+      c.pivot.rotation.set(c.pitch + rx - c.inc, c.yaw + ry, ga ? (ga.out.hr || 0)*ga.e : 0);   // la cabeza sigue mirando adonde miraba
       c.pivot.position.y = 3.25 + (ga ? (ga.out.bob || 0)*ga.e : 0);
-      c.body.position.z = bz + c.lean;
       c.body.scale.y = 1 + .008*Math.sin(t*1.7 + c.phase);
-      c.body.rotation.z = .012*Math.sin(t*.7 + c.phase);
-      c.tw = (c.tw || 0) + (tw - (c.tw || 0)) * Math.min(1, dt*4); c.body.rotation.y = c.tw;
+      c.tw = (c.tw || 0) + (tw - (c.tw || 0)) * Math.min(1, dt*4);
       const inact = R && (!R.active[c.p] || R.out[c.p]);
-      c.body.position.y += ((inact ? -.25 : 0) - c.body.position.y) * Math.min(1, dt*3);
+      c.baja = (c.baja || 0) + ((inact ? -.25 : 0) - (c.baja || 0)) * Math.min(1, dt*3);
+      c.body.rotation.set(c.inc, c.tw, .012*Math.sin(t*.7 + c.phase));
+      // girar alrededor de la cadera (y no del centro del cuerpo): se corre el cuerpo lo que haga falta
+      tmpV.copy(CADERA).applyQuaternion(c.body.quaternion);
+      c.body.position.set(CADERA.x - tmpV.x, CADERA.y - tmpV.y + c.baja, CADERA.z - tmpV.z + bz);
     });
   }
   function charHead(p){ const c = Lay.chars[p]; return c ? c.head.getWorldPosition(v3(0,0,0)) : humanSeat(); }
@@ -8023,7 +8038,7 @@ cuentaInit();
 // ---------- cuánto se usa y qué falla ----------
 // Se cuenta por día y sin datos de nadie: que se abrió (y de dónde vino el enlace), si está instalada,
 // si se juega contra la computadora u online. Los errores del navegador van igual: el texto y dónde, nada más.
-const VERSION = '30281579';
+const VERSION = 'e632e1eb';
 function avisarServidor(ruta, cuerpo){
   if (!serverOK()) return;
   try { fetch(serverURL() + '/api/' + ruta, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(cuerpo), keepalive: true }).catch(() => {}); } catch (e) {}
