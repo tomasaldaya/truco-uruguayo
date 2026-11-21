@@ -1335,7 +1335,7 @@ function renderScore(){
     const mb = s===0 ? '&nbsp;' : s<=half ? `${s} malas` : `${s-half} buenas`;
     const who2 = G.n>=4 ? `<div class="who2">${esc(joinY(teamList(t)))}</div>` : '';
     sc.appendChild(el('div','col', `<div class="nm">${esc(tName(t))}</div>${who2}<div class="pts">${s}</div><div class="mb">${mb}</div>
-      <div class="chicos" title="Chicos ganados">${[0,1].map(i=>`<i class="${G.chicos[t]>i?'on':''}"></i>`).join('')}</div>${tally(s, G.target)}`));
+      <div class="chicos" title="Chicos ganados">${[0,1].map(i=>`<i class="${G.chicos[t]>i?'on':''}"></i>`).join('')}</div>${use3D() ? '' : tally(s, G.target)}`));   // en la mesa 3D se tantea con porotos
   });
 }
 function renderLog(){
@@ -1897,7 +1897,9 @@ if (GM) { players = GM.n; refreshView(); }
 /*RED*/
 /*CUENTAS*/
 $('chatBox').innerHTML = chatUI('ch'); bindChat('ch'); bindPtt($('pttFab'));
-window.__trucoSnd = SND; window.__trucoVoz = VOZ; window.__trucoVozSoltar = () => vozSoltarMic(); window.__trucoChat = t => chatSend(t); window.__trucoPost = m => netPost(m);   // para las pruebas: un mensaje crudo a la mesa
+window.__trucoSnd = SND; window.__trucoVoz = VOZ;
+// solo en la compu de pruebas (servidor local): empezar contra la computadora y cambiar el tanteador, para mirar los porotos
+if (/^(localhost|127\.0\.0\.1)$/.test(location.hostname)) window.__trucoPrueba = { solo: n => startGame(n), tanteo: s => { if (GM && !NET) { GM.scores = s; render(); } }, vista: v => { const d = V3.debug(); if (d) d.setView(v); }, dbg: () => V3.debug() }; window.__trucoVozSoltar = () => vozSoltarMic(); window.__trucoChat = t => chatSend(t); window.__trucoPost = m => netPost(m);   // para las pruebas: un mensaje crudo a la mesa
 if (netBack && NET && NET.role === 'host' && NET.started) { showHome(); continueGame(); }
 else if (netBack) showHome('lobby');
 else if (netOK() && invitedCode()) { joinCode = invitedCode(); showHome('join'); }

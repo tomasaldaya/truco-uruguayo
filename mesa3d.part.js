@@ -353,6 +353,7 @@ function crearV3(){
     Lay.glow = new THREE.Mesh(GEO.glow, new THREE.MeshBasicMaterial({ map: glowTex(), transparent: true, depthWrite: false, opacity: 0 }));
     Lay.glow.rotation.x = -PI/2; Lay.glow.position.y = .012; Lay.glow.scale.set(1.9, 1.3, 1); root.add(Lay.glow);
     root.updateMatrixWorld(true);
+    armarPorotos(root);
   }
 
   function buildTable(root, TR){
@@ -952,6 +953,11 @@ function crearV3(){
     saludo: { d: 2.4, f: t => ({ H: v3(-1.75, 3.9, 1.0), s: 'abierta', rz: .4*Math.sin(t*11), face: { browUp: .4, twist: .2 } }) },
     // la punta de la bombilla en la boca
     mate: { d: 3.4, f: t => ({ boca: v3(0, -1.13, .15), s: 'mate', face: t > .6 && t < 2.7 ? { pucker: .75, eyeA: .45, eyeB: .45 } : {} }) },
+    // tantear: estira el brazo hacia el montón del medio (hasta donde llega) y deja los porotos a su lado
+    // (con la mano izquierda: los porotos van a su izquierda)
+    tantear: { d: 1.6, f: (t, c) => { const g = c.ag, k = clamp((t - .5) / .5, 0, 1);
+      const L = { H: g.medio && g.pila ? mezcla(g.medio, g.pila, k) : v3(1.2, 1.6, 2), s: t < .55 ? 'abierta' : k < 1 ? 'puño' : 'abierta' };
+      return { H: c.arms[1].H0.clone(), s: 'puño', L, hp: .12 * (1 - k), face: { browUp: .15 } }; } },
   };
   const charDe = p => Lay && (Lay.chars[p] || (yoSentado(p) ? Lay.yo : null));   // tu cuerpo (sin cabeza) cuando estás sentado
   function aplaudiendo(p){ const c = charDe(p); return !!(c && c.ag && GA[c.ag.k] && GA[c.ag.k].cartas && clock() - c.ag.t0 < GA[c.ag.k].cartas); }
@@ -983,6 +989,131 @@ function crearV3(){
       } else if (!A.quieto) { ikArm(A, A.H0); forma(A, 'puño'); A.hg.rotation.set(0, 0, 0); A.quieto = true; }
     });
     return out ? { out, e } : null;
+  }
+
+  // ---------- El tanteo con porotos ----------
+  // Como en la mesa de verdad: 40 porotos en el medio y dos piedras grandes. Cada equipo tiene quien tantea
+  // (vos por el tuyo; por el otro, el primero que se sienta después tuyo), que se lleva los porotos que va
+  // ganando y los deja arriba de la mesa, pegados a él, con su costumbre: de a montoncitos de
+  // 5, en filas de 5 o sueltos (a su izquierda: a la derecha del que da va el mazo). Al entrar en buenas devuelve los de las malas y se lleva una piedra (que vale
+  // la mitad del partido: 15 o 20), y las buenas vuelve a contarlas con porotos al lado.
+  const N_POROTOS = 40;
+  const azarP = k => { const R = azar(k * 7919 + 104729); R(); R(); return R; };   // con semillas chicas, azar() arranca cerca de 0
+  const TANTEO = { 2: { x0: -1.1, z0: 2.3 }, 4: { x0: -1.1, z0: 2.35 }, 6: { x0: -.95, z0: 2.2 } };
+  const ESTILOS = ['montones', 'filas', 'sueltos'];
+  const MONTON = [[-.1, -.075, 0], [.1, -.075, 0], [-.1, .085, 0], [.1, .085, 0], [0, .005, 1]];
+  const quienTantea = t => { if (team(ME) === t) return ME; for (let k = 1; k < G.n; k++) { const q = (ME + k) % G.n; if (team(q) === t) return q; } return t; };
+  function estiloDe(p){ const s = (G.names[p] || '') + p; let h = 11; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0; return ESTILOS[h % 3]; }
+  // dónde queda el poroto k (o la piedra, k = -1) de quien tantea p: en las coordenadas de su lugar (c.g)
+  function lugarTanteo(p, k){
+    const P = TANTEO[Lay.n], R = azarP(1000 + p * 97 + k * 13 + 7);
+    if (k < 0) return { x: P.x0 + .6, z: P.z0 + .35, y: .09, yaw: R() * PI };
+    const st = estiloDe(p), g = Math.floor(k / 5), j = k % 5;
+    if (st === 'montones') {
+      const m = MONTON[j], cx = P.x0 - (g % 2) * .7, cz = P.z0 + Math.floor(g / 2) * .55;
+      return { x: cx + m[0], z: cz + m[1], y: .065 + m[2] * .11, yaw: R() * PI };
+    }
+    if (st === 'filas') return { x: P.x0 - j * .26 + (R() - .5) * .04, z: P.z0 + g * .27 + (R() - .5) * .04, y: .065, yaw: (R() - .5) * .35 };
+    return { x: P.x0 - R() * 1.3, z: P.z0 + R() * .95, y: .065, yaw: R() * PI };   // sueltos
+  }
+  function mundoTanteo(p, k){
+    const c = charDe(p), l = lugarTanteo(p, k);
+    if (!c) return { pos: v3(0, l.y, 0), yaw: 0 };
+    // a su izquierda (local +x): el mazo va siempre a la derecha del que da, así no se pisan
+    // los tuyos, más adentro (justo pasando tu fila de cartas): sentado, la mano con tus cartas tapa el borde
+    const dz = yoSentado(p) ? (Lay.TR + 1.8) - (rowRad(p) + CH/2 + .45) - 1.0 - TANTEO[Lay.n].z0 : 0;
+    const w = c.g.localToWorld(v3(-l.x - (yoSentado(p) ? .45 : 0), 0, l.z + dz)); w.y = l.y;
+    return { pos: w, yaw: l.yaw + Math.atan2(-c.g.position.x, -c.g.position.z) };
+  }
+  // el montón del medio
+  function casaPoroto(i){
+    const R = azarP(31 + i * 17), dos = Lay.n === 2, ex = dos ? 1.25 : 1, ez = dos ? .32 : 1, rad = dos ? .75 : .72;
+    const capa = i >= 27, f = capa ? .55 * Math.sqrt((i - 27) / 13) : Math.sqrt(i / 27), a = i * 2.39996;
+    const cz = dos ? -.46 : 0;
+    return { pos: v3(Math.cos(a) * f * rad * ex, capa ? .17 : .065, cz + Math.sin(a) * f * rad * ez), yaw: R() * PI };
+  }
+  function casaPiedra(t){ const dos = Lay.n === 2; return { pos: v3((t ? 1 : -1) * (dos ? 1.35 : 1.15), .09, dos ? -.46 : (t ? .25 : -.2)), yaw: t * 1.3 + .4 }; }
+  function armarPorotos(root){
+    const g = new THREE.SphereGeometry(1, 12, 8);
+    const m = std(0xffffff, .55);
+    // de a uno si el Three.js guardado en el celular es el de antes (sin InstancedMesh): igual se ve
+    const col = new THREE.Color(), tono = i => { const R = azarP(500 + i); return col.setRGB(.93 + R() * .05, .88 + R() * .06, .76 + R() * .08); };
+    let inst = null, mallas = null;
+    if (THREE.InstancedMesh && THREE.Matrix4) {
+      inst = new THREE.InstancedMesh(g, m, N_POROTOS); inst.castShadow = false; inst.receiveShadow = true;
+      for (let i = 0; i < N_POROTOS; i++) inst.setColorAt(i, tono(i));
+      root.add(inst);
+    } else mallas = Array.from({ length: N_POROTOS }, (_, i) => { const x = mesh(g, std(tono(i).getHex(), .55), 0, 0, 0, .16, .065, .1); x.castShadow = false; root.add(x); return x; });
+    const piedras = [0, 1].map(t => { const pm = mesh(g, std(t ? 0x7b7f86 : 0x8a8178, .45), 0, 0, 0, .38, .17, .31); pm.castShadow = true; root.add(pm); return pm; });
+    Lay.tanteo = { inst, mallas, piedras, porotos: Array.from({ length: N_POROTOS }, (_, i) => ({ i, de: -1, k: 0, ...casaPoroto(i), tw: null })), piedra: [{ de: false, ...casaPiedra(0), tw: null }, { de: false, ...casaPiedra(1), tw: null }], cuenta: null, sucio: true };
+  }
+  const q4 = new THREE.Quaternion(), s3 = v3(.16, .065, .1); let m4 = null;
+  function moverA(o, dest, t0, dur, alto){ o.tw = { a: o.pos.clone(), ya: o.yaw, b: dest.pos.clone(), yb: dest.yaw, t0, dur, alto }; }
+  // compara lo que hay en la mesa con el tanteador y mueve lo que haga falta (sin animar si "ya")
+  function tantear(ya){
+    const TT = Lay && Lay.tanteo; if (!TT || !G) return;
+    const half = G.target / 2, quiere = [0, 1].map(t => { const s = G.scores[t] || 0; return s > half ? { pie: true, n: Math.min(s - half, 30) } : { pie: false, n: Math.min(s, 30) }; });
+    const clave = JSON.stringify(quiere);
+    if (!ya && TT.cuenta === clave) return;
+    TT.cuenta = clave; TT.sucio = true;
+    const t0 = clock();
+    for (let t = 0; t < 2; t++) {
+      const p = quienTantea(t), W = quiere[t];
+      const mios = TT.porotos.filter(o => o.de === t).sort((a, b) => a.k - b.k);
+      const piedraCambia = TT.piedra[t].de !== W.pie;
+      // los que sobran (cambió de chico, o entró en buenas y devuelve los de las malas) vuelven al medio
+      const devolver = piedraCambia ? mios : mios.slice(W.n);
+      devolver.forEach((o, j) => { o.de = -1; if (ya) { Object.assign(o, casaPoroto(o.i)); o.tw = null; } else moverA(o, casaPoroto(o.i), t0 + j * .03, .45, .35); });
+      const quedan = piedraCambia ? 0 : Math.min(mios.length, W.n);
+      // la piedra
+      const P = TT.piedra[t];
+      if (piedraCambia) {
+        P.de = W.pie; const d = W.pie ? mundoTanteo(p, -1) : casaPiedra(t);
+        if (ya) { Object.assign(P, d); P.tw = null; } else moverA(P, d, t0 + .45, .6, .9);
+      }
+      // los que faltan se toman del montón (de arriba primero)
+      const faltan = W.n - quedan;
+      if (faltan <= 0) continue;
+      const libres = TT.porotos.filter(o => o.de === -1 && !devolver.includes(o)).sort((a, b) => b.i - a.i).slice(0, faltan);
+      libres.forEach((o, j) => {
+        o.de = t; o.k = quedan + j; const d = mundoTanteo(p, o.k);
+        if (ya) { Object.assign(o, d); o.tw = null; } else moverA(o, d, t0 + .5 + (piedraCambia ? .35 : 0) + j * .1, .55, .75);
+      });
+      if (!ya) {   // quien tantea estira el brazo al medio y deja los porotos a su lado
+        const c = charDe(p);
+        if (c && !c.ag) {
+          c.ag = { k: 'tantear', t0, d: 1.5 + .1 * Math.max(faltan, 1) + (piedraCambia ? .35 : 0),
+            medio: c.body.worldToLocal(v3(0, .15, Lay.n === 2 ? -.46 : 0)), pila: c.body.worldToLocal(mundoTanteo(p, quedan).pos.add(v3(0, .25, 0))) };
+          if (c !== Lay.yo) { c.lookTo = v3(0, 0, 0); c.lookUntil = t0 + .7; }
+        }
+      }
+    }
+  }
+  function moviendoPorotos(){ const TT = Lay && Lay.tanteo; return !!TT && (TT.sucio || TT.porotos.some(o => o.tw) || TT.piedra.some(o => o.tw)); }
+  function stepPorotos(t){
+    const TT = Lay && Lay.tanteo; if (!TT) return;
+    let cambio = TT.sucio;
+    const paso = o => {
+      if (!o.tw) return false;
+      const w = o.tw, k = clamp((t - w.t0) / w.dur, 0, 1);
+      if (k <= 0) return false;
+      const e = suave(k);
+      o.pos.copy(w.a).lerp(w.b, e); o.pos.y += Math.sin(PI * k) * w.alto; o.yaw = w.ya + (w.yb - w.ya) * e;
+      if (k >= 1) { o.pos.copy(w.b); o.yaw = w.yb; o.tw = null; }
+      return true;
+    };
+    TT.porotos.forEach(o => { if (paso(o)) cambio = true; });
+    TT.piedra.forEach(o => { if (paso(o)) cambio = true; });
+    if (!cambio) return;
+    TT.sucio = false;
+    TT.porotos.forEach(o => {
+      const rz = o.tw ? Math.sin(t * 9 + o.i) * .4 : 0;
+      if (TT.mallas) { const x = TT.mallas[o.i]; x.position.copy(o.pos); x.rotation.set(0, o.yaw, rz); return; }
+      q4.setFromAxisAngle(UP, o.yaw).multiply(qA(ZAX, rz));
+      (m4 || (m4 = new THREE.Matrix4())).compose(o.pos, q4, s3); TT.inst.setMatrixAt(o.i, m4);
+    });
+    if (TT.inst) TT.inst.instanceMatrix.needsUpdate = true;
+    TT.piedra.forEach((o, i) => { TT.piedras[i].position.copy(o.pos); TT.piedras[i].rotation.set(0, o.yaw, 0); });
   }
 
   function updateChars(t, dt){
@@ -1258,6 +1389,7 @@ function crearV3(){
     resume();
     camera.updateMatrixWorld(true);
     if (Lay.dealer !== G.dealer || fresh) { Lay.dealer = G.dealer; Lay.deckPos = deckSpot(G.dealer); if (fresh) { Lay.deck.position.set(Lay.deckPos.x, Lay.deck.position.y, Lay.deckPos.z); Lay.deck.rotation.y = deckYaw(Lay.deckPos); } }
+    tantear(fresh);
     S.playable = new Set(myLegal.filter(a => a.type === 'play').map(a => a.card.id));
     S.myTurn = act === ME && G.phase === 'play' && !mirando();
     S.myOut = mirando() || !R.active[ME] || R.out[ME];
@@ -1646,7 +1778,7 @@ function crearV3(){
   const DPR = { ahora: 1, suma: 0, n: 0 };
   function animando(t){
     for (const id in CARDS) if (CARDS[id].tws.length) return true;
-    if (drag || ptrs.size || t - ultimoToque < 1.2 || S.jobs.length || S.job) return true;
+    if (drag || ptrs.size || t - ultimoToque < 1.2 || S.jobs.length || S.job || moviendoPorotos()) return true;
     if (CAM.g) for (const k of ['phi', 'beta', 'rho', 'tx', 'ty', 'tz']) if (Math.abs(CAM.g[k] - CAM[k]) > 1e-3) return true;
     return false;
   }
@@ -1664,6 +1796,7 @@ function crearV3(){
     runJobs();
     for (const id in CARDS) stepCard(CARDS[id], t, dt);
     updateChars(t, dt);
+    const porotos = moviendoPorotos(); stepPorotos(t);
     const n = deckCount(), dp = Lay.deck.position, kf = Math.min(1, dt*4);
     Lay.deck.scale.y = Math.max(.02, n/40); dp.y = .24*Lay.deck.scale.y + MUE_Y;
     dp.x += (Lay.deckPos.x - dp.x)*kf; dp.z += (Lay.deckPos.z - dp.z)*kf;
@@ -1679,7 +1812,7 @@ function crearV3(){
     const ck = Array.from({ length: G.n }, (_, p) => miraAtras(p) ? 1 : 0).join('');
     if (ck !== S.atras) { const antes = S.atras; S.atras = ck; if (antes !== undefined) update(lastAct, myLegal); }
     let mov = false; for (const id in CARDS) if (CARDS[id].tws.length) { mov = true; break; }
-    if (mov || t - ultimaSombra > .1) { renderer.shadowMap.needsUpdate = true; ultimaSombra = t; }
+    if (mov || porotos || t - ultimaSombra > .1) { renderer.shadowMap.needsUpdate = true; ultimaSombra = t; }
     // si la compu no llega a dibujar fluido (menos de 42 cuadros por segundo mientras algo se mueve), baja la resolución
     if (mov || drag) {
       DPR.suma += crudo; DPR.n++;

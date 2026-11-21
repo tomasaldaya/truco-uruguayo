@@ -6,6 +6,6 @@
 export {
   ACESFilmicToneMapping, BoxGeometry, BufferGeometry, Float32BufferAttribute, CanvasTexture, CapsuleGeometry, CircleGeometry, Color, CylinderGeometry,
   DirectionalLight, Fog, Group, HemisphereLight, LatheGeometry, Mesh, MeshBasicMaterial, MeshStandardMaterial, PCFShadowMap,
-  Object3D, PerspectiveCamera, PlaneGeometry, PointLight, Quaternion, Raycaster, RepeatWrapping, SRGBColorSpace, Scene, Shape,
+  InstancedMesh, Matrix4, Euler, Object3D, PerspectiveCamera, PlaneGeometry, PointLight, Quaternion, Raycaster, RepeatWrapping, SRGBColorSpace, Scene, Shape,
   ShapeGeometry, SphereGeometry, SpotLight, TorusGeometry, Vector2, Vector3, WebGLRenderer, REVISION,
 } from 'three';
