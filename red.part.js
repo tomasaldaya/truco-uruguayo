@@ -204,7 +204,7 @@ function onPeerEvent(ev, peer, err){
 }
 function serverHello(){
   if (!NET || NET.tr.kind !== 'server') return;
-  NET.tr.post({ t: 'hello', v: NETV, code: NET.code, from: NET.cid, name: NET.name, pid: myPid(), pj: miPj() || undefined, key: NET.ownerKey || undefined, crear: NET.crear || undefined, token: CUENTA.token || undefined,
+  NET.tr.post({ t: 'hello', v: NETV, code: NET.code, from: NET.cid, name: NET.name, pid: myPid(), pj: miPj() || undefined, tq: miTanteo() || undefined, key: NET.ownerKey || undefined, crear: NET.crear || undefined, token: CUENTA.token || undefined,
     mirar: NET.mira || NET.quiereMirar || undefined, vozId: NET.vozId || undefined });
 }
 // el servidor se cortó o volvió (se reconecta solo)
@@ -216,7 +216,7 @@ function onServerLink(ev){
 }
 function sayHello(peer){
   if (NET && NET.tr.kind === 'server') return serverHello();
-  const go = () => { if (!NET || NET.role !== 'guest') return; try { NET.tr.post({ t: 'hello', name: NET.name, pj: miPj() || undefined, v: NETV, code: NET.code, from: NET.cid }, peer || NET.hostPeer); } catch (e) {} };
+  const go = () => { if (!NET || NET.role !== 'guest') return; try { NET.tr.post({ t: 'hello', name: NET.name, pj: miPj() || undefined, tq: miTanteo() || undefined, v: NETV, code: NET.code, from: NET.cid }, peer || NET.hostPeer); } catch (e) {} };
   if (!NET.tr.self || NET.ready0) go(); else NET.onSelf = go;
 }
 // el anfitrión pregunta "¿seguís ahí?" cada 4 segundos; quien no contesta tres seguidas se fue
@@ -348,7 +348,7 @@ function onHostMsg(m){
   switch (m.t) {
     case 'hello': {
       if (s >= 0) { netPost(lobbyMsg()); if (NET.started) publish(); return; }
-      const who = { kind: 'guest', cid: g, name: cleanName(m.name), pj: pjValido(m.pj) };
+      const who = { kind: 'guest', cid: g, name: cleanName(m.name), pj: pjValido(m.pj), tq: tanteoValido(m.tq) };
       if (NET.started) {
         // partido empezado: si vuelve alguien que se había ido, recupera su lugar; si no, elige uno libre
         const back = NET.seats.findIndex(x => x.kind === 'ai' && x.left && x.name === who.name);
@@ -363,7 +363,7 @@ function onHostMsg(m){
     case 'sit': {
       const p = m.seat;
       if (p === s || !NET.seats[p] || NET.seats[p].kind !== 'ai') return;
-      const who = s >= 0 ? NET.seats[s] : { kind: 'guest', cid: g, name: cleanName(m.name), pj: pjValido(m.pj) };
+      const who = s >= 0 ? NET.seats[s] : { kind: 'guest', cid: g, name: cleanName(m.name), pj: pjValido(m.pj), tq: tanteoValido(m.tq) };
       if (s >= 0) freeSeat(s);
       takeSeat(p, who);
       return;
@@ -415,6 +415,8 @@ function takeSeat(p, who){
     GM.names[p] = who.name;
     if (!GM.pjs) GM.pjs = Array(GM.n).fill(null);
     GM.pjs[p] = who.pj || null;
+    if (!GM.tqs) GM.tqs = Array(GM.n).fill(null);
+    GM.tqs[p] = who.tq || null;
     if (GM.n > 2) GM.teamNames = [0, 1].map(t => joinY(GM.names.filter((_, q) => team(q) === t)));
     else GM.teamNames = GM.names.slice();
   }
@@ -424,7 +426,7 @@ function takeSeat(p, who){
 // el lugar vuelve a la computadora (si ya empezó, sigue jugando con el nombre de quien estaba)
 function freeSeat(p){
   const prev = NET.seats[p];
-  NET.seats[p] = NET.started ? { kind: 'ai', name: prev.name, left: prev.kind === 'guest', pj: prev.pj || null } : { kind: 'ai', name: AI_NAMES[NET.n][p] };
+  NET.seats[p] = NET.started ? { kind: 'ai', name: prev.name, left: prev.kind === 'guest', pj: prev.pj || null, tq: prev.tq || null } : { kind: 'ai', name: AI_NAMES[NET.n][p] };
   if (NET.started && GM && GM.manual) GM.manual[p] = false;   // la computadora juega su lugar sin el modo realista
   NET.ready.delete(p);
   if (NET.started && GM) {
@@ -443,6 +445,7 @@ function startTable(){
   GM = T.newMatch({ players: n, names, humans, rules: reglasConCfg(mesaCfg()), manual: NET.seats.map(s => s.kind !== 'ai'), teamNames });
   GM.id = newMatchId();
   GM.pjs = NET.seats.map((s, p) => p === 0 ? miPj() : s.kind === 'guest' ? s.pj || null : null);
+  GM.tqs = NET.seats.map((s, p) => p === 0 ? miTanteo() : s.kind === 'guest' ? s.tq || null : null);
   T.startRound(GM); startRoundHook(); lastRoundNo = null;
   NET.started = true; NET.ready = new Set();
   lobbyChanged();

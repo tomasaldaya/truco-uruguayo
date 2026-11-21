@@ -727,6 +727,11 @@ function renderEditar(box){
   };
 }
 
+// ---------- Cómo tanteás: cómo dejás los porotos en la mesa 3D (se guarda en este navegador y se manda al sentarte) ----------
+const TANTEO_OP = [['montones', 'Montoncitos de 5'], ['filas', 'Filas de 5'], ['sueltos', 'Sueltos']];
+const tanteoValido = k => TANTEO_OP.some(x => x[0] === k) ? k : null;
+const miTanteo = () => tanteoValido(store.get('truco.tanteo'));
+
 // ---------- Tu personaje: cómo te ven los demás en la mesa 3D ----------
 // Se guarda en este navegador y, con cuenta, también en la cuenta (así es el mismo en el celular y en la
 // compu). Se manda al sentarse en una mesa; los de la computadora tienen cada uno su cara.
@@ -745,8 +750,16 @@ function pjModal(){
     <p class="small">Así te ven los demás en la mesa 3D. Vos mirás desde tu lugar, así que en tu pantalla no aparecés.${NET ? ' En la mesa en la que estás se ve desde la próxima vez que entres.' : ''}</p>
     <div class="pjgrid" role="group" aria-label="Personajes">${items}${op('', 'Que lo elija el juego', '<span class="pjsin nada" aria-hidden="true">?</span>')}</div>
     <p class="small" id="pjNota" role="status"></p>
+    <h3>Cómo tanteás</h3>
+    <p class="small">Cómo dejás los porotos al lado tuyo cuando tu equipo suma.${NET ? ' En esta mesa, los demás lo ven desde la próxima vez que entres.' : ''}</p>
+    <div class="seg" role="group" aria-label="Cómo tanteás">${TANTEO_OP.concat([['', 'Que lo elija el juego']]).map(([k, t]) => `<button type="button" data-tq="${k}" aria-pressed="${(miTanteo() || '') === k}">${t}</button>`).join('')}</div>
     <div class="row"><button class="act" id="pjListo">Listo</button></div>`);
   document.querySelectorAll('.pjop').forEach(b => b.onclick = () => elegirPj(b.dataset.pj || null));
+  document.querySelectorAll('[data-tq]').forEach(b => b.onclick = () => {
+    store.set('truco.tanteo', b.dataset.tq);
+    document.querySelectorAll('[data-tq]').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+    if (G && G.round && typeof render === 'function') render();   // los tuyos se reacomodan al toque
+  });
   $('pjListo').onclick = closeTool;
 }
 async function elegirPj(id){

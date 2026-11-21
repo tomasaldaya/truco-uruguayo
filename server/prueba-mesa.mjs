@@ -516,6 +516,15 @@ await ta('abandono en parejas: mientras al equipo le quede alguien, sigue; si se
 function conSalon(W) { const avisos = []; W.io.salon = info => { avisos.push(info); return Promise.resolve(true); }; return avisos; }
 const quienes = { tA: { id: 1, apodo: 'Ana' }, tB: { id: 2, apodo: 'Beto' }, tC: { id: 3, apodo: 'Ceci' } };
 
+await ta('cada uno manda cómo tantea (porotos) y queda en el partido', async () => {
+  const W = mundo(); const m = new Mesa(W.io, null);
+  m.onOpen('a'); m.onMessage('a', { t: 'hello', name: 'A', pid: 'pa', code: 'TQTQ', crear: { n: 2, key: 'k' }, tq: 'filas' });
+  m.onOpen('b'); m.onMessage('b', { t: 'hello', name: 'B', pid: 'pb', tq: 'cualquiera' });
+  await pausa();
+  m.onMessage('a', { t: 'start', key: 'k' }); await pausa();
+  assert.deepEqual(m.GM.tqs, ['filas', null]);
+});
+
 await ta('pública: una cuenta suspendida no entra; en la mesa se ve la cuenta y la voz de cada uno', async () => {
   const W = mundo(); conCuentas(W); conSalon(W); const m = new Mesa(W.io, null);
   const cuenta0 = W.io.cuenta;

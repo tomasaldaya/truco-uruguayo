@@ -20,7 +20,8 @@ import T from '../engine.js';
 import AI from '../ai.js';
 import TV from '../vista.js';
 import { validarDelJugador } from './protocolo.mjs';
-const PJ_RE = /^[a-z][a-z0-9-]{0,23}$/;   // código de personaje 3D (como en cuentas.mjs)
+const PJ_RE = /^[a-z][a-z0-9-]{0,23}$/;
+const TANTEOS = ['montones', 'filas', 'sueltos'];   // cómo deja los porotos quien tantea (mesa3d.part.js)   // código de personaje 3D (como en cuentas.mjs)
 
 const NETV = 1;
 const AI_NAMES = { 2: ['Vos', 'Computadora'], 4: ['Vos', 'Tito', 'Pocho', 'Nacho'], 6: ['Vos', 'Tito', 'Pocho', 'Nacho', 'Lalo', 'Beto'] };
@@ -91,10 +92,10 @@ export class Mesa {
     // si despierta de la hibernación, las conexiones que siguen abiertas vuelven con lo que se sabía de cada una
     const vivas = new Map((vivos || []).filter(v => v && typeof v.cid === 'string').map(v => [v.cid, v]));
     for (const [cid, v] of vivas) this.conns.set(cid, { pid: v.pid || null, alive: 0, chatAt: 0, msgs: [], abierto: io.now(), ultimo: io.now(),
-      name: v.name, uid: v.uid || undefined, apodo: v.apodo, racha: v.racha || 0, pj: v.pj || null, vozId: v.vozId,
+      name: v.name, uid: v.uid || undefined, apodo: v.apodo, racha: v.racha || 0, pj: v.pj || null, tq: v.tq || null, vozId: v.vozId,
       mira: v.mira ? { id: v.mira.id, name: v.mira.name, echar: new Set(v.mira.echar || []) } : null });
     // al despertar, los lugares de personas que no siguen conectadas pasan a la computadora hasta que vuelvan
-    this.seats = (s.seats || []).map((x, p) => x.kind !== 'ai' && x.cid && vivas.has(x.cid) ? { kind: x.kind, name: x.name, cid: x.cid, pid: x.pid, uid: x.uid || null, pj: x.pj || null, racha: x.racha || 0 }
+    this.seats = (s.seats || []).map((x, p) => x.kind !== 'ai' && x.cid && vivas.has(x.cid) ? { kind: x.kind, name: x.name, cid: x.cid, pid: x.pid, uid: x.uid || null, pj: x.pj || null, tq: x.tq || null, racha: x.racha || 0 }
       : x.kind === 'ai' ? x
       : this.publica && !this.started ? { kind: 'ai', name: AI_NAMES[this.n][p] }
       : p === 0 && !this.started ? { ...x, cid: null }
@@ -211,6 +212,7 @@ export class Mesa {
     c.pid = pid; c.name = c.apodo || name;
     if (typeof m.vozId === 'string' && VOZ_RE.test(m.vozId)) c.vozId = m.vozId;
     c.pj = typeof m.pj === 'string' && PJ_RE.test(m.pj) ? m.pj : null;   // el personaje 3D que eligió
+    c.tq = TANTEOS.includes(m.tq) ? m.tq : null;                         // cómo tantea con los porotos
     if (typeof m.token === 'string' && m.token && this.io.cuenta && !c.uid) {
       Promise.resolve(this.io.cuenta(m.token.slice(0, 200))).then(u => this.conCuenta(cid, u)).catch(() => {});
     }
@@ -222,7 +224,7 @@ export class Mesa {
       this.n = [2, 4, 6].includes(m.crear.n) ? m.crear.n : 4;
       this.publica = !!m.crear.publica; this.votos = new Set(); this.cfg = limpiarCfg(m.crear.cfg);
       this.started = false; this.GM = null; this.chat = [];
-      this.seats = this.seatsFor(this.n, { kind: this.publica ? 'guest' : 'host', name, cid, pid, uid: c.uid || null, pj: c.pj });
+      this.seats = this.seatsFor(this.n, { kind: this.publica ? 'guest' : 'host', name, cid, pid, uid: c.uid || null, pj: c.pj, tq: c.tq });
       this.lobbyChanged(); this.saveNow();
       return;
     }
@@ -316,13 +318,15 @@ export class Mesa {
     if (this.reservas.has(p)) { this.io.clearTimeout(this.reservas.get(p)); this.reservas.delete(p); }
     const cc = this.conns.get(who.cid);
     if (this.ausentes.has(p)) { this.io.clearTimeout(this.ausentes.get(p)); this.ausentes.delete(p); }
-    this.seats[p] = { kind: who.kind, name: who.name, cid: who.cid, pid: who.pid, uid: (cc && cc.uid) || null, pj: (cc && cc.pj) || null, racha: (cc && cc.racha) || 0 };
+    this.seats[p] = { kind: who.kind, name: who.name, cid: who.cid, pid: who.pid, uid: (cc && cc.uid) || null, pj: (cc && cc.pj) || null, tq: (cc && cc.tq) || null, racha: (cc && cc.racha) || 0 };
     const c = this.conns.get(who.cid); if (c) c.alive = this.pingSeq;
     if (this.started && this.GM) {
       if (!this.GM.humans.includes(p)) this.GM.humans.push(p);
       this.GM.names[p] = who.name;
       if (!this.GM.pjs) this.GM.pjs = Array(this.GM.n).fill(null);
       this.GM.pjs[p] = this.seats[p].pj;
+      if (!this.GM.tqs) this.GM.tqs = Array(this.GM.n).fill(null);
+      this.GM.tqs[p] = this.seats[p].tq || null;
       if (!this.GM.rachas) this.GM.rachas = Array(this.GM.n).fill(0);
       this.GM.rachas[p] = this.seats[p].racha;   // partidos ganados seguidos (se ve 🔥 desde dos)
       this.GM.teamNames = this.GM.n > 2 ? [0, 1].map(t => joinY(this.GM.names.filter((_, q) => team(q) === t))) : this.GM.names.slice();
@@ -334,7 +338,7 @@ export class Mesa {
   }
   freeSeat(p) {
     const prev = this.seats[p];
-    this.seats[p] = this.started ? { kind: 'ai', name: prev.name, left: true, pid: prev.pid, host: p === 0 && !this.publica, uid: prev.uid || null, pj: prev.pj || null, racha: 0 } : { kind: 'ai', name: AI_NAMES[this.n][p] };
+    this.seats[p] = this.started ? { kind: 'ai', name: prev.name, left: true, pid: prev.pid, host: p === 0 && !this.publica, uid: prev.uid || null, pj: prev.pj || null, tq: prev.tq || null, racha: 0 } : { kind: 'ai', name: AI_NAMES[this.n][p] };
     this.votos.delete(p);
     for (const x of this.conns.values()) if (x.mira) x.mira.echar.delete(p);
     if (this.started && prev.uid && this.cuentas.has(prev.uid)) this.cuentas.get(prev.uid).abandono = true;
@@ -509,6 +513,7 @@ export class Mesa {
     this.stopTimers();
     this.GM = T.newMatch({ players: n, names, humans, rules, manual: this.seats.map(s => s.kind !== 'ai'), teamNames });
     this.GM.pjs = this.seats.map(s => s.pj || null);
+    this.GM.tqs = this.seats.map(s => s.kind !== 'ai' && s.tq || null);
     this.GM.rachas = this.seats.map(s => s.kind !== 'ai' && s.uid ? s.racha || 0 : 0);   // los personajes 3D de cada uno (los de la computadora, por su nombre)
     this.GM.id = this.io.now().toString(36) + Math.random().toString(36).slice(2, 7);
     T.startRound(this.GM);
@@ -737,7 +742,7 @@ export class Mesa {
   // lo que hay que recordar de una conexión para cuando la mesa despierte de la hibernación
   recuerdo(cid) {
     const c = this.conns.get(cid); if (!c) return null;
-    return { cid, pid: c.pid || null, name: c.name, uid: c.uid || null, apodo: c.apodo, racha: c.racha || 0, pj: c.pj || null, vozId: c.vozId,
+    return { cid, pid: c.pid || null, name: c.name, uid: c.uid || null, apodo: c.apodo, racha: c.racha || 0, pj: c.pj || null, tq: c.tq || null, vozId: c.vozId,
       mira: c.mira ? { id: c.mira.id, name: c.mira.name, echar: [...c.mira.echar] } : null };
   }
   // cuándo tiene que despertar la mesa sola (para la alarma del Durable Object), o null

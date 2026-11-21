@@ -764,3 +764,4 @@ En la mesa 3D ya no se dibuja el tanteador de palitos (el panel deja el número,
 - Código: "El tanteo con porotos" en mesa3d.part.js (`tantear`, `stepPorotos`, gesto `tantear`). Los porotos son un `InstancedMesh` (una sola llamada de dibujo); si el celular tiene guardado el Three.js anterior, se dibujan de a uno.
 - `three.min.js` se regeneró con `InstancedMesh` y `Matrix4` (three-entry.js), y la caché de la app pasó a `truco-v4` para que se baje el nuevo.
 - Para mirarlo en la compu (solo con el servidor local): `__trucoPrueba.solo(4)`, `__trucoPrueba.tanteo([18, 12])`, `__trucoPrueba.vista('top')`.
+- **Cómo tanteás** (21/11): se elige en Tu personaje (montoncitos de 5, filas de 5, sueltos, o que lo elija el juego). Se guarda en este navegador (`truco.tanteo`) y se manda al sentarse (`tq` en el `hello`, `GM.tqs` como `GM.pjs`), así los demás te ven tantear a tu manera. Si alguien no eligió, sale uno fijo según su nombre.

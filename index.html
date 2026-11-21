@@ -3807,6 +3807,7 @@ function newGame(n){
   players = n; store.set('truco.players', String(n));
   GM = T.newMatch({players:n, manual:[realista], rules: reglasSolo(n)});
   GM.pjs = Array(n).fill(null); GM.pjs[0] = miPj();
+  GM.tqs = Array(n).fill(null); GM.tqs[0] = miTanteo();
   GM.id = newMatchId(); visita('solo');
   T.startRound(GM); startRoundHook(); lastRoundNo = null;
   step();
@@ -4127,7 +4128,7 @@ function crearV3(){
 
   // quien mira el partido no tiene lugar: se dibujan todos los jugadores, también el de abajo
   const yoSentado = p => p === ME && !mirando();
-  const claveMesa = () => G.names.join('|') + '#' + ME + (mirando() ? 'm' : '') + '#' + (G.pjs || []).join(',') + '#' + escena;
+  const claveMesa = () => G.names.join('|') + '#' + ME + (mirando() ? 'm' : '') + '#' + (G.pjs || []).join(',') + '#' + escena + '#' + (G.tqs || []).join(',') + (yoSentado(ME) ? miTanteo() : '');
   function build(){
     if (Lay) { scene.remove(Lay.root); lbls.innerHTML = ''; }
     const n = G.n, P = PARAMS[n], root = new THREE.Group();
@@ -4816,7 +4817,10 @@ function crearV3(){
   const ESTILOS = ['montones', 'filas', 'sueltos'];
   const MONTON = [[-.1, -.075, 0], [.1, -.075, 0], [-.1, .085, 0], [.1, .085, 0], [0, .005, 1]];
   const quienTantea = t => { if (team(ME) === t) return ME; for (let k = 1; k < G.n; k++) { const q = (ME + k) % G.n; if (team(q) === t) return q; } return t; };
-  function estiloDe(p){ const s = (G.names[p] || '') + p; let h = 11; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0; return ESTILOS[h % 3]; }
+  function estiloDe(p){
+    const elegido = tanteoValido(G.tqs && G.tqs[p]) || (yoSentado(p) ? miTanteo() : null);   // el que eligió cada uno (Tu personaje)
+    if (elegido) return elegido;
+    const s = (G.names[p] || '') + p; let h = 11; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0; return ESTILOS[h % 3]; }
   // dónde queda el poroto k (o la piedra, k = -1) de quien tantea p: en las coordenadas de su lugar (c.g)
   function lugarTanteo(p, k){
     const P = TANTEO[Lay.n], R = azarP(1000 + p * 97 + k * 13 + 7);
@@ -6224,7 +6228,7 @@ function onPeerEvent(ev, peer, err){
 }
 function serverHello(){
   if (!NET || NET.tr.kind !== 'server') return;
-  NET.tr.post({ t: 'hello', v: NETV, code: NET.code, from: NET.cid, name: NET.name, pid: myPid(), pj: miPj() || undefined, key: NET.ownerKey || undefined, crear: NET.crear || undefined, token: CUENTA.token || undefined,
+  NET.tr.post({ t: 'hello', v: NETV, code: NET.code, from: NET.cid, name: NET.name, pid: myPid(), pj: miPj() || undefined, tq: miTanteo() || undefined, key: NET.ownerKey || undefined, crear: NET.crear || undefined, token: CUENTA.token || undefined,
     mirar: NET.mira || NET.quiereMirar || undefined, vozId: NET.vozId || undefined });
 }
 // el servidor se cortó o volvió (se reconecta solo)
@@ -6236,7 +6240,7 @@ function onServerLink(ev){
 }
 function sayHello(peer){
   if (NET && NET.tr.kind === 'server') return serverHello();
-  const go = () => { if (!NET || NET.role !== 'guest') return; try { NET.tr.post({ t: 'hello', name: NET.name, pj: miPj() || undefined, v: NETV, code: NET.code, from: NET.cid }, peer || NET.hostPeer); } catch (e) {} };
+  const go = () => { if (!NET || NET.role !== 'guest') return; try { NET.tr.post({ t: 'hello', name: NET.name, pj: miPj() || undefined, tq: miTanteo() || undefined, v: NETV, code: NET.code, from: NET.cid }, peer || NET.hostPeer); } catch (e) {} };
   if (!NET.tr.self || NET.ready0) go(); else NET.onSelf = go;
 }
 // el anfitrión pregunta "¿seguís ahí?" cada 4 segundos; quien no contesta tres seguidas se fue
@@ -6368,7 +6372,7 @@ function onHostMsg(m){
   switch (m.t) {
     case 'hello': {
       if (s >= 0) { netPost(lobbyMsg()); if (NET.started) publish(); return; }
-      const who = { kind: 'guest', cid: g, name: cleanName(m.name), pj: pjValido(m.pj) };
+      const who = { kind: 'guest', cid: g, name: cleanName(m.name), pj: pjValido(m.pj), tq: tanteoValido(m.tq) };
       if (NET.started) {
         // partido empezado: si vuelve alguien que se había ido, recupera su lugar; si no, elige uno libre
         const back = NET.seats.findIndex(x => x.kind === 'ai' && x.left && x.name === who.name);
@@ -6383,7 +6387,7 @@ function onHostMsg(m){
     case 'sit': {
       const p = m.seat;
       if (p === s || !NET.seats[p] || NET.seats[p].kind !== 'ai') return;
-      const who = s >= 0 ? NET.seats[s] : { kind: 'guest', cid: g, name: cleanName(m.name), pj: pjValido(m.pj) };
+      const who = s >= 0 ? NET.seats[s] : { kind: 'guest', cid: g, name: cleanName(m.name), pj: pjValido(m.pj), tq: tanteoValido(m.tq) };
       if (s >= 0) freeSeat(s);
       takeSeat(p, who);
       return;
@@ -6435,6 +6439,8 @@ function takeSeat(p, who){
     GM.names[p] = who.name;
     if (!GM.pjs) GM.pjs = Array(GM.n).fill(null);
     GM.pjs[p] = who.pj || null;
+    if (!GM.tqs) GM.tqs = Array(GM.n).fill(null);
+    GM.tqs[p] = who.tq || null;
     if (GM.n > 2) GM.teamNames = [0, 1].map(t => joinY(GM.names.filter((_, q) => team(q) === t)));
     else GM.teamNames = GM.names.slice();
   }
@@ -6444,7 +6450,7 @@ function takeSeat(p, who){
 // el lugar vuelve a la computadora (si ya empezó, sigue jugando con el nombre de quien estaba)
 function freeSeat(p){
   const prev = NET.seats[p];
-  NET.seats[p] = NET.started ? { kind: 'ai', name: prev.name, left: prev.kind === 'guest', pj: prev.pj || null } : { kind: 'ai', name: AI_NAMES[NET.n][p] };
+  NET.seats[p] = NET.started ? { kind: 'ai', name: prev.name, left: prev.kind === 'guest', pj: prev.pj || null, tq: prev.tq || null } : { kind: 'ai', name: AI_NAMES[NET.n][p] };
   if (NET.started && GM && GM.manual) GM.manual[p] = false;   // la computadora juega su lugar sin el modo realista
   NET.ready.delete(p);
   if (NET.started && GM) {
@@ -6463,6 +6469,7 @@ function startTable(){
   GM = T.newMatch({ players: n, names, humans, rules: reglasConCfg(mesaCfg()), manual: NET.seats.map(s => s.kind !== 'ai'), teamNames });
   GM.id = newMatchId();
   GM.pjs = NET.seats.map((s, p) => p === 0 ? miPj() : s.kind === 'guest' ? s.pj || null : null);
+  GM.tqs = NET.seats.map((s, p) => p === 0 ? miTanteo() : s.kind === 'guest' ? s.tq || null : null);
   T.startRound(GM); startRoundHook(); lastRoundNo = null;
   NET.started = true; NET.ready = new Set();
   lobbyChanged();
@@ -7893,6 +7900,11 @@ function renderEditar(box){
   };
 }
 
+// ---------- Cómo tanteás: cómo dejás los porotos en la mesa 3D (se guarda en este navegador y se manda al sentarte) ----------
+const TANTEO_OP = [['montones', 'Montoncitos de 5'], ['filas', 'Filas de 5'], ['sueltos', 'Sueltos']];
+const tanteoValido = k => TANTEO_OP.some(x => x[0] === k) ? k : null;
+const miTanteo = () => tanteoValido(store.get('truco.tanteo'));
+
 // ---------- Tu personaje: cómo te ven los demás en la mesa 3D ----------
 // Se guarda en este navegador y, con cuenta, también en la cuenta (así es el mismo en el celular y en la
 // compu). Se manda al sentarse en una mesa; los de la computadora tienen cada uno su cara.
@@ -7911,8 +7923,16 @@ function pjModal(){
     <p class="small">Así te ven los demás en la mesa 3D. Vos mirás desde tu lugar, así que en tu pantalla no aparecés.${NET ? ' En la mesa en la que estás se ve desde la próxima vez que entres.' : ''}</p>
     <div class="pjgrid" role="group" aria-label="Personajes">${items}${op('', 'Que lo elija el juego', '<span class="pjsin nada" aria-hidden="true">?</span>')}</div>
     <p class="small" id="pjNota" role="status"></p>
+    <h3>Cómo tanteás</h3>
+    <p class="small">Cómo dejás los porotos al lado tuyo cuando tu equipo suma.${NET ? ' En esta mesa, los demás lo ven desde la próxima vez que entres.' : ''}</p>
+    <div class="seg" role="group" aria-label="Cómo tanteás">${TANTEO_OP.concat([['', 'Que lo elija el juego']]).map(([k, t]) => `<button type="button" data-tq="${k}" aria-pressed="${(miTanteo() || '') === k}">${t}</button>`).join('')}</div>
     <div class="row"><button class="act" id="pjListo">Listo</button></div>`);
   document.querySelectorAll('.pjop').forEach(b => b.onclick = () => elegirPj(b.dataset.pj || null));
+  document.querySelectorAll('[data-tq]').forEach(b => b.onclick = () => {
+    store.set('truco.tanteo', b.dataset.tq);
+    document.querySelectorAll('[data-tq]').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+    if (G && G.round && typeof render === 'function') render();   // los tuyos se reacomodan al toque
+  });
   $('pjListo').onclick = closeTool;
 }
 async function elegirPj(id){
@@ -7986,7 +8006,7 @@ cuentaInit();
 // ---------- cuánto se usa y qué falla ----------
 // Se cuenta por día y sin datos de nadie: que se abrió (y de dónde vino el enlace), si está instalada,
 // si se juega contra la computadora u online. Los errores del navegador van igual: el texto y dónde, nada más.
-const VERSION = 'c8b99913';
+const VERSION = '60bd80ee';
 function avisarServidor(ruta, cuerpo){
   if (!serverOK()) return;
   try { fetch(serverURL() + '/api/' + ruta, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(cuerpo), keepalive: true }).catch(() => {}); } catch (e) {}

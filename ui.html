@@ -1819,6 +1819,7 @@ function newGame(n){
   players = n; store.set('truco.players', String(n));
   GM = T.newMatch({players:n, manual:[realista], rules: reglasSolo(n)});
   GM.pjs = Array(n).fill(null); GM.pjs[0] = miPj();
+  GM.tqs = Array(n).fill(null); GM.tqs[0] = miTanteo();
   GM.id = newMatchId(); visita('solo');
   T.startRound(GM); startRoundHook(); lastRoundNo = null;
   step();

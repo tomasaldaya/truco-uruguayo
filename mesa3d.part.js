@@ -314,7 +314,7 @@ function crearV3(){
 
   // quien mira el partido no tiene lugar: se dibujan todos los jugadores, también el de abajo
   const yoSentado = p => p === ME && !mirando();
-  const claveMesa = () => G.names.join('|') + '#' + ME + (mirando() ? 'm' : '') + '#' + (G.pjs || []).join(',') + '#' + escena;
+  const claveMesa = () => G.names.join('|') + '#' + ME + (mirando() ? 'm' : '') + '#' + (G.pjs || []).join(',') + '#' + escena + '#' + (G.tqs || []).join(',') + (yoSentado(ME) ? miTanteo() : '');
   function build(){
     if (Lay) { scene.remove(Lay.root); lbls.innerHTML = ''; }
     const n = G.n, P = PARAMS[n], root = new THREE.Group();
@@ -1003,7 +1003,10 @@ function crearV3(){
   const ESTILOS = ['montones', 'filas', 'sueltos'];
   const MONTON = [[-.1, -.075, 0], [.1, -.075, 0], [-.1, .085, 0], [.1, .085, 0], [0, .005, 1]];
   const quienTantea = t => { if (team(ME) === t) return ME; for (let k = 1; k < G.n; k++) { const q = (ME + k) % G.n; if (team(q) === t) return q; } return t; };
-  function estiloDe(p){ const s = (G.names[p] || '') + p; let h = 11; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0; return ESTILOS[h % 3]; }
+  function estiloDe(p){
+    const elegido = tanteoValido(G.tqs && G.tqs[p]) || (yoSentado(p) ? miTanteo() : null);   // el que eligió cada uno (Tu personaje)
+    if (elegido) return elegido;
+    const s = (G.names[p] || '') + p; let h = 11; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0; return ESTILOS[h % 3]; }
   // dónde queda el poroto k (o la piedra, k = -1) de quien tantea p: en las coordenadas de su lugar (c.g)
   function lugarTanteo(p, k){
     const P = TANTEO[Lay.n], R = azarP(1000 + p * 97 + k * 13 + 7);

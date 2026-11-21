@@ -5,7 +5,7 @@
 // tocar la mesa: si el tipo no existe o un campo viene con otro tipo, el campo (o el mensaje) se descarta.
 
 /** @typedef {{ n?: number, key?: string, publica?: boolean, cfg?: Record<string, unknown> }} Crear */
-/** @typedef {{ t: 'hello', name?: string, pid?: string, code?: string, key?: string, crear?: Crear, token?: string, vozId?: string, pj?: string, mirar?: boolean, v?: number, from?: string }} Hello */
+/** @typedef {{ t: 'hello', name?: string, pid?: string, code?: string, key?: string, crear?: Crear, token?: string, vozId?: string, pj?: string, tq?: string, mirar?: boolean, v?: number, from?: string }} Hello */
 /** @typedef {{ t: 'pong', s?: number, seated?: boolean }} Pong */
 /** @typedef {{ t: 'sit', seat?: number, name?: string }} Sit */
 /** @typedef {{ t: 'bye', pausa?: boolean }} Bye */
@@ -32,7 +32,7 @@
 /** @typedef {'s'|'n'|'b'|'o'|'as'} Clase  s: texto, n: número, b: sí/no, o: objeto, as: lista de textos */
 /** @type {Record<string, Record<string, Clase>>} */
 const CAMPOS = {
-  hello: { name: 's', pid: 's', code: 's', key: 's', crear: 'o', token: 's', vozId: 's', pj: 's', mirar: 'b', v: 'n', from: 's' },
+  hello: { name: 's', pid: 's', code: 's', key: 's', crear: 'o', token: 's', vozId: 's', pj: 's', tq: 's', mirar: 'b', v: 'n', from: 's' },
   pong: { s: 'n', seated: 'b' },
   sit: { seat: 'n', name: 's' },
   bye: { pausa: 'b' },
