@@ -4557,7 +4557,9 @@ function crearV3(){
     const W = 1024, H = 150, [c, x] = lienzo(W, H), R = azar(51);
     x.fillStyle = 'rgba(214,204,176,.78)'; x.fillRect(0, 0, W, H);
     x.fillStyle = 'rgba(40,38,40,.88)'; x.textAlign = 'center'; x.textBaseline = 'middle';
-    x.font = 'bold 104px Georgia, "Times New Roman", serif'; x.fillText('CABAÑA  LA MUESTRA', W/2, H/2 + 6);
+    // que entre entero, con un margen a los costados
+    let fs = 104; do { x.font = `bold ${fs}px Georgia, "Times New Roman", serif`; fs -= 4; } while (x.measureText('CABAÑA  LA MUESTRA').width > W*.88 && fs > 40);
+    x.fillText('CABAÑA  LA MUESTRA', W/2, H/2 + 6);
     const d = x.getImageData(0, 0, W, H), a = d.data;   // descascarado
     for (let i = 0; i < 2400; i++) { const X = Math.floor(R()*W), Y = Math.floor(R()*H), r = 2 + Math.floor(R()*9);
       for (let yy = Y; yy < Math.min(H, Y + r); yy++) for (let xx = X; xx < Math.min(W, X + r*2); xx++) a[(yy*W + xx)*4 + 3] *= .25 + R()*.4; }
@@ -4682,7 +4684,7 @@ function crearV3(){
     const g = new THREE.Group(), L = Lote(), R = azar(61);
     const M = {
       pasto: std(0xffffff, .95, { map: pastoTex() }), tierra: std(0xffffff, .95, { map: tierraTex(), transparent: true, depthWrite: false }),
-      ladrillo: std(0xffffff, .95, { map: ladrilloTex(1.3, .9) }), ladrilloS: std(0xffffff, .95, { map: ladrilloTex(.85, .9) }),
+      ladrillo: std(0xffffff, .95, { map: ladrilloTex(1.67, 1.04) }), ladrilloS: std(0xffffff, .95, { map: ladrilloTex(.85, .9) }),
       ladrilloG: std(0xffffff, .95, { map: repetir(ladrilloTex(1, 1), 1/19.2, 1/14.4) }), revoque: std(0xb9a98c, .95),
       cartel: new THREE.MeshStandardMaterial({ map: cartelGalponTex(), transparent: true, roughness: .95 }),
       porton: std(0xffffff, .6, { map: chapaTex(true) }), chapa: std(0xffffff, .55, { map: chapaTex(false), side: 2 }),
@@ -4697,14 +4699,14 @@ function crearV3(){
     L.add(GEO.plane, M.pasto, 0, PISO, 0, 420, 420, 1, 0, -PI/2);
     const FX = 17, FZ = -8;   // el fogón
     L.add(GEO.plane, M.tierra, FX + 2, PISO + .05, FZ, 17, 15, 1, 0, -PI/2);
-    L.add(GEO.plane, M.tierra, -16, PISO + .05, -36, 20, 16, 1, 0, -PI/2);
+    L.add(GEO.plane, M.tierra, -18, PISO + .05, -38, 24, 18, 1, 0, -PI/2);
 
     // el cielo
     const cielo = new THREE.Mesh(new THREE.SphereGeometry(185, 32, 16), new THREE.MeshBasicMaterial({ map: cieloTex(), side: 1, fog: false, depthWrite: false }));
     cielo.position.y = -12; cielo.renderOrder = -1; g.add(cielo);
 
     // ---- el galponcito de ladrillo, atrás a la izquierda, mirando a la mesa ----
-    const GX = -16, GZ = -50, GW = 24, GD = 15, GH = 12, GT = 6.5;
+    const GX = -18, GZ = -54, GW = 32, GD = 20, GH = 15, GT = 8.5;
     L.add(GEO.box, M.ladrillo, GX, PISO + GH/2, GZ, GW, GH, GD);
     const tri = new THREE.Shape(); tri.moveTo(-GW/2, 0); tri.lineTo(GW/2, 0); tri.lineTo(0, GT); tri.lineTo(-GW/2, 0);
     const triGeo = new THREE.ShapeGeometry(tri);
@@ -4712,17 +4714,17 @@ function crearV3(){
     L.add(triGeo, M.ladrilloG, GX, PISO + GH, GZ - GD/2 - .01, 1, 1, 1, PI);
     const pend = Math.atan2(GT, GW/2), largo = Math.hypot(GW/2, GT) + .8;
     for (const s of [-1, 1]) L.add(GEO.box, M.chapa, GX + s*GW/4, PISO + GH + GT/2 + .25, GZ, largo, .2, GD + 1.6, 0, 0, -s*pend);
-    L.add(GEO.box, M.ladrilloS, GX - 4, PISO + GH + GT + .4, GZ - 1, 1.4, 2.4, 1.4);   // la chimenea
-    L.add(GEO.cyl, M.oscuro, GX, PISO + GH + 2.6, GZ + GD/2 + .05, 1.25, .1, 1.25, 0, PI/2);   // el ojo de buey
-    L.add(GEO.torus, M.revoque, GX, PISO + GH + 2.6, GZ + GD/2 + .08, 1.35, 1.35, 1.6);
-    L.add(GEO.plane, M.cartel, GX, PISO + GH - 1.5, GZ + GD/2 + .06, 19, 2.8, 1, 0);
-    L.add(GEO.plane, M.porton, GX, PISO + 4.6, GZ + GD/2 + .06, 7.4, 9.2, 1, 0);
-    L.add(GEO.box, M.oxido, GX, PISO + 9.45, GZ + GD/2 + .2, 8, .5, .3);
+    L.add(GEO.box, M.ladrilloS, GX - 5, PISO + GH + GT*.6 + 1, GZ - 1.5, 1.7, 3.6, 1.7);   // la chimenea
+    L.add(GEO.cyl, M.oscuro, GX, PISO + GH + 3.2, GZ + GD/2 + .05, 1.6, .1, 1.6, 0, PI/2);   // el ojo de buey
+    L.add(GEO.torus, M.revoque, GX, PISO + GH + 3.2, GZ + GD/2 + .08, 1.72, 1.72, 1.6);
+    L.add(GEO.plane, M.cartel, GX, PISO + GH - 1.9, GZ + GD/2 + .06, 22, 3.2, 1, 0);
+    L.add(GEO.plane, M.porton, GX, PISO + 5.6, GZ + GD/2 + .06, 9.6, 11.2, 1, 0);
+    L.add(GEO.box, M.oxido, GX, PISO + 11.45, GZ + GD/2 + .2, 10.4, .6, .3);
     L.add(GEO.box, M.revoque, GX + GW/2 - .3, PISO + GH/2, GZ + GD/2 + .1, .7, GH, .3);   // la esquina revocada
     // el alero de chapa al costado, sobre postes
-    const AX0 = GX + GW/2, AX1 = AX0 + 10;
-    for (const z of [GZ - GD/2 + 1, GZ, GZ + GD/2 - 1]) L.add(GEO.box, M.poste, AX1 - .3, PISO + 4.2, z, .5, 8.4, .5);
-    L.add(GEO.box, M.chapa, (AX0 + AX1)/2, PISO + 9.6, GZ, 10.8, .18, GD + .6, 0, 0, -.2);
+    const AX0 = GX + GW/2, AX1 = AX0 + 11;
+    for (const z of [GZ - GD/2 + 1, GZ, GZ + GD/2 - 1]) L.add(GEO.box, M.poste, AX1 - .3, PISO + 5.4, z, .55, 10.8, .55);
+    L.add(GEO.box, M.chapa, (AX0 + AX1)/2, PISO + 12, GZ, 11.8, .18, GD + .6, 0, 0, -.2);
     L.add(GEO.box, M.revoque, AX0 + 4, PISO + 1.4, GZ - GD/2 + .3, 8, 2.8, .4);
 
     // ---- el alambrado: el potrero atrás, con la tranquera ----
@@ -4750,9 +4752,9 @@ function crearV3(){
         L.add(GEO.sphLo, M.hojas[Math.floor(R()*3)], x + Math.cos(a)*d, PISO + (16 + R()*7)*s, z + Math.sin(a)*d, (4 + R()*2.5)*s, (3 + R()*1.8)*s, (4 + R()*2.5)*s); }
     };
     const alamo = (x, z, s) => { L.add(GEO.cyl, M.tronco, x, PISO + 4*s, z, .45*s, 8*s, .45*s); L.add(GEO.sphLo, M.alamo, x, PISO + 15*s, z, 2.6*s, 10*s, 2.6*s); };
-    for (let i = 0; i < 7; i++) alamo(-36 - i*1.2, -42 - i*5.5, .9 + R()*.3);
+    for (let i = 0; i < 7; i++) alamo(-40 - i*1.2, -44 - i*5.5, .9 + R()*.3);
     for (let i = 0; i < 9; i++) alamo(-92 + i*7, -118 + R()*4, 1 + R()*.3);
-    arbol(12, -54, 1.15); arbol(-52, -6, 1.05); arbol(48, 6, 1.2); arbol(58, -40, 1); arbol(-38, 46, 1.1); arbol(22, 52, .95); arbol(-80, -86, 1.25);
+    arbol(20, -58, 1.15); arbol(-52, -6, 1.05); arbol(48, 6, 1.2); arbol(58, -40, 1); arbol(-38, 46, 1.1); arbol(22, 52, .95); arbol(-80, -86, 1.25);
     for (let i = 0; i < 46; i++) { const a = i / 46 * PI*2 + R()*.1, d = 150 + R()*12;
       L.add(GEO.sphLo, M.lejos, Math.cos(a)*d, PISO + 1, Math.sin(a)*d, 6 + R()*10, 4 + R()*6, 6 + R()*8); }
 
@@ -4788,8 +4790,8 @@ function crearV3(){
     pie(-.6); pie(.6);
     asador.add(mesh(GEO.torso, camisa, 0, 9.6, 0, .88, .82, .7));
     asador.add(mesh(GEO.box, std(0x2b1d14, .6), 0, 7.6, 0, 2.15, .35, 1.65));   // el cinto
-    const cab = new THREE.Group(); cab.position.set(0, 12.95, .1); asador.add(cab);
-    cab.add(mesh(GEO.neck, piel, 0, -.6, 0, 1, 1, 1));
+    const cab = new THREE.Group(); cab.position.set(0, 12.3, .1); asador.add(cab);
+    cab.add(mesh(GEO.neck, piel, 0, -.55, 0, 1.05, 1.9, 1.05));   // el cuello entra en la camisa: la cabeza no queda flotando
     cab.add(mesh(GEO.sph, piel, 0, .55, 0, 1, 1.12, 1));
     cab.add(mesh(GEO.sph, piel, 0, .45, .98, .2, .24, .2));                    // la nariz
     cab.add(mesh(GEO.sph, std(0x3a2a20, .9), 0, .1, .92, .42, .1, .14));        // el bigote
@@ -4831,8 +4833,8 @@ function crearV3(){
       patas.push(pg);
     }
     caballo.traverse(o => { if (o.isMesh) { o.castShadow = o.receiveShadow = false; } });
-    caballo.position.y = PISO; g.add(caballo);
-    const C0 = v3(-10, PISO, -100), RX = 46, RZ = 16;
+    caballo.position.y = PISO; caballo.scale.setScalar(.55); g.add(caballo);   // un caballo criollo, a escala de la gente y los árboles
+    const C0 = v3(-6, PISO, -96), RX = 42, RZ = 14;
     const hc = { s: 0, fase: 0, pasta: 0 };
 
     campoAnim = (t, dt) => {
@@ -4846,8 +4848,8 @@ function crearV3(){
       brazos.rotation.x = .1*emp + .03*Math.sin(t*1.3); brazos.position.z = .1 + .6*emp;
       cab.rotation.x = .25 + .05*Math.sin(t*.7); cab.rotation.y = .15*Math.sin(t*.23);
       // el caballo: 22 s caminando, 12 s pastando
-      const fase = t % 34, camina = fase < 22, v = camina ? 3.2 : 0;
-      hc.s += v*dt; hc.fase += v*dt*.45;
+      const fase = t % 34, camina = fase < 22, v = camina ? 2.2 : 0;
+      hc.s += v*dt; hc.fase += v*dt*.8;
       hc.pasta += ((camina ? 0 : 1) - hc.pasta) * Math.min(1, dt*1.5);
       const th = hc.s / ((RX + RZ)/2), x = C0.x + Math.cos(th)*RX, z = C0.z + Math.sin(th)*RZ;
       caballo.position.set(x, PISO, z);
@@ -8400,7 +8402,7 @@ cuentaInit();
 // ---------- cuánto se usa y qué falla ----------
 // Se cuenta por día y sin datos de nadie: que se abrió (y de dónde vino el enlace), si está instalada,
 // si se juega contra la computadora u online. Los errores del navegador van igual: el texto y dónde, nada más.
-const VERSION = 'd3cf3cc2';
+const VERSION = '5329e70e';
 function avisarServidor(ruta, cuerpo){
   if (!serverOK()) return;
   try { fetch(serverURL() + '/api/' + ruta, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(cuerpo), keepalive: true }).catch(() => {}); } catch (e) {}

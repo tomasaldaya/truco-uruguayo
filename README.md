@@ -779,3 +779,4 @@ Se elige como el bar (Configuración → Lugar para jugar solo; al crear la mesa
 - **El caballo** camina por el potrero (22 s) y se para a pastar (12 s).
 - **El banquito** bajo, al lado del jugador de tu derecha, con el vaso de whisky con hielo y el cenicero con el pucho prendido.
 - Lo que se mueve lo anima `campoAnim` (se llama en cada cuadro); lo quieto va en Lotes. Probado en mano a mano, parejas y tercetos.
+- **Ajustes del campo** (21/11): el galpón es más grande (32 × 20, paredes de 15) y el cartel entra entero en la pared (el texto se achica hasta caber); el caballo quedó a escala (55 %, más lento); al asador se le alargó el cuello para que la cabeza no quede separada del cuerpo.
