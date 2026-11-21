@@ -162,5 +162,6 @@ function logrosHTML(p){
 
 // ---------- Dónde está la mesa en la 3D ----------
 // Contra la computadora, el de Configuración ('truco.lugar'); en una mesa online, el que eligió quien la creó.
-const escenarioSolo = () => store.get('truco.lugar') === 'clasico' ? 'clasico' : 'bar';
-function escenarioActual(){ return NET ? (mesaCfg().escenario === 'clasico' ? 'clasico' : 'bar') : escenarioSolo(); }
+const escenarioValido = k => ['bar', 'clasico', 'campo'].includes(k) ? k : 'bar';
+const escenarioSolo = () => escenarioValido(store.get('truco.lugar'));
+function escenarioActual(){ return NET ? escenarioValido(mesaCfg().escenario) : escenarioSolo(); }

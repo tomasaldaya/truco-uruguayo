@@ -769,3 +769,13 @@ En la mesa 3D ya no se dibuja el tanteador de palitos (el panel deja el número,
 
 ## Inclinarse desde la cadera (21/11, directo en main)
 Cuando alguien hace zoom (se acerca o se aleja de la mesa), su personaje antes corría todo el torso paralelo a la mesa. Ahora se inclina: la base del torso queda fija sobre el asiento (`CADERA` en mesa3d.part.js) y el torso gira desde ahí (`INCLINA`: 0,2 radianes por unidad de `lean`). La cabeza compensa para seguir mirando adonde miraba, y las manos en reposo (con las cartas) quedan sobre la mesa, apenas más adelante (`reposo`). Para probarlo en la compu: `window.__trucoMiradas = { 1: { y: 0, pi: .3, z: .85 } }`.
+
+## El campo: el tercer lugar para la mesa 3D (21/11, directo en main)
+Se elige como el bar (Configuración → Lugar para jugar solo; al crear la mesa online). Todo hecho con código ("El campo" en mesa3d.part.js), como el bar:
+- **La mesa**: plegable cuadrada, de tablitas claras, con las patas cruzadas en X en dos lados (un poco adentro, para no chocar las rodillas de los de los costados). La tapa mide 2·TR de lado, así las cartas, el mazo y los porotos van a los mismos lugares que en la redonda.
+- **Las sillas**: playeras, de caño de aluminio con cintas azules tejidas y apoyabrazos de madera (`sillaPlayera`, en `makeChar`).
+- **Alrededor**: un galponcito de ladrillo con techo de chapa a dos aguas, ojo de buey, portón de chapa verde, el alero de chapa al costado y "CABAÑA LA MUESTRA" pintado y descascarado (nombre inventado); el alambrado del potrero con la tranquera, álamos en hilera, árboles grandes, montes bajos en el horizonte y el cielo de la tarde con nubes (una cúpula pintada en canvas; la niebla tiene el color del horizonte).
+- **El fogón**: el pozo con piedras, ceniza y leña prendida (las llamas tiemblan y sale un humo finito), la parrilla al lado sobre su cama de brasas con el asado y los chorizos, y leña de repuesto. Al lado, **el asador** parado, de boina, bigote, camisa a cuadros y bombacha, arrimando las brasas con un palo cada tanto.
+- **El caballo** camina por el potrero (22 s) y se para a pastar (12 s).
+- **El banquito** bajo, al lado del jugador de tu derecha, con el vaso de whisky con hielo y el cenicero con el pucho prendido.
+- Lo que se mueve lo anima `campoAnim` (se llama en cada cuadro); lo quieto va en Lotes. Probado en mano a mano, parejas y tercetos.

@@ -38,7 +38,7 @@ const CUENTA_ATRAS = 3000;
 // Las reglas de la mesa, que elige quien la crea (en la privada, el dueño las puede cambiar hasta empezar):
 // a cuántos puntos es cada chico, cuántos chicos, si se cobra el achique y si hay chat de texto y de voz.
 // En todas las mesas se juega en modo realista: cada persona canta sus puntos y su flor.
-export const ESCENARIOS = ['bar', 'clasico'];   // dónde está la mesa en la 3D (lo eligen al crearla; lo ven todos)
+export const ESCENARIOS = ['bar', 'clasico', 'campo'];   // dónde está la mesa en la 3D (lo eligen al crearla; lo ven todos)
 export const CFG0 = { target: 30, chicos: 1, achique: false, chat: true, voz: true, escenario: 'bar' };
 export function limpiarCfg(x, base) {
   const b = base || CFG0, o = x && typeof x === 'object' ? x : {};

@@ -107,7 +107,7 @@ function newCode(){ const L = 'ABCDEFGHJKLMNPQRSTUVWXYZ'; let s = ''; for (let i
 // A cuántos puntos es cada chico, cuántos chicos, si se cobra el achique y si hay chat de texto y de voz
 // (las mismas que valida el servidor, server/mesa.mjs). Se recuerdan las últimas que elegiste.
 const CFG_MESA0 = { target: 30, chicos: 1, achique: false, chat: true, voz: true, escenario: 'bar' };
-const ESCENARIOS_UI = [['bar', 'Bar'], ['clasico', 'Clásico']];   // dónde está la mesa en la 3D (V3, mesa3d.part.js)
+const ESCENARIOS_UI = [['bar', 'Bar'], ['campo', 'Campo'], ['clasico', 'Clásico']];   // dónde está la mesa en la 3D (V3, mesa3d.part.js)
 function limpiarCfgMesa(x, base){
   const b = base || CFG_MESA0, o = x && typeof x === 'object' ? x : {};
   const bool = k => typeof o[k] === 'boolean' ? o[k] : b[k];
@@ -617,7 +617,7 @@ function cfgFilasHTML(c){
     <span class="lbl">Achique ${ayudaBtn()}</span>${seg('achique', 'Achique', sn)}<div class="desc" id="ayAchique"${ayudaAchique ? '' : ' hidden'}>${ACHIQUE_AYUDA}</div>
     <span class="lbl">Chat de texto</span>${seg('chat', 'Chat de texto', sn)}
     <span class="lbl">Chat de voz</span>${seg('voz', 'Chat de voz', sn)}
-    <span class="lbl">Lugar</span>${seg('escenario', 'Lugar', ESCENARIOS_UI)}<div class="desc">Dónde está la mesa en la 3D: en un bar de los de antes, o la mesa de paño en la sala oscura. Lo ven todos los de la mesa.</div>`;
+    <span class="lbl">Lugar</span>${seg('escenario', 'Lugar', ESCENARIOS_UI)}<div class="desc">Dónde está la mesa en la 3D: en un bar de los de antes, en el campo con el asado al lado, o la mesa de paño en la sala oscura. Lo ven todos los de la mesa.</div>`;
 }
 function bindCfgFilas(box, cambiar){
   box.querySelectorAll('[data-mk] button').forEach(b => b.onclick = () => {
@@ -636,11 +636,11 @@ function bindAyuda(box){
 // las reglas para leer (los invitados, y todos con el partido empezado)
 function reglasHTML(c){
   const it = [`A ${c.target} puntos`, c.chicos === 2 ? 'Al mejor de tres chicos' : 'Un solo chico', `${c.achique ? 'Con' : 'Sin'} achique ${ayudaBtn()}`,
-    c.chat ? 'Chat de texto' : 'Sin chat de texto', c.voz ? 'Chat de voz' : 'Sin chat de voz', c.escenario === 'clasico' ? 'Mesa clásica' : 'En el bar', 'Modo realista'];
+    c.chat ? 'Chat de texto' : 'Sin chat de texto', c.voz ? 'Chat de voz' : 'Sin chat de voz', c.escenario === 'clasico' ? 'Mesa clásica' : c.escenario === 'campo' ? 'En el campo' : 'En el bar', 'Modo realista'];
   return `<ul class="reglas" aria-label="Reglas de la mesa">${it.map(x => `<li>${x}</li>`).join('')}</ul><p class="hkey ayudatxt" id="ayAchique"${ayudaAchique ? '' : ' hidden'}>${ACHIQUE_AYUDA}</p>`;
 }
 // en la lista de mesas públicas, corto
-const cfgCorto = c => `A ${c.target} puntos, ${c.chicos === 2 ? 'al mejor de tres' : 'un chico'}, ${c.achique ? 'con' : 'sin'} achique${c.escenario === 'clasico' ? '' : ', en el bar'}${!c.chat && !c.voz ? ', sin chat ni voz' : !c.chat ? ', sin chat de texto' : !c.voz ? ', sin voz' : ''}`;
+const cfgCorto = c => `A ${c.target} puntos, ${c.chicos === 2 ? 'al mejor de tres' : 'un chico'}, ${c.achique ? 'con' : 'sin'} achique${c.escenario === 'clasico' ? '' : c.escenario === 'campo' ? ', en el campo' : ', en el bar'}${!c.chat && !c.voz ? ', sin chat ni voz' : !c.chat ? ', sin chat de texto' : !c.voz ? ', sin voz' : ''}`;
 const REALISTA_ONLINE = 'En las mesas online se juega siempre en modo realista: cada uno canta sus puntos y su flor, como en la mesa de verdad.';
 
 // Crear una mesa (privada o pública): el modo y las reglas, antes de abrirla
